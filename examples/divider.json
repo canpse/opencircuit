@@ -1,7 +1,0 @@
-{
-  "components": [
-    { "id": "V1", "type": "voltage_source", "nodes": ["vin", "gnd"], "value": 10 },
-    { "id": "R1", "type": "resistor", "nodes": ["vin", "out"], "value": 1000 },
-    { "id": "R2", "type": "resistor", "nodes": ["out", "gnd"], "value": 1000 }
-  ]
-}

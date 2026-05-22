@@ -1,5 +1,19 @@
 import type { ComponentDefinition, GateType, LogicComponent, PinDefinition, PinRef, Point } from './types';
 
+function twoInputGate(type: GateType, label: string, width = 92): ComponentDefinition {
+  return {
+    type,
+    label,
+    width,
+    height: 70,
+    pins: [
+      { id: 'a', kind: 'input', label: 'A', offset: { x: 0, y: 22 } },
+      { id: 'b', kind: 'input', label: 'B', offset: { x: 0, y: 48 } },
+      { id: 'out', kind: 'output', label: 'out', offset: { x: width, y: 35 } },
+    ],
+  };
+}
+
 export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
   input: {
     type: 'input',
@@ -22,28 +36,12 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
     height: 52,
     pins: [{ id: 'in', kind: 'input', label: 'in', offset: { x: 0, y: 26 } }],
   },
-  and: {
-    type: 'and',
-    label: 'AND',
-    width: 92,
-    height: 70,
-    pins: [
-      { id: 'a', kind: 'input', label: 'A', offset: { x: 0, y: 22 } },
-      { id: 'b', kind: 'input', label: 'B', offset: { x: 0, y: 48 } },
-      { id: 'out', kind: 'output', label: 'out', offset: { x: 92, y: 35 } },
-    ],
-  },
-  or: {
-    type: 'or',
-    label: 'OR',
-    width: 92,
-    height: 70,
-    pins: [
-      { id: 'a', kind: 'input', label: 'A', offset: { x: 0, y: 22 } },
-      { id: 'b', kind: 'input', label: 'B', offset: { x: 0, y: 48 } },
-      { id: 'out', kind: 'output', label: 'out', offset: { x: 92, y: 35 } },
-    ],
-  },
+  and: twoInputGate('and', 'AND'),
+  nand: twoInputGate('nand', 'NAND', 104),
+  or: twoInputGate('or', 'OR'),
+  nor: twoInputGate('nor', 'NOR'),
+  xor: twoInputGate('xor', 'XOR'),
+  xnor: twoInputGate('xnor', 'XNOR', 104),
   not: {
     type: 'not',
     label: 'NOT',

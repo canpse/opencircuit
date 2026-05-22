@@ -2148,3 +2148,278 @@ Eu incluiria também uma seção final: **“Anti-patterns observed”**, com 3 
 - implementar gesto complexo sem mini-spec;
 - deixar estados transitórios entrarem no histórico sem querer.
 
+### Driver / before_edit / 2026-05-22T18:00:39.558Z
+Files: README.md
+
+Usuário quer organizar documentação. README atualmente fala em duas frentes, mas o projeto agora deve ser apresentado apenas como simulador lógico. Vou ler README e propor/editar para refletir foco atual, talvez mover/menção do solver DC como legado/interno se necessário.
+
+### Navigator / 2026-05-22T18:00:39.558Z
+
+Boa. Antes de editar o README, eu alinharia o tom:
+
+- **README principal deve vender o produto atual:** OpenCircuit = simulador/editor lógico visual.
+- **Solver DC Python não deve ser a primeira coisa**, porque confunde o posicionamento.
+- Se quiser preservar histórico, colocar no fim como:
+  - “Experimento legado”
+  - “Módulo antigo”
+  - ou “Protótipo DC preservado no repositório”
+
+Estrutura recomendada:
+
+```md
+# OpenCircuit
+
+OpenCircuit é um editor visual web para desenhar e simular circuitos lógicos digitais, inspirado no Logisim.
+
+## Recursos
+
+- Canvas SVG com grade
+- Componentes lógicos: Input, Pulso, LED, AND, OR, NOT
+- Fios clicando saída → entrada
+- Fan-out: uma saída pode alimentar várias entradas
+- Simulação automática
+- Seleção simples/múltipla
+- Mover grupos
+- Desfazer/refazer
+- Menu de contexto
+- Zoom e pan
+- Autosave localStorage
+- Importar/exportar JSON
+
+## Rodar
+
+npm install
+npm run dev
+
+## Build
+
+npm run build
+
+## Uso básico
+
+1. Escolha um componente na toolbar.
+2. Clique no canvas para inserir.
+3. Clique numa saída e depois numa entrada para conectar.
+4. Alterne Inputs ou pressione Pulso para testar.
+
+## Desenvolvimento
+
+- React + TypeScript + Vite
+- SVG para editor
+- Core lógico separado da UI
+
+## Legado: simulador DC Python
+
+Breve nota no final, sem destaque.
+```
+
+Risco: apagar totalmente a parte Python pode surpreender se ainda existem testes/CLI no repo. Melhor manter uma seção curta “Legado” com comandos, mas deixar claro que **não é o foco atual**.
+
+Próximo passo pequeno: reescrever `README.md` nessa ordem e atualizar a lista de recursos para incluir as features recentes.
+
+### Driver / after_edit / 2026-05-22T18:01:23.645Z
+Files: README.md
+
+Reescrevi README para posicionar OpenCircuit como editor/simulador lógico digital, removendo o início confuso sobre duas frentes. Mantive menção curta ao protótipo Python antigo no final. Incluí recursos atuais, uso básico, comandos, arquitetura e JSON. Build passou.
+
+### Navigator / 2026-05-22T18:01:23.645Z
+
+Ficou bem melhor. O README agora comunica claramente o produto atual: **editor/simulador lógico digital**, sem confundir com a frente Python antiga.
+
+Pontos bons:
+
+- A primeira dobra já explica o foco e referência Logisim.
+- Lista de recursos está alinhada com o estado real do app.
+- Comandos úteis ajudam bastante para testar UX.
+- Arquitetura está simples e orienta novos contribuidores.
+- A menção ao Python no fim preserva histórico sem roubar atenção.
+
+Só checaria 2 detalhes:
+
+1. **Atalho `Espaço`**
+   - O README diz “mudar para ferramenta Mão”.
+   - Confere com a decisão final: Space seleciona Mão, não é temporário. Está correto se foi implementado assim.
+
+2. **Protótipo Python**
+   - A frase final está boa. Se quiser ainda mais claro depois, podemos criar uma seção:
+     ```md
+     ## Legado
+     ```
+     Mas não é necessário agora.
+
+Eu seguiria com esse README. Próximo passo de documentação útil seria criar um `docs/controls.md` ou uma ajuda dentro do app com esses comandos.
+
+### Driver / before_edit / 2026-05-22T18:05:14.751Z
+
+Usuário autorizou apagar simulador DC linear se não for necessário. Vou verificar referências e remover opencircuit/, tests/ Python, examples/divider.json, pyproject.toml se só servirem ao legado. Depois atualizar README removendo nota final.
+
+### Navigator / 2026-05-22T18:05:14.751Z
+
+Boa, mas eu faria com cuidado para não apagar algo que o frontend ainda referencia.
+
+Checklist antes de remover:
+
+- Verificar se `README.md`, `package.json`, configs ou scripts mencionam:
+  - `opencircuit/`
+  - `pytest`
+  - `pyproject.toml`
+  - `examples/divider.json`
+- Confirmar se `examples/` não contém JSON do editor lógico atual. Se for só `divider.json` do DC, pode remover.
+- Se houver `.gitignore`/CI mencionando Python, limpar também.
+
+Remoção provável:
+```txt
+opencircuit/
+tests/
+examples/divider.json
+pyproject.toml
+```
+
+Talvez remover `examples/` inteiro se ficar vazio.
+
+Atualização no README:
+- remover seção/nota de legado Python;
+- deixar só comandos Node:
+  - `npm install`
+  - `npm run dev`
+  - `npm run build`
+
+Risco principal: se existirem testes/automações esperando `pytest`, vão quebrar. Como o produto agora é só web lógico, isso é aceitável desde que a documentação fique consistente.
+
+Depois de remover, eu rodaria:
+```bash
+npm run build
+```
+
+E talvez:
+```bash
+grep -R "opencircuit\|pytest\|pyproject\|divider" -n .
+```
+
+para garantir que não sobrou referência velha.
+
+### Driver / after_edit / 2026-05-22T18:05:48.932Z
+Files: README.md
+
+Removi o protótipo DC Python porque não era usado pelo app lógico: opencircuit/, tests/, examples/ e pyproject.toml. Atualizei README removendo nota final sobre Python. Verifiquei referências antigas com rg e rodei npm run build com sucesso.
+
+### Navigator / 2026-05-22T18:05:48.932Z
+
+Boa limpeza. Agora o repositório fica coerente com o produto atual e evita confusão para quem chegar pelo README.
+
+Eu só faria/confirmaria estes checks finais:
+
+- `rg "pytest|pyproject|divider|opencircuit/" .` sem referências antigas relevantes.
+- `npm run build` já passou, ótimo.
+- Se existir `.gitignore`, CI ou docs auxiliares, garantir que não mencionam Python.
+- Se `examples/` foi removido, tudo bem; se no futuro quisermos exemplos do app lógico, recriar com JSONs atuais.
+
+Próximo passo de documentação útil: adicionar uma pequena seção no README com “Estado do projeto / Roadmap curto”, ou criar `docs/controls.md` para comandos e gestos do editor.
+
+### Driver / before_edit / 2026-05-22T18:07:25.590Z
+Files: src/ui/editor/CircuitCanvas.tsx
+
+Usuário quer remover o label 'in' do pino do LED, pois não é necessário. Vou ajustar renderização de pin-label para ocultar labels em LED (talvez manter A/B em portas e in no NOT se útil).
+
+### Navigator / 2026-05-22T18:07:25.590Z
+
+Boa. Eu faria isso **só na renderização**, sem mexer no catálogo/modelo.
+
+Regra simples em `ComponentView`:
+
+- Mostrar label apenas para pinos de entrada **que não sejam LED**:
+  ```tsx
+  {pin.kind === 'input' && component.type !== 'led' && (
+    <text className="pin-label" ...>
+      {pin.label}
+    </text>
+  )}
+  ```
+
+Isso mantém:
+- `A`/`B` em AND/OR;
+- `in` no NOT, que ainda ajuda;
+- remove `in` do LED, onde o próprio LED já deixa claro.
+
+Risco baixo. Só conferir visualmente se o pino do LED continua fácil de clicar sem o texto.
+
+### Driver / before_edit / 2026-05-22T18:08:53.847Z
+Files: src/core/types.ts, src/core/catalog.ts, src/core/evaluateCircuit.ts, src/ui/App.tsx, src/ui/editor/CircuitCanvas.tsx
+
+Usuário quer adicionar componentes lógicos faltantes: NAND, NOR, XOR, etc. Vou implementar portas básicas adicionais mantendo modelo atual: nand, nor, xor, xnor talvez. Atualizar GateType, catalog, evaluator, toolbar, labels. Sem mexer em UI complexa.
+
+### Navigator / 2026-05-22T18:08:53.847Z
+
+Boa. Eu faria o pacote completo de portas combinacionais simples agora:
+
+- adicionar em `GateType`:
+  ```ts
+  'nand' | 'nor' | 'xor' | 'xnor'
+  ```
+- no `catalog.ts`, copiar geometria/pinos de `and/or`:
+  - entradas `a`, `b`
+  - saída `out`
+  - labels `NAND`, `NOR`, `XOR`, `XNOR`
+- no `evaluateCircuit.ts`:
+  ```ts
+  nand = !(a && b)
+  nor = !(a || b)
+  xor = a !== b
+  xnor = a === b
+  ```
+- no toolbar/context menu:
+  - incluir na lista `(['input', 'button', 'led', 'and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] as GateType[])`
+- `defaultLabel` e `nextId` provavelmente funcionam, mas atenção:
+  - `NAND`, `NOR`, `NOT` todos viram prefixo `N`, gerando ids diferentes só pelo índice global. Funciona, mas fica menos bonito.
+  - se quiser polir:
+    ```ts
+    nand: 'NAND'
+    nor: 'NOR'
+    xor: 'XOR'
+    xnor: 'XNOR'
+    ```
+    ou prefixos curtos `NA`, `NO`, `X`, `XN`.
+
+Riscos pequenos:
+
+1. **`GateSymbol`**
+   - Hoje desenha texto `type.toUpperCase()` para tudo exceto NOT. Então NAND/NOR/XOR/XNOR já aparecem sem trabalho extra.
+   - Pode ficar apertado em largura `92`, especialmente `XNOR`. Talvez usar `width: 104` para `nand/xnor`.
+
+2. **Exemplo inicial/storage**
+   - Se `STARTER_CIRCUIT` não usa esses tipos, sem problema.
+   - Import antigo continua válido.
+
+3. **Exaustividade TypeScript**
+   - `evaluateComponent` precisa cobrir todos os casos, senão TS pode acusar dependendo config.
+
+Próximo passo pequeno: implementar só tipos/catálogo/evaluator/listas de UI, rodar build, e testar manualmente `Input true/false -> XOR -> LED`.
+
+### Driver / after_edit / 2026-05-22T18:10:42.530Z
+Files: src/core/types.ts, src/core/catalog.ts, src/core/evaluateCircuit.ts, src/ui/App.tsx, README.md
+
+Adicionei portas NAND, NOR, XOR e XNOR: GateType, catálogo com pinos A/B/out, avaliação lógica, toolbar/menu de contexto usando lista comum LOGIC_COMPONENT_TOOLS, prefixos de ID e README. Build passou.
+
+### Navigator / 2026-05-22T18:10:42.530Z
+
+Boa adição — ficou consistente e sem mexer em complexidade desnecessária.
+
+Pontos positivos:
+- `GateType`, catálogo, evaluator e UI estão alinhados.
+- `LOGIC_COMPONENT_TOOLS` evita divergência entre toolbar e menu de contexto.
+- `nand/xnor` com largura maior é bom para não apertar texto.
+- Prefixos `NA`, `NO`, `X`, `XN` evitam IDs confusos.
+
+Eu só checaria manualmente:
+
+1. `XOR`: `0/0=false`, `1/0=true`, `0/1=true`, `1/1=false`.
+2. `XNOR`: inverso do XOR.
+3. `NAND/NOR`: inversos corretos de AND/OR.
+4. Adicionar via toolbar e via botão direito.
+5. Exportar/importar JSON com novas portas.
+6. Autosave antigo sem essas portas ainda carrega normalmente.
+
+Pequeno risco futuro: `evaluateComponent` não tem `default`, mas como o switch cobre todos os `GateType`, está ok. Se quiser blindar depois, dá para adicionar `assertNever`.
+
+Eu responderia que as portas combinacionais principais foram adicionadas e estão disponíveis tanto na toolbar quanto no menu de contexto.
+

@@ -456,7 +456,7 @@ export function App() {
           <button className={selectedTool === 'select' ? 'active' : ''} onClick={() => setSelectedTool('select')}>Selecionar</button>
           <button className={selectedTool === 'pan' ? 'active' : ''} onClick={() => setSelectedTool('pan')}>Mão</button>
           <button className={selectedTool === 'wire' ? 'active' : ''} onClick={() => setSelectedTool('wire')}>Fio</button>
-          {(['input', 'button', 'led', 'and', 'or', 'not'] as GateType[]).map((type) => (
+          {LOGIC_COMPONENT_TOOLS.map((type) => (
             <button
               key={type}
               className={selectedTool === type ? 'active' : ''}
@@ -534,7 +534,7 @@ function ContextMenuView({ menu, selection, onAddComponent, onRemove }: {
       {menu.kind === 'canvas' ? (
         <>
           <div className="context-menu-title">Adicionar</div>
-          {(['input', 'button', 'led', 'and', 'or', 'not'] as GateType[]).map((type) => (
+          {LOGIC_COMPONENT_TOOLS.map((type) => (
             <button key={type} onClick={() => onAddComponent(type)} role="menuitem">
               {COMPONENT_DEFINITIONS[type].label}
             </button>
@@ -557,8 +557,22 @@ function snap(point: Point): Point {
   return { x: Math.round(point.x / GRID) * GRID, y: Math.round(point.y / GRID) * GRID };
 }
 
+const LOGIC_COMPONENT_TOOLS: GateType[] = ['input', 'button', 'led', 'and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'];
+
 function nextId(type: GateType, components: LogicComponent[]): string {
-  const prefix = type === 'input' ? 'I' : type === 'button' ? 'P' : type === 'led' ? 'L' : type.toUpperCase().slice(0, 1);
+  const prefixByType: Record<GateType, string> = {
+    input: 'I',
+    button: 'P',
+    led: 'L',
+    and: 'A',
+    nand: 'NA',
+    or: 'O',
+    nor: 'NO',
+    xor: 'X',
+    xnor: 'XN',
+    not: 'N',
+  };
+  const prefix = prefixByType[type];
   let index = components.length + 1;
   let id = `${prefix}${index}`;
   const ids = new Set(components.map((component) => component.id));

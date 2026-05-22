@@ -1,4 +1,4 @@
-export type GateType = 'input' | 'button' | 'led' | 'and' | 'or' | 'not';
+export type GateType = 'input' | 'button' | 'led' | 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not';
 export type LogicValue = boolean;
 export type PinKind = 'input' | 'output';
 

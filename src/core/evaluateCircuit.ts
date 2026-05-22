@@ -49,18 +49,36 @@ function evaluateComponent(
       return false;
     case 'not':
       return writePin(values, { componentId: component.id, pinId: 'out' }, !inputValue(circuit, values, componentById, component.id, 'in'));
-    case 'and':
-      return writePin(
-        values,
-        { componentId: component.id, pinId: 'out' },
-        inputValue(circuit, values, componentById, component.id, 'a') && inputValue(circuit, values, componentById, component.id, 'b'),
-      );
-    case 'or':
-      return writePin(
-        values,
-        { componentId: component.id, pinId: 'out' },
-        inputValue(circuit, values, componentById, component.id, 'a') || inputValue(circuit, values, componentById, component.id, 'b'),
-      );
+    case 'and': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, a && b);
+    }
+    case 'nand': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, !(a && b));
+    }
+    case 'or': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, a || b);
+    }
+    case 'nor': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, !(a || b));
+    }
+    case 'xor': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, a !== b);
+    }
+    case 'xnor': {
+      const a = inputValue(circuit, values, componentById, component.id, 'a');
+      const b = inputValue(circuit, values, componentById, component.id, 'b');
+      return writePin(values, { componentId: component.id, pinId: 'out' }, a === b);
+    }
   }
 }
 

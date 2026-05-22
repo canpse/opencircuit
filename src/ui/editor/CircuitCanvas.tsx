@@ -490,7 +490,7 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
             }}
           >
             <circle className={`pin ${pin.kind} ${value ? 'on' : ''}`} cx={pin.offset.x} cy={pin.offset.y} r="7" />
-            {pin.kind === 'input' && (
+            {pin.kind === 'input' && component.type !== 'led' && (
               <text className="pin-label" x={pin.offset.x + 12} y={pin.offset.y + 4} textAnchor="start">
                 {pin.label}
               </text>
