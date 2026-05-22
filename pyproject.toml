@@ -1,0 +1,8 @@
+[project]
+name = "opencircuit"
+version = "0.1.0"
+description = "A small linear DC circuit simulator"
+requires-python = ">=3.10"
+
+[project.scripts]
+opencircuit = "opencircuit.cli:main"
