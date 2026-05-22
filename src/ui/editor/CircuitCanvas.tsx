@@ -1,6 +1,18 @@
 import { MouseEvent, WheelEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
 import type { CircuitDocument, EvaluationResult, GateType, LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import andGateAsset from '../../assets/components/and_gate.png';
+import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
+import inputSwitchOnAsset from '../../assets/components/input_switch_on.png';
+import ledOffAsset from '../../assets/components/led_off.png';
+import ledOnAsset from '../../assets/components/led_green_on.png';
+import nandGateAsset from '../../assets/components/nand_gate.png';
+import norGateAsset from '../../assets/components/nor_gate.png';
+import notGateAsset from '../../assets/components/not_gate.png';
+import orGateAsset from '../../assets/components/or_gate.png';
+import outputPortAsset from '../../assets/components/output_port.png';
+import xnorGateAsset from '../../assets/components/xnor_gate.png';
+import xorGateAsset from '../../assets/components/xor_gate.png';
 
 type Tool = GateType | 'select' | 'wire' | 'pan';
 type Selection = { componentIds: string[]; wireIds: string[] };
@@ -42,6 +54,15 @@ interface Props {
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, width: 1200, height: 720 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
+const GATE_ASSETS: Partial<Record<GateType, string>> = {
+  and: andGateAsset,
+  nand: nandGateAsset,
+  or: orGateAsset,
+  nor: norGateAsset,
+  xor: xorGateAsset,
+  xnor: xnorGateAsset,
+  not: notGateAsset,
+};
 
 export function CircuitCanvas(props: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -50,7 +71,9 @@ export function CircuitCanvas(props: Props) {
   const [marquee, setMarquee] = useState<Marquee>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [panning, setPanning] = useState<Panning>(null);
+  const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
   const suppressNextClick = useRef(false);
+  const suppressNextPinClick = useRef(false);
   const componentById = useMemo(
     () => new Map(props.circuit.components.map((component) => [component.id, component])),
     [props.circuit.components],
@@ -242,11 +265,19 @@ export function CircuitCanvas(props: Props) {
         );
       }}
       onMouseUp={() => {
+        if (dragConnecting) {
+          props.onCancelPendingWire();
+          setDragConnecting(null);
+        }
         finishMarquee(marquee);
         setDragging(null);
         setPanning(null);
       }}
       onMouseLeave={() => {
+        if (dragConnecting) {
+          props.onCancelPendingWire();
+          setDragConnecting(null);
+        }
         finishMarquee(marquee);
         setDragging(null);
         setPanning(null);
@@ -324,7 +355,24 @@ export function CircuitCanvas(props: Props) {
             onToggleInput={() => props.onToggleInput(component.id)}
             onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
             onRemove={() => props.onRemoveComponent(component.id)}
-            onPinClick={props.onPinClick}
+            onPinMouseDown={(pin, kind) => {
+              if (kind !== 'output') return;
+              props.onPinClick(pin, kind);
+              setDragConnecting(pin);
+            }}
+            onPinMouseUp={(pin, kind) => {
+              if (!dragConnecting || kind !== 'input') return;
+              props.onPinClick(pin, kind);
+              setDragConnecting(null);
+              suppressNextPinClick.current = true;
+            }}
+            onPinClick={(pin, kind) => {
+              if (suppressNextPinClick.current) {
+                suppressNextPinClick.current = false;
+                return;
+              }
+              props.onPinClick(pin, kind);
+            }}
           />
         ))}
       </g>
@@ -405,7 +453,7 @@ function PendingWire({ pendingWire, componentById, mousePoint }: {
   );
 }
 
-function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onPinClick }: {
+function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onPinMouseDown, onPinMouseUp, onPinClick }: {
   component: LogicComponent;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -414,12 +462,15 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
   onToggleInput: () => void;
   onSetButtonPressed: (pressed: boolean) => void;
   onRemove: () => void;
+  onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
+  onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
 }) {
   const definition = COMPONENT_DEFINITIONS[component.type];
   const outputValue = Boolean(evaluation[component.id]?.out);
   const ledValue = Boolean(evaluation[component.id]?.in);
   const buttonPressed = component.type === 'button' && Boolean(component.state);
+  const gateAsset = GATE_ASSETS[component.type];
 
   return (
     <g
@@ -445,16 +496,28 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
         <circle r="10" />
         <text y="4" textAnchor="middle">×</text>
       </g>
-      {component.type === 'led' && <circle className={`led-lens ${ledValue ? 'on' : ''}`} cx={definition.width / 2} cy="26" r="14" />}
+      {component.type === 'led' && (
+        <image
+          className="component-asset led-asset"
+          href={ledValue ? ledOnAsset : ledOffAsset}
+          x={definition.width / 2 - 23}
+          y="3"
+          width="46"
+          height="46"
+          preserveAspectRatio="xMidYMid meet"
+        />
+      )}
       {component.type === 'input' && (
-        <g
-          onMouseDown={(event) => event.stopPropagation()}
+        <image
+          className="component-asset input-asset"
+          href={outputValue ? inputSwitchOnAsset : inputSwitchOffAsset}
+          x="12"
+          y="5"
+          width="54"
+          height="42"
+          preserveAspectRatio="xMidYMid meet"
           onClick={(event) => { event.stopPropagation(); onToggleInput(); }}
-          className="switch"
-        >
-          <rect className={`switch-track ${outputValue ? 'on' : ''}`} x="14" y="16" width="44" height="20" rx="10" />
-          <circle className="switch-knob" cx={outputValue ? 48 : 24} cy="26" r="8" />
-        </g>
+        />
       )}
       {component.type === 'button' && (
         <g
@@ -469,11 +532,29 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
           }}
           onMouseLeave={() => onSetButtonPressed(false)}
         >
-          <circle className={`pulse-button-base ${buttonPressed ? 'on' : ''}`} cx="36" cy="26" r="17" />
-          <circle className="pulse-button-cap" cx="36" cy={buttonPressed ? 28 : 23} r="12" />
+          <rect className="component-hitbox" x="12" y="4" width="62" height="46" rx="10" />
+          <image
+            className={`component-asset button-asset ${buttonPressed ? 'pressed' : ''}`}
+            href={outputPortAsset}
+            x="17"
+            y={buttonPressed ? 8 : 5}
+            width="52"
+            height="42"
+            preserveAspectRatio="xMidYMid meet"
+          />
         </g>
       )}
-      {component.type !== 'input' && component.type !== 'button' && component.type !== 'led' && <GateSymbol type={component.type} width={definition.width} height={definition.height} />}
+      {gateAsset && (
+        <image
+          className="component-asset gate-asset"
+          href={gateAsset}
+          x="8"
+          y="6"
+          width={definition.width - 16}
+          height={definition.height - 12}
+          preserveAspectRatio="xMidYMid meet"
+        />
+      )}
       <text className="component-label" x={definition.width / 2} y={definition.height + 18} textAnchor="middle">
         {component.label ?? definition.label}
       </text>
@@ -483,7 +564,16 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
           <g
             key={pin.id}
             className="pin-hitbox"
-            onMouseDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => {
+              event.stopPropagation();
+              if (event.button !== 0) return;
+              onPinMouseDown({ componentId: component.id, pinId: pin.id }, pin.kind);
+            }}
+            onMouseUp={(event) => {
+              if (event.button !== 0) return;
+              event.stopPropagation();
+              onPinMouseUp({ componentId: component.id, pinId: pin.id }, pin.kind);
+            }}
             onClick={(event) => {
               event.stopPropagation();
               onPinClick({ componentId: component.id, pinId: pin.id }, pin.kind);

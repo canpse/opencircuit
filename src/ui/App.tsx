@@ -3,6 +3,16 @@ import { COMPONENT_DEFINITIONS } from '../core/catalog';
 import { evaluateCircuit } from '../core/evaluateCircuit';
 import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
 import { downloadJson, loadCircuit, saveCircuit, STARTER_CIRCUIT } from '../state/storage';
+import andGateAsset from '../assets/components/and_gate.png';
+import inputSwitchOffAsset from '../assets/components/input_switch_off.png';
+import ledOffAsset from '../assets/components/led_off.png';
+import nandGateAsset from '../assets/components/nand_gate.png';
+import norGateAsset from '../assets/components/nor_gate.png';
+import notGateAsset from '../assets/components/not_gate.png';
+import orGateAsset from '../assets/components/or_gate.png';
+import outputPortAsset from '../assets/components/output_port.png';
+import xnorGateAsset from '../assets/components/xnor_gate.png';
+import xorGateAsset from '../assets/components/xor_gate.png';
 import { CircuitCanvas } from './editor/CircuitCanvas';
 
 const GRID = 20;
@@ -17,6 +27,24 @@ type ContextMenu =
   | null;
 
 const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
+const COMPONENT_TOOL_ASSETS: Partial<Record<GateType, string>> = {
+  input: inputSwitchOffAsset,
+  button: outputPortAsset,
+  led: ledOffAsset,
+  and: andGateAsset,
+  nand: nandGateAsset,
+  or: orGateAsset,
+  nor: norGateAsset,
+  xor: xorGateAsset,
+  xnor: xnorGateAsset,
+  not: notGateAsset,
+};
+
+const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
+  { title: 'Entradas', tools: ['input', 'button'] },
+  { title: 'Saídas', tools: ['led'] },
+  { title: 'Portas Lógicas', tools: ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] },
+];
 
 export function App() {
   const [circuit, setCircuit] = useState<CircuitDocument>(() => loadCircuit());
@@ -436,71 +464,104 @@ export function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">OpenCircuit Logic</p>
-          <h1>Simulador de circuitos lógicos</h1>
+      <header className="app-titlebar">
+        <div className="brand-block">
+          <span className="app-icon">OC</span>
+          <strong>OpenCircuit</strong>
+          <span className="project-name">Projeto: circuito_logico.json</span>
         </div>
-        <div className="actions">
-          <button onClick={undo} disabled={history.past.length === 0}>Desfazer</button>
-          <button onClick={redo} disabled={history.future.length === 0}>Refazer</button>
-          <button onClick={() => downloadJson('circuito-logico.json', circuit)}>Exportar JSON</button>
-          <button onClick={() => fileInputRef.current?.click()}>Importar JSON</button>
-          <button onClick={resetCircuit}>Exemplo</button>
-          <input ref={fileInputRef} type="file" accept="application/json" onChange={importJson} hidden />
-        </div>
+        <nav className="menu-strip" aria-label="Menu principal">
+          <span>Arquivo</span>
+          <span>Editar</span>
+          <span>Exibir</span>
+          <span>Simular</span>
+          <span>Ajuda</span>
+        </nav>
       </header>
 
-      <section className="workspace">
-        <aside className="toolbar" aria-label="Componentes">
-          <button className={selectedTool === 'select' ? 'active' : ''} onClick={() => setSelectedTool('select')}>Selecionar</button>
-          <button className={selectedTool === 'pan' ? 'active' : ''} onClick={() => setSelectedTool('pan')}>Mão</button>
-          <button className={selectedTool === 'wire' ? 'active' : ''} onClick={() => setSelectedTool('wire')}>Fio</button>
-          {LOGIC_COMPONENT_TOOLS.map((type) => (
-            <button
-              key={type}
-              className={selectedTool === type ? 'active' : ''}
-              draggable
-              onClick={() => setSelectedTool(type)}
-              onDragStart={(event) => event.dataTransfer.setData('application/opencircuit-gate', type)}
-            >
-              {COMPONENT_DEFINITIONS[type].label}
-            </button>
-          ))}
-          <p className="hint">Arraste na grade para selecionar vários. Delete apaga; Ctrl+Z desfaz; Ctrl+Shift+Z refaz.</p>
+      <div className="commandbar">
+        <button onClick={() => fileInputRef.current?.click()}>Abrir</button>
+        <button onClick={() => downloadJson('circuito-logico.json', circuit)}>Salvar</button>
+        <span className="command-separator" />
+        <button onClick={undo} disabled={history.past.length === 0}>Desfazer</button>
+        <button onClick={redo} disabled={history.future.length === 0}>Refazer</button>
+        <span className="command-separator" />
+        <button onClick={resetCircuit}>Reiniciar</button>
+        <button onClick={() => setSelectedTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
+        <button onClick={() => setSelectedTool('wire')} className={selectedTool === 'wire' ? 'active' : ''}>Fio</button>
+        <button onClick={() => setSelectedTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
+        <input ref={fileInputRef} type="file" accept="application/json" onChange={importJson} hidden />
+      </div>
+
+      <section className="app-layout">
+        <aside className="library-panel" aria-label="Biblioteca de componentes">
+          <div className="panel-header">Biblioteca</div>
+          <div className="library-search">Buscar componentes...</div>
+          <div className="tool-groups">
+            {TOOL_GROUPS.map((group) => (
+              <section className="tool-group" key={group.title}>
+                <h2>{group.title}</h2>
+                <div className="tool-grid">
+                  {group.tools.map((type) => (
+                    <button
+                      key={type}
+                      className={`tool-card ${selectedTool === type ? 'active' : ''}`}
+                      draggable
+                      onClick={() => setSelectedTool(type)}
+                      onDragStart={(event) => event.dataTransfer.setData('application/opencircuit-gate', type)}
+                    >
+                      <ToolButtonContent type={type} />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         </aside>
 
-        <div className="editor-panel">
-          <CircuitCanvas
-            circuit={circuit}
-            evaluation={evaluation}
-            selectedTool={selectedTool}
-            pendingWire={pendingWire}
-            selection={selection}
-            onCanvasAdd={addComponent}
-            onBeginMoveComponent={beginMoveComponent}
-            onMoveComponents={moveComponents}
-            onToggleInput={toggleInput}
-            onSetButtonPressed={setButtonPressed}
-            onPinClick={onPinClick}
-            onRemoveWire={removeWire}
-            onRemoveComponent={removeComponent}
-            onCancelPendingWire={cancelPendingWire}
-            onOpenCanvasMenu={openCanvasMenu}
-            onOpenComponentMenu={openComponentMenu}
-            onOpenWireMenu={openWireMenu}
-            onSelectComponent={selectComponent}
-            onSelectWire={selectWire}
-            onSelectItems={selectItems}
-            onClearSelection={clearSelection}
-            onSelectTool={setSelectedTool}
-          />
-          <footer className="statusbar">
-            <span>{message}</span>
-            <span>{circuit.components.length} componentes · {circuit.wires.length} fios</span>
-          </footer>
+        <div className="center-panel">
+          <div className="document-tabs">
+            <button className="document-tab active">circuito_logico.json</button>
+            <button className="document-tab add-tab">+</button>
+          </div>
+          <div className="editor-panel">
+            <CircuitCanvas
+              circuit={circuit}
+              evaluation={evaluation}
+              selectedTool={selectedTool}
+              pendingWire={pendingWire}
+              selection={selection}
+              onCanvasAdd={addComponent}
+              onBeginMoveComponent={beginMoveComponent}
+              onMoveComponents={moveComponents}
+              onToggleInput={toggleInput}
+              onSetButtonPressed={setButtonPressed}
+              onPinClick={onPinClick}
+              onRemoveWire={removeWire}
+              onRemoveComponent={removeComponent}
+              onCancelPendingWire={cancelPendingWire}
+              onOpenCanvasMenu={openCanvasMenu}
+              onOpenComponentMenu={openComponentMenu}
+              onOpenWireMenu={openWireMenu}
+              onSelectComponent={selectComponent}
+              onSelectWire={selectWire}
+              onSelectItems={selectItems}
+              onClearSelection={clearSelection}
+              onSelectTool={setSelectedTool}
+            />
+          </div>
         </div>
+
+        <aside className="properties-panel truth-panel">
+          <div className="panel-header">Tabela Verdade</div>
+          <CircuitTruthTable circuit={circuit} />
+        </aside>
       </section>
+
+      <footer className="statusbar app-footer">
+        <span>{message}</span>
+        <span>{circuit.components.length} componentes · {circuit.wires.length} fios</span>
+      </footer>
 
       {contextMenu && (
         <ContextMenuView
@@ -511,6 +572,64 @@ export function App() {
         />
       )}
     </main>
+  );
+}
+
+function CircuitTruthTable({ circuit }: { circuit: CircuitDocument }) {
+  const inputs = circuit.components.filter((component) => component.type === 'input');
+  const outputs = circuit.components.filter((component) => component.type === 'led');
+  const maxInputs = 6;
+
+  if (inputs.length === 0) {
+    return <div className="properties-card muted-card">Adicione componentes Input para gerar a tabela verdade do circuito.</div>;
+  }
+
+  if (outputs.length === 0) {
+    return <div className="properties-card muted-card">Adicione LEDs para observar as saídas do circuito.</div>;
+  }
+
+  if (inputs.length > maxInputs) {
+    return (
+      <div className="properties-card muted-card">
+        Este circuito tem {inputs.length} entradas, gerando {2 ** inputs.length} combinações. O limite atual é {maxInputs} entradas.
+      </div>
+    );
+  }
+
+  const rows = buildCircuitTruthRows(circuit, inputs, outputs);
+
+  return (
+    <div className="properties-card truth-table-card">
+      <span className="property-subtitle">Circuito inteiro</span>
+      <div className="truth-table-wrap">
+        <table className="truth-table circuit-truth-table">
+          <thead>
+            <tr>
+              {inputs.map((input) => <th key={input.id}>{input.label ?? input.id}</th>)}
+              {outputs.map((output) => <th key={output.id}>{output.label ?? output.id}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.inputs.map((value, index) => <td key={`i-${index}`}>{bit(value)}</td>)}
+                {row.outputs.map((value, index) => <td key={`o-${index}`} className={truthOutputClass(value)}>{bit(value)}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ToolButtonContent({ type }: { type: GateType }) {
+  const asset = COMPONENT_TOOL_ASSETS[type];
+  return (
+    <span className="tool-button-content">
+      {asset && <img className="tool-icon" src={asset} alt="" aria-hidden="true" />}
+      <span>{COMPONENT_DEFINITIONS[type].label}</span>
+    </span>
   );
 }
 
@@ -536,7 +655,7 @@ function ContextMenuView({ menu, selection, onAddComponent, onRemove }: {
           <div className="context-menu-title">Adicionar</div>
           {LOGIC_COMPONENT_TOOLS.map((type) => (
             <button key={type} onClick={() => onAddComponent(type)} role="menuitem">
-              {COMPONENT_DEFINITIONS[type].label}
+              <ToolButtonContent type={type} />
             </button>
           ))}
         </>
@@ -549,6 +668,38 @@ function ContextMenuView({ menu, selection, onAddComponent, onRemove }: {
   );
 }
 
+function buildCircuitTruthRows(circuit: CircuitDocument, inputs: LogicComponent[], outputs: LogicComponent[]) {
+  const rowCount = 2 ** inputs.length;
+  return Array.from({ length: rowCount }, (_, rowIndex) => {
+    const inputValues = inputs.map((_, inputIndex) => {
+      const bitIndex = inputs.length - inputIndex - 1;
+      return Boolean((rowIndex >> bitIndex) & 1);
+    });
+    const inputValueById = new Map(inputs.map((input, index) => [input.id, inputValues[index]]));
+    const testCircuit: CircuitDocument = {
+      ...circuit,
+      components: circuit.components.map((component) =>
+        component.type === 'input'
+          ? { ...component, state: inputValueById.get(component.id) ?? false }
+          : component,
+      ),
+    };
+    const result = evaluateCircuit(testCircuit);
+    return {
+      inputs: inputValues,
+      outputs: outputs.map((output) => Boolean(result[output.id]?.in)),
+    };
+  });
+}
+
+function bit(value: boolean): 0 | 1 {
+  return value ? 1 : 0;
+}
+
+function truthOutputClass(value: boolean): string {
+  return value ? 'truth-output on' : 'truth-output';
+}
+
 function hasSelection(selection: Selection): boolean {
   return selection.componentIds.length > 0 || selection.wireIds.length > 0;
 }
@@ -557,7 +708,7 @@ function snap(point: Point): Point {
   return { x: Math.round(point.x / GRID) * GRID, y: Math.round(point.y / GRID) * GRID };
 }
 
-const LOGIC_COMPONENT_TOOLS: GateType[] = ['input', 'button', 'led', 'and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'];
+const LOGIC_COMPONENT_TOOLS: GateType[] = TOOL_GROUPS.flatMap((group) => group.tools);
 
 function nextId(type: GateType, components: LogicComponent[]): string {
   const prefixByType: Record<GateType, string> = {

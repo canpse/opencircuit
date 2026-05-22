@@ -2423,3 +2423,960 @@ Pequeno risco futuro: `evaluateComponent` não tem `default`, mas como o switch 
 
 Eu responderia que as portas combinacionais principais foram adicionadas e estão disponíveis tanto na toolbar quanto no menu de contexto.
 
+### Driver / before_edit / 2026-05-22T18:33:15.013Z
+
+Usuário adicionou assets na raiz e quer que eu organize em local apropriado e inspecione conteúdo. Vou listar arquivos, identificar tipos, mover para src/assets ou public/assets conforme uso em Vite. Sem integrar visual ainda, só organizar e relatar.
+
+### Navigator / 2026-05-22T18:33:15.013Z
+
+Boa. Antes de mover, eu faria uma inspeção conservadora:
+
+- Listar raiz e identificar novos arquivos:
+  - imagens (`.png`, `.svg`, `.jpg`, `.webp`) → provável `src/assets/` se forem importadas por React, ou `public/assets/` se forem referenciadas por URL estática.
+  - fontes (`.ttf`, `.woff`) → `src/assets/fonts/` ou `public/fonts/`.
+  - ícones SVG reutilizáveis → eu prefiro `src/assets/icons/`.
+  - arquivos grandes/brutos → talvez `public/assets/`.
+
+Critério recomendado para Vite:
+
+- **`src/assets/`**: assets usados por componentes via import:
+  ```ts
+  import logo from '../assets/logo.svg'
+  ```
+- **`public/assets/`**: assets servidos por caminho fixo:
+  ```html
+  /assets/logo.svg
+  ```
+
+Como ainda não vai integrar visualmente, eu sugeriria:
+
+```txt
+src/assets/
+  images/
+  icons/
+  fonts/
+```
+
+ou, se forem apenas arquivos estáticos sem import agora:
+
+```txt
+public/assets/
+```
+
+Cuidados:
+
+1. Não mover arquivos de configuração por engano.
+2. Não renomear agressivamente ainda, a menos que tenham espaços/caracteres ruins.
+3. Se mover para `src/assets`, garantir que o build continue passando mesmo sem imports.
+4. Atualizar README só se fizer sentido documentar a pasta.
+5. Depois rodar:
+   ```bash
+   npm run build
+   ```
+
+Próximo passo pequeno: listar os nomes/tipos primeiro e decidir destino com base nisso, antes de mover.
+
+### Driver / after_edit / 2026-05-22T18:34:09.603Z
+Files: src/assets/README.md
+
+Organizei assets que estavam em img_assets na raiz. São PNGs 240x240 para portas, switches, LEDs, clock, flip-flop, latch e controles. Movi para src/assets/components e src/assets/controls, removi pasta raiz img_assets e criei src/assets/README.md. Build passou.
+
+### Navigator / 2026-05-22T18:34:09.603Z
+
+Boa organização. `src/assets/` é o lugar certo se a intenção é integrar depois via imports do Vite/React, e o `README.md` já deixa claro que ainda não estão em uso.
+
+Checks/observações:
+
+- Build passando confirma que nenhum import foi quebrado.
+- Separação `components/` vs `controls/` está boa.
+- Como há assets para `clock`, `d_flip_flop` e `latch`, eu não integraria visualmente ainda sem antes decidir o modelo lógico desses componentes.
+- `selection_highlight.png` talvez seja mais “UI/overlays” do que componente, mas pode ficar onde está por enquanto.
+
+Próximo passo pequeno recomendado: antes de trocar SVG/texto por imagens, escolher **um único componente piloto** — por exemplo LED ou AND — e validar escala, alinhamento dos pinos e aparência no zoom.
+
+### Driver / before_edit / 2026-05-22T18:35:37.993Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css, src/assets/components/led_green_on.png, src/assets/components/led_off.png
+
+Usuário concordou em integrar um componente piloto com assets. Vou escolher LED como piloto, pois tem assets on/off e é visualmente fácil validar. Integrar via import no CircuitCanvas, renderizando image no LED em vez do círculo atual, mantendo pino e labels. Ajustar tamanho/clip se necessário.
+
+### Navigator / 2026-05-22T18:35:37.993Z
+
+Boa escolha: **LED é o piloto ideal** porque tem estado on/off claro e baixo risco lógico.
+
+Cuidados antes de editar:
+
+- Importar no topo de `src/ui/editor/CircuitCanvas.tsx`:
+  ```ts
+  import ledOnAsset from '../../assets/components/led_green_on.png';
+  import ledOffAsset from '../../assets/components/led_off.png';
+  ```
+
+- No `ComponentView`, trocar só o visual do LED:
+  - manter `gate-body`, pino, label e hitboxes;
+  - substituir o `<circle className="led-lens"...>` por `<image ... />`.
+
+Sugestão de render:
+
+```tsx
+{component.type === 'led' && (
+  <image
+    className="component-asset led-asset"
+    href={ledValue ? ledOnAsset : ledOffAsset}
+    x={definition.width / 2 - 18}
+    y="8"
+    width="36"
+    height="36"
+    preserveAspectRatio="xMidYMid meet"
+  />
+)}
+```
+
+Riscos práticos:
+
+1. **Asset 240x240 pode ter muito padding interno**
+   - Se parecer pequeno, aumentar para `44x44` ou `52x52`.
+   - Se parecer estourado, ajustar `x/y`.
+
+2. **Eventos**
+   - Colocar `pointer-events: none` no CSS para imagem não atrapalhar drag/clique:
+     ```css
+     .component-asset { pointer-events: none; }
+     ```
+
+3. **Visual duplicado**
+   - Remover/ignorar `.led-lens` só para esse render, mas não precisa apagar CSS ainda.
+
+4. **Build/Vite**
+   - Import de PNG em TSX deve funcionar direto.
+
+Critério de aceite: LED off/on troca imagem corretamente quando o circuito muda, sem quebrar pino, seleção, drag, zoom e export/import.
+
+### Driver / after_edit / 2026-05-22T18:36:14.347Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css
+
+Integrei LED como componente piloto usando assets PNG: led_off e led_green_on importados no CircuitCanvas. O LED troca imagem conforme valor de entrada, mantendo corpo, pino, seleção e drag. CSS adiciona component-asset pointer-events none. Build passou.
+
+### Navigator / 2026-05-22T18:36:14.347Z
+
+Boa integração piloto. LED é um bom teste porque valida asset + estado lógico sem mexer no modelo.
+
+Eu checaria manualmente:
+
+1. `Input -> LED`: imagem troca off/on corretamente.
+2. `Pulso -> LED`: acende só enquanto pressiona.
+3. Drag/seleção/remove no LED continuam funcionando.
+4. Zoom/pan: PNG escala bem e não fica borrado demais.
+5. Clique no pino do LED ainda é fácil, já que a imagem tem `pointer-events: none`.
+
+Pequeno risco visual: o `<rect className="gate-body">` ainda aparece atrás do PNG. Se o asset já tiver “corpo” próprio, pode ficar redundante; para piloto está ok. Depois decidimos se componentes com asset devem esconder ou estilizar diferente o corpo SVG.
+
+Próximo passo recomendado: ajustar tamanho/alinhamento do LED se o usuário aprovar visualmente; só depois migrar outro componente, provavelmente `input` ou `button`.
+
+### Driver / before_edit / 2026-05-22T18:45:34.940Z
+
+Usuário regenerou assets corrigidos em uma pasta na raiz. Vou localizar pasta nova, inspecionar conteúdo, comparar nomes/tipos, substituir assets organizados em src/assets mantendo estrutura. Depois build.
+
+### Navigator / 2026-05-22T18:45:34.940Z
+
+Boa. Eu faria como substituição controlada:
+
+1. **Localizar pasta nova** e listar conteúdo/tamanhos.
+2. Comparar com:
+   - `src/assets/components/`
+   - `src/assets/controls/`
+3. Se os nomes forem iguais, substituir direto.
+4. Se nomes mudaram, criar um mapeamento e evitar apagar assets antigos até confirmar.
+5. Manter `src/assets/README.md`.
+
+Cuidados:
+- Verificar se `led_green_on.png` e `led_off.png` continuam existindo com os mesmos nomes, porque já são importados em `src/ui/editor/CircuitCanvas.tsx`.
+- Se os assets corrigidos vierem em outra dimensão, ok; mas testar visual do LED depois.
+- Remover a pasta nova da raiz após mover, para não deixar duplicado.
+- Rodar:
+  ```bash
+  npm run build
+  ```
+- Se build quebrar por import ausente, ajustar nome ou restaurar compatibilidade.
+
+Próximo passo pequeno: primeiro fazer `find`/listagem da pasta nova e comparar nomes antes de substituir.
+
+### Driver / after_edit / 2026-05-22T18:46:30.369Z
+Files: src/assets/README.md
+
+Substituí assets organizados pelos assets corrigidos de assets_corrigidos, mantendo nomes finais em src/assets/components e src/assets/controls. Removi pasta da raiz e atualizei README de assets para não dizer 240x240, pois dimensões variam. Build passou.
+
+### Navigator / 2026-05-22T18:46:30.369Z
+
+Boa. Substituição controlada e build passando é o principal.
+
+Eu só validaria agora o **piloto LED**, porque ele já importa assets diretamente:
+
+1. `Input -> LED`: confere `led_off.png` e `led_green_on.png` visualmente.
+2. Zoom in/out: ver se as novas dimensões não ficaram desalinhadas ou cortadas.
+3. Se o asset novo tiver padding diferente, talvez ajustar `x/y/width/height` do `<image>` no LED.
+4. `src/assets/README.md` agora sem promessa de dimensão fixa está correto.
+
+Como os nomes finais foram mantidos, não vejo risco técnico imediato. Próximo passo: se o LED ficou bom, escolher mais um componente piloto com asset — eu iria de **Input switch on/off** antes das portas.
+
+### Driver / before_edit / 2026-05-22T18:48:00.969Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css, src/assets/components
+
+Usuário quer integrar todos os outros assets visuais. Vou substituir renderização interna dos componentes por imagens para portas, input switch e button/output conforme assets disponíveis, mantendo corpo/pinos/hitboxes. Como ainda não temos clock/flipflop/latch no modelo, não integrar esses. Controles de zoom talvez usar assets de zoom plus/minus. Plano: importar assets, mapear gate assets, render image para gates/input/button/led, ajustar sizes.
+
+### Navigator / 2026-05-22T18:48:00.969Z
+
+Boa, mas eu faria em passos bem controlados para não quebrar interação.
+
+Recomendação:
+
+1. **Mapear assets por tipo existente**
+   - Integrar só:
+     - `input`
+     - `button`
+     - `led`
+     - `and/nand/or/nor/xor/xnor/not`
+   - Não integrar ainda:
+     - `clock`
+     - `flip-flop`
+     - `latch`
+     - qualquer controle sem componente/modelo.
+
+2. **Manter SVG estrutural**
+   - manter `gate-body`, pinos, labels, seleção, hitboxes e botão ×;
+   - trocar apenas o conteúdo visual central por `<image>`.
+   - Isso reduz risco em drag, seleção, fios e menu de contexto.
+
+3. **Criar mapas**
+   ```ts
+   const GATE_ASSETS: Partial<Record<GateType, string>> = { ... };
+   const INPUT_ASSETS = { on, off };
+   const BUTTON_ASSETS = { on, off };
+   ```
+
+4. **Cuidado com eventos**
+   - todas imagens com:
+     ```css
+     .component-asset { pointer-events: none; }
+     ```
+   - senão imagem pode bloquear drag/clique/pino.
+
+5. **Tamanho/alinhamento**
+   - não assumir que todos assets têm mesmo padding.
+   - começar com uma função simples:
+     ```ts
+     x={8}
+     y={4}
+     width={definition.width - 16}
+     height={definition.height - 8}
+     ```
+   - para portas largas (`nand`, `xnor`) pode precisar ajuste.
+
+6. **Labels**
+   - Se o asset já contém texto/símbolo, talvez esconder `GateSymbol`.
+   - Eu manteria `component-label` embaixo.
+   - Não mostrar `gate-text` junto com imagem para evitar duplicação.
+
+7. **Zoom controls**
+   - Eu deixaria fora deste passo, a menos que os assets sejam claramente para UI.
+   - Primeiro estabilizar componentes. Botões de zoom atuais já funcionam.
+
+Critério de aceite manual:
+- Input troca on/off.
+- Button troca pressionado/solto.
+- Todas portas aparecem com imagem correta.
+- Pinos continuam clicáveis.
+- Drag, seleção múltipla, delete, menu contexto, zoom/pan continuam ok.
+
+Próximo passo pequeno: importar e aplicar assets só nos componentes existentes; depois ajustar CSS/tamanho visual.
+
+### Driver / after_edit / 2026-05-22T18:49:12.967Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css
+
+Integrei assets para os componentes existentes: portas AND/NAND/OR/NOR/XOR/XNOR/NOT, input switch on/off, LED on/off e botão usando output_port como visual piloto. Mantive corpo SVG, pinos, seleção, hitboxes e interações. Não integrei clock/flipflop/latch pois ainda não existem no modelo. Build passou.
+
+### Navigator / 2026-05-22T18:49:12.967Z
+
+Boa integração, e gostei da decisão de **não puxar clock/flip-flop/latch** sem modelo lógico ainda.
+
+Eu checaria manualmente estes pontos:
+
+1. **Input switch**
+   - O asset tem `pointer-events: auto`, então deve continuar alternando com clique.
+   - Ver se clicar/arrastar no switch não inicia drag acidental do componente.
+
+2. **Botão/Pulso**
+   - Como está usando `output_port` como piloto, validar se comunica “pressionável”.
+   - Pressionar/soltar fora ainda é o ponto sensível; se já houver release global, ok.
+
+3. **Portas**
+   - Conferir alinhamento visual com pinos A/B/out, especialmente `NOT`, `XNOR`, `NAND`.
+   - Ver se o texto/forma do asset não briga com `component-label`.
+
+4. **Seleção**
+   - O `gate-body` ainda dá highlight azul; bom.
+   - Se o asset cobre muito o corpo, talvez o highlight fique pouco visível. Futuro: overlay de seleção por cima.
+
+5. **Código**
+   - `GateSymbol` agora parece morto se todos gates usam assets. Não precisa remover já, mas é candidato a limpeza.
+   - CSS legado `.switch`, `.led-lens`, `.pulse-button-base` etc. também pode ficar para limpeza depois.
+
+Critério de aceite: adicionar, conectar, alternar, pressionar pulso, selecionar, mover, apagar, zoom/pan e menu de contexto continuam iguais.
+
+Próximo passo pequeno: ajuste visual fino de tamanhos/alinhamento por tipo, se o usuário notar algum componente “desencaixado”.
+
+### Driver / before_edit / 2026-05-22T18:50:54.367Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Usuário quer adicionar os símbolos/assets ao menu também. Interpreto como toolbar e menu de contexto de adicionar componentes mostrando imagem além do texto. Vou importar assets em App, criar mapa COMPONENT_TOOL_ASSETS e renderizar miniaturas nos botões da toolbar e no menu de contexto.
+
+### Navigator / 2026-05-22T18:50:54.367Z
+
+Boa. Eu faria isso no `App.tsx`, sem mexer no canvas.
+
+Cuidados práticos:
+
+- Reutilizar o mesmo mapa para toolbar e menu:
+  ```ts
+  const COMPONENT_TOOL_ASSETS: Partial<Record<GateType, string>> = { ... };
+  ```
+- Importar só assets dos componentes existentes (`input`, `button`, `led`, portas).
+- Renderizar botão com thumbnail + texto:
+  ```tsx
+  <span className="tool-button-content">
+    {asset && <img className="tool-icon" src={asset} alt="" aria-hidden="true" />}
+    <span>{COMPONENT_DEFINITIONS[type].label}</span>
+  </span>
+  ```
+- No menu de contexto, usar classe parecida:
+  ```tsx
+  <span className="context-menu-item-content">...</span>
+  ```
+
+Riscos:
+1. **Botões da toolbar são `draggable`**  
+   Imagem dentro do botão pode virar alvo do drag. Em CSS:
+   ```css
+   .tool-icon { pointer-events: none; }
+   ```
+
+2. **Acessibilidade**  
+   Como o texto continua presente, `alt=""` e `aria-hidden` na imagem está ok.
+
+3. **Layout**  
+   Toolbar tem 190px; usar ícone pequeno, tipo `28x28` ou `32x32`, para não estourar:
+   ```css
+   .tool-button-content {
+     display: flex;
+     align-items: center;
+     gap: 8px;
+   }
+   .tool-icon {
+     width: 28px;
+     height: 28px;
+     object-fit: contain;
+   }
+   ```
+
+4. **Menu de contexto**  
+   Botão transparente atual deve continuar; só ajustar alinhamento.
+
+Eu evitaria criar novo arquivo de assets compartilhado agora, a menos que o mapa já esteja duplicado entre `App` e `CircuitCanvas`. Se começar a duplicar muitos imports, próximo passo seria extrair para `src/ui/componentAssets.ts`.
+
+### Driver / after_edit / 2026-05-22T18:51:56.021Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Adicionei símbolos/assets à toolbar e ao menu de contexto de adicionar componentes. App agora importa assets, usa COMPONENT_TOOL_ASSETS e ToolButtonContent para renderizar ícone + texto. Build passou.
+
+### Navigator / 2026-05-22T18:51:56.021Z
+
+Boa. Ficou coerente: toolbar e menu usam o mesmo `ToolButtonContent`, então não deve haver divergência visual.
+
+Eu checaria manualmente:
+
+1. Toolbar:
+   - ícones aparecem para todos os componentes;
+   - drag dos botões ainda funciona mesmo clicando/arrastando sobre a imagem;
+   - botão ativo continua legível.
+
+2. Menu de contexto:
+   - botão direito no canvas → lista com ícones + texto;
+   - clicar em um item adiciona o componente no ponto correto;
+   - menu fecha após adicionar.
+
+3. Layout:
+   - toolbar de 190px não corta nomes maiores tipo `XNOR`;
+   - menu não fica largo demais.
+
+Pequeno risco: `ToolButtonContent` dentro do menu usa classes de toolbar (`tool-button-content`, `tool-icon`). Funciona e evita duplicação, mas se depois quisermos tamanhos diferentes no menu, vale criar classe complementar tipo `.context-menu .tool-icon`.
+
+Eu seguiria. Próximo ajuste natural: extrair o mapa de assets para um arquivo compartilhado, porque `App.tsx` e `CircuitCanvas.tsx` provavelmente já duplicam imports/mapeamento.
+
+### Driver / discuss / 2026-05-22T18:54:00.270Z
+
+Usuário adicionou prototipo.png na raiz com ideia de UI. Vou abrir/inspecionar imagem e comparar com UI atual antes de propor plano. Ainda não vou implementar sem alinhar escopo visual.
+
+### Navigator / 2026-05-22T18:54:00.270Z
+
+Boa. Para essa fase, eu focaria em **extrair intenção visual**, não copiar pixel a pixel.
+
+Ao inspecionar `prototipo.png`, eu compararia em 4 blocos:
+
+1. **Layout geral**
+   - posição da toolbar;
+   - área do canvas;
+   - barra superior/status;
+   - controles de zoom/pan.
+
+2. **Estilo visual**
+   - cores;
+   - bordas/sombras;
+   - fundo/grid;
+   - densidade/espacamentos.
+
+3. **Componentes**
+   - tamanho dos cards/componentes;
+   - aparência dos ícones/assets;
+   - labels visíveis ou não;
+   - destaque de seleção.
+
+4. **Interação sugerida**
+   - menus;
+   - botões principais;
+   - hierarquia de ferramentas;
+   - se parece desktop app, web app ou painel técnico.
+
+Eu não implementaria direto. Depois de olhar, eu voltaria com algo assim:
+
+```txt
+O protótipo sugere:
+- mudar X;
+- manter Y;
+- decidir Z.
+
+Plano incremental:
+1. ajustar layout/cores;
+2. ajustar toolbar;
+3. ajustar canvas/componentes;
+4. só depois mexer em interações.
+```
+
+Cuidados:
+- Não quebrar interações já estáveis: fios, seleção múltipla, undo, menu, zoom/pan.
+- Separar **tema/CSS** de mudanças estruturais.
+- Se for uma mudança grande de UI, criar primeiro um “visual pass” só em CSS.
+
+Próximo passo ideal: abrir a imagem, descrever diferenças principais e perguntar ao usuário quais partes são obrigatórias vs inspiração.
+
+### Driver / before_edit / 2026-05-22T18:55:24.390Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Usuário aprovou etapa 1 e 2 da UI inspirada no protótipo: layout base e biblioteca agrupada. Vou modificar App/CSS sem mexer no core: top app bar, command bar, left library grouped categories, center canvas, right placeholder properties, bottom status. Reusar toolbar tools com grupos. Manter interações e props.
+
+### Navigator / 2026-05-22T18:55:24.390Z
+
+Boa. Eu faria como **refactor visual/estrutura**, sem alterar comportamento.
+
+Cuidados principais antes de editar:
+
+- **Não mudar contrato do `CircuitCanvas`**. Só reposicionar no layout.
+- Manter `selectedTool`, drag/drop dos botões, context menu e status funcionando.
+- Biblioteca agrupada pode ser só renderização:
+  ```ts
+  const TOOL_GROUPS = [
+    { title: 'Entrada/Saída', tools: ['input', 'button', 'led'] },
+    { title: 'Portas básicas', tools: ['and', 'nand', 'or', 'nor'] },
+    { title: 'Portas especiais', tools: ['xor', 'xnor', 'not'] },
+  ] satisfies Array<{ title: string; tools: GateType[] }>;
+  ```
+- Deixar `LOGIC_COMPONENT_TOOLS` como lista única para menu de contexto, ou derivar dos grupos:
+  ```ts
+  const LOGIC_COMPONENT_TOOLS = TOOL_GROUPS.flatMap((group) => group.tools);
+  ```
+
+Riscos práticos:
+
+1. **Altura do canvas**
+   - Hoje `.circuit-canvas` usa `height: calc(100vh - 174px)`.
+   - Com topbar/commandbar/right panel/status novos, recalcular ou preferir layout flex:
+     ```css
+     .editor-panel { min-height: 0; }
+     .canvas-wrap { flex: 1; min-height: 0; }
+     .circuit-canvas { height: 100%; }
+     ```
+
+2. **Drag da toolbar**
+   - Se trocar `<button draggable>` por cards, garantir `draggable` e `onDragStart` no elemento certo.
+   - Ícone continua com `pointer-events: none`.
+
+3. **Statusbar**
+   - Se mover para rodapé global, preservar mensagem e contagem.
+
+4. **Painel direito**
+   - Placeholder ok, mas não deve depender de seleção ainda.
+   - Pode mostrar texto tipo “Propriedades em breve” e seleção atual.
+
+5. **Responsividade**
+   - Como `body` tem `min-width: 980px`, talvez aumentar para algo como `1180px` se adicionar painel direito.
+
+Próximo passo pequeno: primeiro criar a nova estrutura JSX em `App.tsx`; depois ajustar CSS até o canvas ocupar corretamente o centro. Build + teste manual: adicionar, arrastar da biblioteca, conectar fio, zoom/pan, menu contexto.
+
+### Driver / after_edit / 2026-05-22T18:58:31.751Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Implementei etapas 1 e 2 da UI: layout com titlebar, commandbar, biblioteca lateral agrupada, canvas central com abas, painel direito de propriedades placeholder e footer/status global. CSS refeito para ocupar viewport e parecer mais com protótipo. Mantive contrato do CircuitCanvas. Build passou.
+
+### Navigator / 2026-05-22T18:58:31.751Z
+
+Boa evolução visual. O mais importante: você manteve o `CircuitCanvas` isolado, então o risco funcional ficou baixo.
+
+Eu validaria manualmente estes pontos:
+
+1. **Canvas ocupa altura correta**
+   - sem scroll interno estranho;
+   - zoom controls ainda aparecem no canto;
+   - resize da janela não corta o SVG.
+
+2. **Biblioteca**
+   - clique em tool seleciona;
+   - drag da tool para canvas ainda adiciona no ponto certo;
+   - cards ativos ficam legíveis.
+
+3. **Commandbar**
+   - Abrir/Salvar/Desfazer/Refazer/Reiniciar continuam funcionando;
+   - `Mão`, `Fio`, `Selecionar` refletem `selectedTool`.
+
+4. **Menu de contexto**
+   - botão direito no canvas ainda abre “Adicionar” na posição correta;
+   - menu não fica escondido por painéis/abas.
+
+5. **Atalhos**
+   - `Esc`, `Delete`, `Ctrl+Z/Y`, `Space -> Mão` continuam ok após mudança de layout.
+
+Pequeno risco que vejo: `.canvas-wrap` existe no CSS, mas preciso confirmar se `CircuitCanvas` ainda renderiza esse wrapper internamente. Se sim, ótimo. Se não, os controles de zoom absolutos podem não se posicionar como esperado.
+
+Outro detalhe: o campo “Buscar componentes...” é visual, mas parece input. Se não for funcional, talvez estilizar como placeholder desabilitado está ok por enquanto; depois vira busca real.
+
+Próximo passo: fazer uma passada manual de regressão nas interações principais antes de avançar para etapa 3 visual.
+
+### Driver / before_edit / 2026-05-22T19:11:57.544Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css
+
+Usuário quer refinar, não adicionar protótipo complexo. Bug: componente Pulso não parece funcionar. Vou investigar provável causa: substituí visual por image com pointer-events none dentro de g pulse-button; eventos devem chegar no g? Talvez image pointer-events none e sem shapes no g significa clique não atinge g. Precisa adicionar hitbox transparente ou pointer-events bounding-box. Vou corrigir com rect transparente cobrindo botão.
+
+### Navigator / 2026-05-22T19:11:57.544Z
+
+Sim, hipótese muito provável: em SVG, um `<g>` sem geometria própria não recebe evento se o filho `<image>` está com `pointer-events: none`. Então o Pulso “sumiu” como alvo clicável.
+
+Correção recomendada em `ComponentView`:
+
+```tsx
+{component.type === 'button' && (
+  <g
+    className="pulse-button"
+    onMouseDown={(event) => {
+      event.stopPropagation();
+      onSetButtonPressed(true);
+    }}
+    onMouseUp={(event) => {
+      event.stopPropagation();
+      onSetButtonPressed(false);
+    }}
+    onMouseLeave={() => onSetButtonPressed(false)}
+  >
+    <rect
+      className="component-hitbox"
+      x="12"
+      y="4"
+      width="62"
+      height="46"
+      rx="10"
+    />
+    <image ... />
+  </g>
+)}
+```
+
+CSS:
+
+```css
+.component-hitbox {
+  fill: transparent;
+  pointer-events: all;
+}
+```
+
+Cuidados:
+- Colocar o `<rect>` **antes** da imagem, para não cobrir visualmente.
+- Manter `event.stopPropagation()` para não iniciar drag.
+- Testar `Pulso -> LED`: acende enquanto segura e apaga ao soltar.
+- Testar soltar fora do botão. Se falhar, próximo ajuste é listener global de mouseup para liberar botões pressionados.
+
+Mesmo problema pode existir em outros grupos com imagem `pointer-events: none`, mas `input` está com `pointer-events: auto`, então deve estar ok.
+
+### Driver / after_edit / 2026-05-22T19:12:40.005Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/styles.css
+
+Corrigi provável bug do Pulso: o <g> não recebia evento porque o image tem pointer-events none. Adicionei rect transparente component-hitbox dentro do grupo do botão. Build passou.
+
+### Navigator / 2026-05-22T19:12:40.005Z
+
+Boa correção — essa era mesmo a causa mais provável no SVG.
+
+Eu validaria agora:
+
+1. `Pulso -> LED`: acende enquanto segura o mouse.
+2. Soltar em cima do botão: apaga.
+3. Arrastar para fora segurando: `onMouseLeave` apaga.
+4. Clicar no Pulso não deve selecionar/arrastar o componente.
+5. Pino do Pulso ainda inicia conexão normalmente.
+
+Risco restante: se o usuário pressionar e soltar fora do SVG/janela, pode ficar preso em `true`. Se acontecer, próximo ajuste é adicionar um `window mouseup` para limpar botões pressionados.
+
+Também vale notar: esse mesmo padrão pode afetar qualquer controle SVG baseado só em `<image pointer-events="none">`. Para o Input está ok porque a imagem tem `pointer-events: auto`; para portas não precisam de clique interno.
+
+### Driver / before_edit / 2026-05-22T19:16:05.790Z
+Files: src/ui/editor/CircuitCanvas.tsx, src/ui/App.tsx
+
+Usuário quer adicionar gesto drag-to-connect: clicar e segurar no pino de saída já inicia fio seguindo mouse, soltar em um pino de entrada conecta. Manter comportamento atual click source -> click target. Vou planejar integração com pin hitboxes: onMouseDown em output inicia pendingWire e dragWire flag; onMouseUp em input durante drag conecta. Talvez usar onMouseUp nos pinos e reutilizar onPinClick. Precisa evitar drag do componente.
+
+### Navigator / 2026-05-22T19:16:05.790Z
+
+Boa. Eu implementaria mantendo o fluxo atual e adicionando um “modo drag-connect” pequeno.
+
+Plano prático:
+
+- Estado no `CircuitCanvas`:
+  ```ts
+  const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
+  ```
+
+- Em pino de **saída**:
+  - `onMouseDown`:
+    - `stopPropagation()`;
+    - chamar `onPinClick(pin, 'output')` para reutilizar lógica atual de iniciar fio;
+    - `setDragConnecting(pin)`;
+  - manter `onClick` atual, mas cuidado para não duplicar mensagem/estado após drag.
+
+- Em pino de **entrada**:
+  - `onMouseUp`:
+    - se `dragConnecting`, `stopPropagation()` e chamar `onPinClick(pin, 'input')`;
+    - limpar `dragConnecting`.
+
+- No `onMouseMove` do SVG:
+  - `mousePoint` já alimenta `PendingWire`, então o preview deve funcionar assim que `pendingWire` existir.
+
+Cuidados importantes:
+
+1. **Não iniciar drag do componente**
+   - pino já tem `onMouseDown stopPropagation`; bom.
+   - saída precisa iniciar fio nesse `mousedown`.
+
+2. **Evitar duplo connect por click pós-mouseup**
+   - depois de conectar por `mouseup`, o navegador ainda pode disparar `click` no pino de entrada.
+   - use uma ref:
+     ```ts
+     suppressNextPinClick.current = true;
+     ```
+     e no `onClick` do pino ignore uma vez.
+
+3. **Soltar no vazio**
+   - se `dragConnecting` e mouseup no canvas/fundo: eu manteria `pendingWire` ativo?  
+   Minha recomendação: cancelar se foi drag-to-connect e soltou no vazio, para parecer gesto direto.
+   - Já o modo click source → click target continua mantendo pendente.
+
+4. **Compatibilidade**
+   - clique simples na saída deve continuar iniciando fio;
+   - clique simples na entrada com fio pendente deve continuar conectando.
+
+5. **Botão direito/context menu**
+   - não mexer.
+
+Eu faria com callbacks explícitos no `ComponentView`, algo como `onPinMouseDown` e `onPinMouseUp`, em vez de enfiar muita lógica dentro do `onClick`. O risco maior é evento duplicado `mouseup + click`; trate isso primeiro.
+
+### Driver / after_edit / 2026-05-22T19:17:24.417Z
+Files: src/ui/editor/CircuitCanvas.tsx
+
+Implementei drag-to-connect: mouseDown em pino de saída inicia pendingWire e preview; mouseUp em pino de entrada conecta; soltar no vazio cancela; clique origem->clique destino continua funcionando via suppressNextPinClick para evitar conexão dupla. Build passou.
+
+### Navigator / 2026-05-22T19:17:24.417Z
+
+Boa implementação — o modelo de interação ficou bem natural.
+
+Eu validaria manualmente estes casos:
+
+1. **Drag saída → entrada**
+   - preview segue o mouse;
+   - ao soltar na entrada cria um fio único;
+   - não cria conexão duplicada pelo `click` pós-`mouseup`.
+
+2. **Drag saída → vazio**
+   - cancela o fio pendente, sem deixar preview preso.
+
+3. **Clique saída → clique entrada**
+   - fluxo antigo continua funcionando.
+
+4. **Clique simples na saída**
+   - ainda deixa fio pendente para conectar depois; importante.
+
+5. **Drag começando em pino**
+   - não move o componente;
+   - não seleciona componente acidentalmente.
+
+6. **Entrada inválida / mesma entrada já conectada**
+   - deve respeitar as regras existentes de `onPinClick`.
+
+Risco pequeno: no `onMouseUp` do SVG, se `dragConnecting` ainda estiver setado, ele cancela `pendingWire`. Como `setDragConnecting(null)` no pino é assíncrono, vale garantir que o `mouseup` do pino com `stopPropagation()` realmente impede o handler do SVG. Pelo código, sim.
+
+Próximo ajuste natural se aparecer bug: usar uma ref para `dragConnecting` além do state, mas eu só faria se a validação manual mostrar corrida de evento.
+
+### Driver / before_edit / 2026-05-22T19:19:43.279Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Usuário quer colocar uma tabela verdade no painel de propriedades (ele disse esquerda, mas o painel de propriedades está à direita). Vou implementar uma tabela verdade contextual para o componente selecionado: portas NOT e portas de duas entradas. Para outros componentes, mostrar mensagem simples. Sem mudar simulação.
+
+### Navigator / 2026-05-22T19:19:43.279Z
+
+Boa. Eu faria **contextual no painel de propriedades à direita** e, se necessário, depois renomeamos/realocamos conforme o usuário quis “esquerda”.
+
+Escopo recomendado:
+
+- Só mostrar tabela quando houver **exatamente 1 componente selecionado**.
+- Para tipos:
+  - `not`: colunas `in | out`
+  - `and/nand/or/nor/xor/xnor`: colunas `A | B | out`
+- Para `input`, `button`, `led`: mensagem “Tabela verdade não se aplica” ou estado atual.
+- Para múltipla seleção/fio: mensagem simples.
+
+Implementação limpa em `App.tsx`:
+
+```ts
+function TruthTable({ type }: { type: GateType }) { ... }
+```
+
+Pode usar helper puro:
+
+```ts
+function evalGate(type: GateType, a: boolean, b = false): boolean
+```
+
+Cuidado para não duplicar lógica divergente do `evaluateCircuit`. Como é só UI, aceitável, mas ideal manter as expressões idênticas:
+
+- AND: `a && b`
+- NAND: `!(a && b)`
+- OR: `a || b`
+- NOR: `!(a || b)`
+- XOR: `a !== b`
+- XNOR: `a === b`
+- NOT: `!a`
+
+CSS pequeno:
+- `.truth-table`
+- células compactas;
+- valores `0/1`;
+- destacar saída `1` talvez com cor.
+
+Risco principal: seleção de fio ou múltipla seleção quebrar lookup. Então derive assim:
+
+```ts
+const selectedComponent =
+  selection.componentIds.length === 1
+    ? circuit.components.find(...)
+    : null;
+```
+
+Critério de aceite:
+1. Seleciona AND → mostra 4 linhas.
+2. Seleciona NOT → mostra 2 linhas.
+3. Seleciona LED/Input/fio/nada → painel não quebra e explica.
+
+### Driver / after_edit / 2026-05-22T19:21:25.389Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Adicionei tabela verdade contextual no painel de propriedades: mostra tabela para NOT e portas de duas entradas; para outros componentes ou múltipla seleção mostra mensagem. Build passou.
+
+### Navigator / 2026-05-22T19:21:25.389Z
+
+Boa. Implementação está bem encaixada no painel direito e sem mexer na simulação.
+
+Eu validaria manualmente:
+
+1. Selecionar `AND/NAND/OR/NOR/XOR/XNOR` → tabela com 4 linhas correta.
+2. Selecionar `NOT` → tabela com 2 linhas.
+3. Selecionar `Input`, `Pulso`, `LED`, fio ou nada → mensagem clara, sem quebrar.
+4. Seleção múltipla → pede para selecionar apenas um componente.
+5. Após deletar componente selecionado, painel volta para estado vazio.
+
+Risco pequeno: `evaluateGate` duplica lógica de `evaluateCircuit`. Está ok para UI, mas se adicionarmos portas novas depois, precisa lembrar de atualizar os dois lugares. Futuro ajuste: extrair helper lógico compartilhado no core.
+
+Também notei que o painel se chama “Tabela Verdade”, mas para componentes não-lógicos ele vira mensagem de propriedades. Ok por enquanto; se crescer, talvez renomear para “Propriedades” e ter seção “Tabela verdade”.
+
+Próximo passo natural: mostrar também o **estado atual** do componente selecionado abaixo da tabela, por exemplo entradas/saída avaliadas no circuito.
+
+### Driver / discuss / 2026-05-22T19:25:12.104Z
+
+Usuário quer debater como tornar a tabela verdade mais útil antes de implementar. Precisamos propor opções: tabela do componente vs do circuito, estado atual destacado, seleção de entradas/saídas, gerar tabela para subcircuito, export, etc. Sem editar.
+
+### Navigator / 2026-05-22T19:25:12.104Z
+
+Boa pausa. Eu separaria em níveis de utilidade, para não transformar isso num projeto grande de uma vez.
+
+## Opção 1 — melhorar a tabela atual do componente
+Mais simples e útil agora:
+
+- Destacar a linha correspondente ao **estado atual** das entradas.
+- Mostrar valores atuais dos pinos:
+  - `A=1`, `B=0`, `out=1`
+- Para LED/Input/Pulso, mostrar “estado atual” em vez de tabela.
+- Para fio selecionado, mostrar valor do sinal no fio.
+
+**Eu faria isso primeiro.** É baixo risco e conecta a teoria da tabela com o circuito real.
+
+## Opção 2 — tabela verdade do circuito inteiro
+Mais poderosa, mas precisa definir escopo:
+
+- Quais são as entradas? Componentes `Input`.
+- Quais são as saídas? Componentes `LED`.
+- Gerar todas as combinações dos Inputs e calcular LEDs.
+
+Exemplo:
+
+```txt
+I1 I2 | LED1
+0  0  | 0
+0  1  | 1
+1  0  | 1
+1  1  | 0
+```
+
+Limite recomendado:
+- Até 6 ou 8 inputs, porque cresce `2^n`.
+- Se passar disso, mostrar aviso.
+
+## Opção 3 — escolher entradas e saídas
+Mais flexível, mas mais UI:
+
+- Usuário marca quais Inputs entram na tabela.
+- Usuário marca quais LEDs/saídas observar.
+- Bom para circuitos maiores.
+
+Eu deixaria para depois.
+
+## Opção 4 — tabela de subcircuito/seleção
+Interessante, mas complexo:
+
+- Selecionar um grupo de portas.
+- Detectar pinos de fronteira.
+- Gerar tabela só daquele bloco.
+
+Isso é bem mais avançado. Não faria agora.
+
+## Opção 5 — exportar tabela
+Útil depois que a tabela do circuito existir:
+
+- Copiar como CSV/Markdown.
+- Baixar `.csv`.
+
+Baixo risco, mas depende de antes termos a tabela certa.
+
+## Minha recomendação
+
+Próximo passo pequeno:
+
+1. Manter a tabela contextual do componente.
+2. Adicionar **estado atual destacado**.
+3. Adicionar uma segunda seção: **Tabela verdade do circuito**, usando todos `Input` como entradas e todos `LED` como saídas.
+4. Colocar limite de combinações, tipo máximo 6 inputs inicialmente.
+
+Pergunta de produto para o usuário: a tabela verdade deve servir mais para **entender uma porta selecionada** ou para **verificar o comportamento do circuito completo**?
+
+### Driver / before_edit / 2026-05-22T19:28:17.448Z
+Files: src/ui/App.tsx, src/ui/styles.css, src/core/evaluateCircuit.ts
+
+Usuário decidiu: tabela verdade deve ser do circuito inteiro por padrão. Vou implementar painel de tabela verdade do circuito: usa componentes type input como entradas, led como saídas; gera combinações até limite; avalia circuito para cada combinação sem mutar estado; mostra colunas labels/ids. Manter mensagens se sem inputs/outputs ou input demais.
+
+### Navigator / 2026-05-22T19:28:17.448Z
+
+Boa decisão. Eu implementaria como **painel padrão do circuito**, não mais dependente da seleção.
+
+Plano seguro em `src/ui/App.tsx`:
+
+- Entradas: `circuit.components.filter(c => c.type === 'input')`
+- Saídas: `circuit.components.filter(c => c.type === 'led')`
+- Limite inicial: eu usaria **6 inputs** (`64` linhas). Acima disso, mostrar aviso.
+- Para cada combinação:
+  - criar um `testCircuit` clonado:
+    ```ts
+    const testCircuit = {
+      ...circuit,
+      components: circuit.components.map((component) =>
+        component.type === 'input'
+          ? { ...component, state: valueForThatInput }
+          : component
+      ),
+    };
+    ```
+  - chamar `evaluateCircuit(testCircuit)`
+  - ler LEDs por:
+    ```ts
+    evaluation[led.id]?.in
+    ```
+
+Cuidados importantes:
+
+1. **Não mutar `circuit` real**
+   - tabela verdade não deve entrar no histórico nem alterar switches visuais.
+
+2. **Ordem estável**
+   - usar ordem dos componentes no circuito para colunas.
+   - label: `component.label ?? component.id`.
+
+3. **Botão/Pulso**
+   - Como o usuário definiu entradas como `Input`, eu deixaria `button` fora da tabela e no estado atual/falso. Não incluir como variável agora.
+
+4. **Sem inputs/outputs**
+   - Sem inputs: mensagem “Adicione componentes Input”.
+   - Sem LEDs: mensagem “Adicione LEDs para observar saídas”.
+
+5. **Muitos inputs**
+   - Mostrar:
+     > Tabela omitida: 8 entradas gerariam 256 combinações. Limite atual: 6.
+
+6. **Seleção**
+   - Pode manter uma pequena seção abaixo para componente selecionado depois, mas agora eu substituiria o painel por “Tabela verdade do circuito” para ficar claro.
+
+Critério de aceite:
+- Circuito `Input -> NOT -> LED` mostra 2 linhas corretas.
+- Circuito XOR com dois inputs mostra 4 linhas.
+- Alternar inputs reais não é alterado pela geração da tabela.
+
+### Driver / after_edit / 2026-05-22T19:30:31.603Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Troquei a tabela do painel para tabela verdade do circuito inteiro por padrão. Usa todos os componentes input como entradas e LEDs como saídas, gera combinações até 6 inputs, avalia cópias do circuito sem mutar estado real e mostra resultado. Build passou.
+
+### Navigator / 2026-05-22T19:30:31.603Z
+
+Boa mudança. A tabela agora responde melhor à pergunta “o circuito faz o quê?”, não só “essa porta faz o quê?”.
+
+Validações importantes:
+
+1. `Input -> NOT -> LED` deve mostrar:
+   - `0 | 1`
+   - `1 | 0`
+
+2. `Input A + Input B -> XOR -> LED`:
+   - `00 -> 0`
+   - `01 -> 1`
+   - `10 -> 1`
+   - `11 -> 0`
+
+3. Alternar os switches reais no canvas **não deve** mudar/estragar o circuito salvo; a tabela usa cópias, correto.
+
+4. Circuitos sem `Input` ou sem `LED` mostram mensagens úteis.
+
+5. Com mais de 6 inputs, o aviso evita congelar a UI.
+
+Risco pequeno: a tabela ignora `button` como entrada variável. Acho certo por enquanto, porque `Pulso` é momentâneo. Se o usuário esperar incluir Pulso, podemos depois adicionar opção “incluir botões como entradas”.
+
+Próximo refinamento útil: destacar na tabela a linha correspondente ao estado atual dos `Input`s no canvas. Isso conecta simulação atual com a tabela completa.
+
