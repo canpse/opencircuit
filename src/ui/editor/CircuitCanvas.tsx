@@ -14,6 +14,8 @@ import outputPortAsset from '../../assets/components/output_port.png';
 import xnorGateAsset from '../../assets/components/xnor_gate.png';
 import xorGateAsset from '../../assets/components/xor_gate.png';
 
+export type WireStyle = 'orthogonal' | 'bezier';
+
 type Tool = GateType | 'select' | 'wire' | 'pan';
 type Selection = { componentIds: string[]; wireIds: string[] };
 type Marquee = { start: Point; end: Point } | null;
@@ -23,18 +25,27 @@ type Dragging = {
   origins: Record<string, Point>;
   recorded: boolean;
 } | null;
+type ResizingText = {
+  componentId: string;
+  startMouse: Point;
+  startWidth: number;
+  recorded: boolean;
+} | null;
 type Camera = { x: number; y: number; width: number; height: number };
 type Panning = { startClient: Point; startCamera: Camera } | null;
+type WireRoute = { wireId: string; points: Point[]; jumps: Point[] };
 
 interface Props {
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
   selectedTool: Tool;
+  wireStyle: WireStyle;
   pendingWire: PinRef | null;
   selection: Selection;
   onCanvasAdd: (type: GateType, point: Point) => void;
   onBeginMoveComponent: () => void;
   onMoveComponents: (moves: Array<{ componentId: string; point: Point }>) => void;
+  onResizeTextComponent: (componentId: string, width: number) => void;
   onToggleInput: (componentId: string) => void;
   onSetButtonPressed: (componentId: string, pressed: boolean) => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
@@ -72,6 +83,7 @@ export function CircuitCanvas(props: Props) {
   const [marquee, setMarquee] = useState<Marquee>(null);
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [panning, setPanning] = useState<Panning>(null);
+  const [resizingText, setResizingText] = useState<ResizingText>(null);
   const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
   const [editingLabel, setEditingLabel] = useState<{ componentId: string; value: string } | null>(null);
   const labelInputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +92,14 @@ export function CircuitCanvas(props: Props) {
   const componentById = useMemo(
     () => new Map(props.circuit.components.map((component) => [component.id, component])),
     [props.circuit.components],
+  );
+  const wireRoutes = useMemo(
+    () => props.wireStyle === 'orthogonal' ? routeCircuitWires(props.circuit.wires, componentById, props.circuit.components) : [],
+    [props.wireStyle, props.circuit.wires, componentById, props.circuit.components],
+  );
+  const routeByWireId = useMemo(
+    () => new Map(wireRoutes.map((route) => [route.wireId, route])),
+    [wireRoutes],
   );
   const zoomPercent = Math.round((DEFAULT_CAMERA.width / camera.width) * 100);
 
@@ -290,6 +310,14 @@ export function CircuitCanvas(props: Props) {
           setMarquee({ ...marquee, end: point });
           return;
         }
+        if (resizingText) {
+          if (!resizingText.recorded) {
+            props.onBeginMoveComponent();
+            setResizingText({ ...resizingText, recorded: true });
+          }
+          props.onResizeTextComponent(resizingText.componentId, Math.max(90, resizingText.startWidth + point.x - resizingText.startMouse.x));
+          return;
+        }
         if (!dragging) return;
         if (!dragging.recorded) {
           props.onBeginMoveComponent();
@@ -312,6 +340,7 @@ export function CircuitCanvas(props: Props) {
         }
         finishMarquee(marquee);
         setDragging(null);
+        setResizingText(null);
         setPanning(null);
       }}
       onMouseLeave={() => {
@@ -321,6 +350,7 @@ export function CircuitCanvas(props: Props) {
         }
         finishMarquee(marquee);
         setDragging(null);
+        setResizingText(null);
         setPanning(null);
         setMousePoint(null);
       }}
@@ -353,6 +383,8 @@ export function CircuitCanvas(props: Props) {
           <WireView
             key={wire.id}
             wire={wire}
+            route={routeByWireId.get(wire.id)}
+            wireStyle={props.wireStyle}
             componentById={componentById}
             evaluation={props.evaluation}
             selected={props.selection.wireIds.includes(wire.id)}
@@ -364,7 +396,13 @@ export function CircuitCanvas(props: Props) {
       </g>
 
       {props.pendingWire && !dragging && (
-        <PendingWire pendingWire={props.pendingWire} componentById={componentById} mousePoint={mousePoint} />
+        <PendingWire
+          pendingWire={props.pendingWire}
+          componentById={componentById}
+          components={props.circuit.components}
+          wireStyle={props.wireStyle}
+          mousePoint={mousePoint}
+        />
       )}
 
       {marquee && <MarqueeRect marquee={marquee} />}
@@ -397,6 +435,13 @@ export function CircuitCanvas(props: Props) {
             onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
             onRemove={() => props.onRemoveComponent(component.id)}
             onRenameStart={() => startRename(component)}
+            onResizeStart={(event) => {
+              event.stopPropagation();
+              const point = svgPoint(event);
+              props.onSelectComponent(component.id);
+              setDragging(null);
+              setResizingText({ componentId: component.id, startMouse: point, startWidth: textComponentWidth(component), recorded: false });
+            }}
             onPinMouseDown={(pin, kind) => {
               if (kind !== 'output') return;
               props.onPinClick(pin, kind);
@@ -427,8 +472,8 @@ export function CircuitCanvas(props: Props) {
           <foreignObject
             className="label-editor-object"
             x={component.x}
-            y={component.y + definition.height + 4}
-            width={definition.width}
+            y={component.y + componentBounds(component).height + 4}
+            width={component.type === 'text' ? textComponentWidth(component) : definition.width}
             height="38"
           >
             <input
@@ -459,8 +504,10 @@ function MarqueeRect({ marquee }: { marquee: NonNullable<Marquee> }) {
   return <rect className="marquee-selection" x={rect.x} y={rect.y} width={rect.width} height={rect.height} />;
 }
 
-function WireView({ wire, componentById, evaluation, selected, onSelect, onContextMenu, onRemove }: {
+function WireView({ wire, route, wireStyle, componentById, evaluation, selected, onSelect, onContextMenu, onRemove }: {
   wire: Wire;
+  route: WireRoute | undefined;
+  wireStyle: WireStyle;
   componentById: Map<string, LogicComponent>;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -473,13 +520,14 @@ function WireView({ wire, componentById, evaluation, selected, onSelect, onConte
   if (!from || !to) return null;
   const start = getPinPosition(from, wire.from.pinId);
   const end = getPinPosition(to, wire.to.pinId);
-  const midX = Math.round((start.x + end.x) / 2);
+  const points = route?.points ?? [start, end];
   const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
+  const d = wireStyle === 'orthogonal' ? orthogonalPath(points, route?.jumps ?? []) : bezierPath(start, end);
 
   return (
     <path
-      d={`M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`}
-      className={`wire ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
+      d={d}
+      className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
       onClick={(event) => {
         event.stopPropagation();
         onSelect();
@@ -497,31 +545,29 @@ function WireView({ wire, componentById, evaluation, selected, onSelect, onConte
   );
 }
 
-function PendingWire({ pendingWire, componentById, mousePoint }: {
+function PendingWire({ pendingWire, componentById, components, wireStyle, mousePoint }: {
   pendingWire: PinRef;
   componentById: Map<string, LogicComponent>;
+  components: LogicComponent[];
+  wireStyle: WireStyle;
   mousePoint: Point | null;
 }) {
   const component = componentById.get(pendingWire.componentId);
   if (!component) return null;
   const start = getPinPosition(component, pendingWire.pinId);
   const end = mousePoint;
-  const midX = end ? Math.round((start.x + end.x) / 2) : start.x;
+  const route = end && wireStyle === 'orthogonal' ? routeBetweenPoints(start, end, components, new Set([component.id]), 0) : null;
+  const d = end ? (wireStyle === 'orthogonal' && route ? orthogonalPath(route, []) : bezierPath(start, end)) : '';
 
   return (
     <g className="pending-wire-preview">
-      {end && (
-        <path
-          className="wire pending"
-          d={`M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`}
-        />
-      )}
+      {end && <path className={`wire pending ${wireStyle}`} d={d} />}
       <circle className="pending-pulse" cx={start.x} cy={start.y} r="12" />
     </g>
   );
 }
 
-function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onRenameStart, onPinMouseDown, onPinMouseUp, onPinClick }: {
+function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onRenameStart, onResizeStart, onPinMouseDown, onPinMouseUp, onPinClick }: {
   component: LogicComponent;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -531,15 +577,21 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
   onSetButtonPressed: (pressed: boolean) => void;
   onRemove: () => void;
   onRenameStart: () => void;
+  onResizeStart: (event: MouseEvent<SVGRectElement>) => void;
   onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
 }) {
   const definition = COMPONENT_DEFINITIONS[component.type];
+  const bodyWidth = component.type === 'text' ? textComponentWidth(component) : definition.width;
+  const labelLines = component.type === 'text' ? wrapText(component.label ?? definition.label, bodyWidth - 42) : [];
+  const textBodyHeight = Math.max(definition.height, labelLines.length * 18 + 24);
+  const bodyHeight = component.type === 'text' ? textBodyHeight : definition.height;
   const outputValue = Boolean(evaluation[component.id]?.out);
   const ledValue = Boolean(evaluation[component.id]?.in);
   const buttonPressed = component.type === 'button' && Boolean(component.state);
   const gateAsset = GATE_ASSETS[component.type];
+  const isCombinationalBlock = !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
 
   return (
     <g
@@ -557,10 +609,10 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
         onRenameStart();
       }}
     >
-      <rect className="gate-body" width={definition.width} height={definition.height} rx="14" />
+      <rect className={component.type === 'text' ? 'text-note-body' : 'gate-body'} width={bodyWidth} height={bodyHeight} rx="14" />
       <g
         className="remove-component"
-        transform={`translate(${definition.width - 8}, 8)`}
+        transform={`translate(${bodyWidth - 8}, 8)`}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -618,6 +670,61 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
           />
         </g>
       )}
+      {component.type === 'text' && (
+        <>
+          <text
+            className="text-note-label editable-label"
+            x="14"
+            y="22"
+            textAnchor="start"
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onRenameStart();
+            }}
+            onDoubleClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onRenameStart();
+            }}
+          >
+            {labelLines.map((line, index) => (
+              <tspan key={`${line}-${index}`} x="14" dy={index === 0 ? 0 : 18}>{line}</tspan>
+            ))}
+          </text>
+          <rect
+            className="text-resize-handle"
+            x={bodyWidth - 12}
+            y={bodyHeight - 12}
+            width="12"
+            height="12"
+            rx="3"
+            onMouseDown={onResizeStart}
+          />
+        </>
+      )}
+      {isCombinationalBlock && (
+        <text
+          className="block-component-title editable-label"
+          x={definition.width / 2}
+          y="18"
+          textAnchor="middle"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRenameStart();
+          }}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRenameStart();
+          }}
+        >
+          {component.label ?? definition.label}
+        </text>
+      )}
       {gateAsset && (
         <image
           className="component-asset gate-asset"
@@ -629,25 +736,27 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
           preserveAspectRatio="xMidYMid meet"
         />
       )}
-      <text
-        className="component-label editable-label"
-        x={definition.width / 2}
-        y={definition.height + 18}
-        textAnchor="middle"
-        onMouseDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRenameStart();
-        }}
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          onRenameStart();
-        }}
-      >
-        {component.label ?? definition.label}
-      </text>
+      {component.type !== 'text' && component.type !== 'input' && component.type !== 'led' && !isCombinationalBlock && (
+        <text
+          className="component-label editable-label"
+          x={definition.width / 2}
+          y={definition.height + 18}
+          textAnchor="middle"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRenameStart();
+          }}
+          onDoubleClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRenameStart();
+          }}
+        >
+          {component.label ?? definition.label}
+        </text>
+      )}
       {definition.pins.map((pin) => {
         const value = Boolean(evaluation[component.id]?.[pin.id]);
         return (
@@ -670,8 +779,13 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
             }}
           >
             <circle className={`pin ${pin.kind} ${value ? 'on' : ''}`} cx={pin.offset.x} cy={pin.offset.y} r="7" />
-            {pin.kind === 'input' && component.type !== 'led' && (
+            {pin.kind === 'input' && component.type !== 'led' && component.type !== 'not' && (
               <text className="pin-label" x={pin.offset.x + 12} y={pin.offset.y + 4} textAnchor="start">
+                {pin.label}
+              </text>
+            )}
+            {pin.kind === 'output' && definition.pins.filter((candidate) => candidate.kind === 'output').length > 1 && (
+              <text className="pin-label" x={pin.offset.x - 12} y={pin.offset.y + 4} textAnchor="end">
                 {pin.label}
               </text>
             )}
@@ -697,7 +811,178 @@ function normalizeRect(start: Point, end: Point): RectBounds {
 
 function componentBounds(component: LogicComponent): RectBounds {
   const definition = COMPONENT_DEFINITIONS[component.type];
+  if (component.type === 'text') {
+    const width = textComponentWidth(component);
+    const lines = wrapText(component.label ?? definition.label, width - 42);
+    return { x: component.x, y: component.y, width, height: Math.max(definition.height, lines.length * 18 + 24) };
+  }
   return { x: component.x, y: component.y, width: definition.width, height: definition.height };
+}
+
+function textComponentWidth(component: LogicComponent): number {
+  return Math.max(90, component.width ?? COMPONENT_DEFINITIONS.text.width);
+}
+
+function wrapText(text: string, maxWidth: number): string[] {
+  const maxChars = Math.max(5, Math.floor(maxWidth / 10));
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ['Texto'];
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if (word.length > maxChars) {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+      for (let index = 0; index < word.length; index += maxChars) {
+        lines.push(word.slice(index, index + maxChars));
+      }
+      continue;
+    }
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function routeCircuitWires(wires: Wire[], componentById: Map<string, LogicComponent>, components: LogicComponent[]): WireRoute[] {
+  const routes = wires.map((wire, index) => {
+    const from = componentById.get(wire.from.componentId);
+    const to = componentById.get(wire.to.componentId);
+    if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
+    const start = getPinPosition(from, wire.from.pinId);
+    const end = getPinPosition(to, wire.to.pinId);
+    const ignore = new Set([from.id, to.id]);
+    return { wireId: wire.id, points: routeBetweenPoints(start, end, components, ignore, index), jumps: [] };
+  });
+
+  return routes.map((route, index) => ({
+    ...route,
+    jumps: findWireJumps(route, routes.filter((_, otherIndex) => otherIndex !== index)),
+  }));
+}
+
+function routeBetweenPoints(start: Point, end: Point, components: LogicComponent[], ignoreComponentIds: Set<string>, index: number): Point[] {
+  const offset = ((index % 5) - 2) * 10;
+  const midX = Math.round((start.x + end.x) / 2) + offset;
+  const margin = 34 + Math.abs(offset);
+  const obstacles = components
+    .filter((component) => !ignoreComponentIds.has(component.id))
+    .map((component) => inflateRect(componentBounds(component), 14));
+  const allBounds = components.map(componentBounds);
+  const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
+  const maxY = Math.max(start.y, end.y, ...allBounds.map((rect) => rect.y + rect.height)) + margin;
+  const candidates: Point[][] = [
+    compactRoute([start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]),
+    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: end.y }, end]),
+    compactRoute([start, { x: end.x - margin, y: start.y }, { x: end.x - margin, y: end.y }, end]),
+    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: minY }, { x: end.x - margin, y: minY }, { x: end.x - margin, y: end.y }, end]),
+    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: maxY }, { x: end.x - margin, y: maxY }, { x: end.x - margin, y: end.y }, end]),
+  ];
+  return candidates
+    .map((points) => ({ points, collisions: countRouteCollisions(points, obstacles), length: routeLength(points) }))
+    .sort((a, b) => a.collisions - b.collisions || a.length - b.length)[0].points;
+}
+
+function compactRoute(points: Point[]): Point[] {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    return !previous || previous.x !== point.x || previous.y !== point.y;
+  });
+}
+
+function inflateRect(rect: RectBounds, amount: number): RectBounds {
+  return { x: rect.x - amount, y: rect.y - amount, width: rect.width + amount * 2, height: rect.height + amount * 2 };
+}
+
+function countRouteCollisions(points: Point[], obstacles: RectBounds[]): number {
+  return routeSegments(points).reduce(
+    (count, segment) => count + obstacles.filter((rect) => segmentIntersectsRect(segment.a, segment.b, rect)).length,
+    0,
+  );
+}
+
+function routeLength(points: Point[]): number {
+  return routeSegments(points).reduce((sum, segment) => sum + Math.abs(segment.a.x - segment.b.x) + Math.abs(segment.a.y - segment.b.y), 0);
+}
+
+function routeSegments(points: Point[]): Array<{ a: Point; b: Point }> {
+  return points.slice(0, -1).map((point, index) => ({ a: point, b: points[index + 1] }));
+}
+
+function segmentIntersectsRect(a: Point, b: Point, rect: RectBounds): boolean {
+  if (a.x === b.x) {
+    const y1 = Math.min(a.y, b.y);
+    const y2 = Math.max(a.y, b.y);
+    return a.x >= rect.x && a.x <= rect.x + rect.width && y2 >= rect.y && y1 <= rect.y + rect.height;
+  }
+  if (a.y === b.y) {
+    const x1 = Math.min(a.x, b.x);
+    const x2 = Math.max(a.x, b.x);
+    return a.y >= rect.y && a.y <= rect.y + rect.height && x2 >= rect.x && x1 <= rect.x + rect.width;
+  }
+  return false;
+}
+
+function findWireJumps(route: WireRoute, otherRoutes: WireRoute[]): Point[] {
+  const jumps: Point[] = [];
+  for (const segment of routeSegments(route.points)) {
+    if (segment.a.y !== segment.b.y) continue;
+    const minX = Math.min(segment.a.x, segment.b.x) + 12;
+    const maxX = Math.max(segment.a.x, segment.b.x) - 12;
+    for (const other of otherRoutes) {
+      for (const otherSegment of routeSegments(other.points)) {
+        if (otherSegment.a.x !== otherSegment.b.x) continue;
+        const x = otherSegment.a.x;
+        const y = segment.a.y;
+        const otherMinY = Math.min(otherSegment.a.y, otherSegment.b.y) + 8;
+        const otherMaxY = Math.max(otherSegment.a.y, otherSegment.b.y) - 8;
+        if (x > minX && x < maxX && y > otherMinY && y < otherMaxY) jumps.push({ x, y });
+      }
+    }
+  }
+  return jumps;
+}
+
+function bezierPath(start: Point, end: Point): string {
+  const midX = Math.round((start.x + end.x) / 2);
+  return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+}
+
+function orthogonalPath(points: Point[], jumps: Point[]): string {
+  if (points.length === 0) return '';
+  const commands = [`M ${points[0].x} ${points[0].y}`];
+  for (const segment of routeSegments(points)) {
+    const segmentJumps = jumps
+      .filter((jump) => pointOnSegment(jump, segment.a, segment.b))
+      .sort((left, right) => distanceAlongSegment(segment.a, left) - distanceAlongSegment(segment.a, right));
+    if (segment.a.y === segment.b.y && segmentJumps.length > 0) {
+      const direction = segment.b.x >= segment.a.x ? 1 : -1;
+      for (const jump of segmentJumps) {
+        commands.push(`L ${jump.x - direction * 8} ${jump.y}`);
+        commands.push(`Q ${jump.x} ${jump.y - 10} ${jump.x + direction * 8} ${jump.y}`);
+      }
+    }
+    commands.push(`L ${segment.b.x} ${segment.b.y}`);
+  }
+  return commands.join(' ');
+}
+
+function pointOnSegment(point: Point, a: Point, b: Point): boolean {
+  if (a.y === b.y && point.y === a.y) return point.x > Math.min(a.x, b.x) && point.x < Math.max(a.x, b.x);
+  if (a.x === b.x && point.x === a.x) return point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y);
+  return false;
+}
+
+function distanceAlongSegment(start: Point, point: Point): number {
+  return Math.abs(point.x - start.x) + Math.abs(point.y - start.y);
 }
 
 function intersects(a: RectBounds, b: RectBounds): boolean {

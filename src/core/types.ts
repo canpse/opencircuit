@@ -1,4 +1,7 @@
-export type GateType = 'input' | 'button' | 'led' | 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not';
+export type GateType =
+  | 'input' | 'button' | 'led' | 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'text'
+  | 'half-adder' | 'full-adder' | 'mux-2-1' | 'mux-4-1' | 'decoder-2-4' | 'comparator-1-bit'
+  | 'encoder-4-2' | 'odd-parity-3' | 'majority-3' | 'half-subtractor' | 'full-subtractor';
 export type LogicValue = boolean;
 export type PinKind = 'input' | 'output';
 
@@ -14,6 +17,7 @@ export interface LogicComponent {
   y: number;
   label?: string;
   state?: boolean;
+  width?: number;
 }
 
 export interface PinRef {

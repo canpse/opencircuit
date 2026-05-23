@@ -13,10 +13,11 @@ import orGateAsset from '../assets/components/or_gate.png';
 import outputPortAsset from '../assets/components/output_port.png';
 import xnorGateAsset from '../assets/components/xnor_gate.png';
 import xorGateAsset from '../assets/components/xor_gate.png';
-import { CircuitCanvas } from './editor/CircuitCanvas';
+import { CircuitCanvas, type WireStyle } from './editor/CircuitCanvas';
 
 const GRID = 20;
 const HISTORY_LIMIT = 100;
+const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 
 type Selection = { componentIds: string[]; wireIds: string[] };
 type HistoryState = { past: CircuitDocument[]; future: CircuitDocument[] };
@@ -44,6 +45,11 @@ const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
   { title: 'Entradas', tools: ['input', 'button'] },
   { title: 'Saídas', tools: ['led'] },
   { title: 'Portas Lógicas', tools: ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] },
+  {
+    title: 'Blocos Combinacionais',
+    tools: ['half-adder', 'full-adder', 'mux-2-1', 'mux-4-1', 'decoder-2-4', 'comparator-1-bit', 'encoder-4-2', 'odd-parity-3', 'majority-3', 'half-subtractor', 'full-subtractor'],
+  },
+  { title: 'Anotações', tools: ['text'] },
 ];
 
 const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocument }> = [
@@ -57,6 +63,7 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
         { id: 'X1', type: 'xor', x: 250, y: 130, label: 'XOR' },
         { id: 'OUT', type: 'led', x: 430, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 380, label: 'XOR acende a saída quando A e B são diferentes. Use os switches e acompanhe a linha destacada na tabela verdade.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
@@ -74,6 +81,7 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'A', type: 'input', x: 80, y: 140, label: 'A', state: false },
         { id: 'N1', type: 'nand', x: 250, y: 130, label: 'NAND' },
         { id: 'OUT', type: 'led', x: 450, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 250, width: 410, label: 'Uma porta NAND pode funcionar como NOT quando a mesma entrada alimenta os dois pinos. Assim OUT é o inverso de A.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'a' } },
@@ -94,6 +102,7 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'A1', type: 'and', x: 250, y: 220, label: 'CARRY' },
         { id: 'SUM', type: 'led', x: 450, y: 114, label: 'SUM' },
         { id: 'CARRY', type: 'led', x: 450, y: 229, label: 'CARRY' },
+        { id: 'TXT1', type: 'text', x: 80, y: 330, width: 440, label: 'Meio somador soma dois bits. SUM é A XOR B e CARRY é A AND B. Ele não considera carry de entrada.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
@@ -121,6 +130,7 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'O1', type: 'or', x: 620, y: 275, label: 'Cout' },
         { id: 'SUM', type: 'led', x: 640, y: 169, label: 'SUM' },
         { id: 'Cout', type: 'led', x: 800, y: 284, label: 'Cout' },
+        { id: 'TXT1', type: 'text', x: 70, y: 410, width: 560, label: 'Somador completo soma A, B e Cin. SUM é o bit de resultado; Cout indica transporte para a próxima coluna.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
@@ -152,6 +162,7 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'A2', type: 'and', x: 420, y: 250, label: 'B·Sel' },
         { id: 'O1', type: 'or', x: 620, y: 180, label: 'OUT' },
         { id: 'OUT', type: 'led', x: 800, y: 189, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 70, y: 470, width: 560, label: 'Multiplexador 2:1 escolhe qual entrada chega à saída. Quando Sel=0, OUT=A. Quando Sel=1, OUT=B.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'Sel', pinId: 'out' }, to: { componentId: 'N1', pinId: 'in' } },
@@ -165,6 +176,306 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
       ],
     },
   },
+
+  {
+    id: 'comparator-1-bit',
+    name: 'Comparador 1 bit',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 90, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 210, label: 'B', state: false },
+        { id: 'NB', type: 'not', x: 230, y: 80, label: '!B' },
+        { id: 'NA', type: 'not', x: 230, y: 250, label: '!A' },
+        { id: 'GTG', type: 'and', x: 400, y: 85, label: 'A>B' },
+        { id: 'EQG', type: 'xnor', x: 400, y: 185, label: 'A=B' },
+        { id: 'LTG', type: 'and', x: 400, y: 285, label: 'A<B' },
+        { id: 'GT', type: 'led', x: 590, y: 94, label: 'A>B' },
+        { id: 'EQ', type: 'led', x: 590, y: 194, label: 'A=B' },
+        { id: 'LT', type: 'led', x: 590, y: 294, label: 'A<B' },
+        { id: 'TXT1', type: 'text', x: 70, y: 390, width: 520, label: 'Comparador de 1 bit. Ele indica se A é maior, igual ou menor que B usando NOT, AND e XNOR.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'NB', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'NA', pinId: 'in' } },
+        { id: 'W3', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'GTG', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'NB', pinId: 'out' }, to: { componentId: 'GTG', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'EQG', pinId: 'a' } },
+        { id: 'W6', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'EQG', pinId: 'b' } },
+        { id: 'W7', from: { componentId: 'NA', pinId: 'out' }, to: { componentId: 'LTG', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'LTG', pinId: 'b' } },
+        { id: 'W9', from: { componentId: 'GTG', pinId: 'out' }, to: { componentId: 'GT', pinId: 'in' } },
+        { id: 'W10', from: { componentId: 'EQG', pinId: 'out' }, to: { componentId: 'EQ', pinId: 'in' } },
+        { id: 'W11', from: { componentId: 'LTG', pinId: 'out' }, to: { componentId: 'LT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'decoder-2-4',
+    name: 'Decodificador 2 para 4',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 90, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 210, label: 'B', state: false },
+        { id: 'NA', type: 'not', x: 230, y: 70, label: '!A' },
+        { id: 'NB', type: 'not', x: 230, y: 210, label: '!B' },
+        { id: 'Y0G', type: 'and', x: 410, y: 40, label: 'Y0' },
+        { id: 'Y1G', type: 'and', x: 410, y: 130, label: 'Y1' },
+        { id: 'Y2G', type: 'and', x: 410, y: 220, label: 'Y2' },
+        { id: 'Y3G', type: 'and', x: 410, y: 310, label: 'Y3' },
+        { id: 'Y0', type: 'led', x: 600, y: 49, label: 'Y0' },
+        { id: 'Y1', type: 'led', x: 600, y: 139, label: 'Y1' },
+        { id: 'Y2', type: 'led', x: 600, y: 229, label: 'Y2' },
+        { id: 'Y3', type: 'led', x: 600, y: 319, label: 'Y3' },
+        { id: 'TXT1', type: 'text', x: 70, y: 430, width: 560, label: 'Decodificador 2 para 4. Para cada combinação de A e B, exatamente uma saída Y0 a Y3 fica ligada.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'NA', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'NB', pinId: 'in' } },
+        { id: 'W3', from: { componentId: 'NA', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'NB', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'NA', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'a' } },
+        { id: 'W6', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'b' } },
+        { id: 'W7', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'Y2G', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'NB', pinId: 'out' }, to: { componentId: 'Y2G', pinId: 'b' } },
+        { id: 'W9', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'Y3G', pinId: 'a' } },
+        { id: 'W10', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'Y3G', pinId: 'b' } },
+        { id: 'W11', from: { componentId: 'Y0G', pinId: 'out' }, to: { componentId: 'Y0', pinId: 'in' } },
+        { id: 'W12', from: { componentId: 'Y1G', pinId: 'out' }, to: { componentId: 'Y1', pinId: 'in' } },
+        { id: 'W13', from: { componentId: 'Y2G', pinId: 'out' }, to: { componentId: 'Y2', pinId: 'in' } },
+        { id: 'W14', from: { componentId: 'Y3G', pinId: 'out' }, to: { componentId: 'Y3', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'demux-1-2',
+    name: 'Demultiplexador 1 para 2',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D', type: 'input', x: 70, y: 100, label: 'D', state: false },
+        { id: 'Sel', type: 'input', x: 70, y: 250, label: 'Sel', state: false },
+        { id: 'N1', type: 'not', x: 240, y: 230, label: '!Sel' },
+        { id: 'Y0G', type: 'and', x: 430, y: 110, label: 'Y0' },
+        { id: 'Y1G', type: 'and', x: 430, y: 250, label: 'Y1' },
+        { id: 'Y0', type: 'led', x: 630, y: 119, label: 'Y0' },
+        { id: 'Y1', type: 'led', x: 630, y: 259, label: 'Y1' },
+        { id: 'TXT1', type: 'text', x: 70, y: 370, width: 520, label: 'Demultiplexador 1 para 2. O seletor Sel decide se o dado D vai para Y0 ou para Y1.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'Sel', pinId: 'out' }, to: { componentId: 'N1', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'a' } },
+        { id: 'W3', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'b' } },
+        { id: 'W4', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'a' } },
+        { id: 'W5', from: { componentId: 'Sel', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'Y0G', pinId: 'out' }, to: { componentId: 'Y0', pinId: 'in' } },
+        { id: 'W7', from: { componentId: 'Y1G', pinId: 'out' }, to: { componentId: 'Y1', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'odd-parity-3',
+    name: 'Paridade ímpar 3 bits',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 80, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 170, label: 'B', state: false },
+        { id: 'C', type: 'input', x: 70, y: 260, label: 'C', state: false },
+        { id: 'X1', type: 'xor', x: 260, y: 120, label: 'A⊕B' },
+        { id: 'X2', type: 'xor', x: 460, y: 180, label: 'OUT' },
+        { id: 'OUT', type: 'led', x: 660, y: 189, label: 'Ímpar' },
+        { id: 'TXT1', type: 'text', x: 70, y: 370, width: 560, label: 'Paridade ímpar. A saída liga quando a quantidade de entradas ligadas é ímpar: 1 ou 3 bits em nível 1.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'X2', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'C', pinId: 'out' }, to: { componentId: 'X2', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'X2', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'majority-3',
+    name: 'Detector de maioria 3 bits',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 70, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 160, label: 'B', state: false },
+        { id: 'C', type: 'input', x: 70, y: 250, label: 'C', state: false },
+        { id: 'AB', type: 'and', x: 250, y: 70, label: 'AB' },
+        { id: 'AC', type: 'and', x: 250, y: 170, label: 'AC' },
+        { id: 'BC', type: 'and', x: 250, y: 270, label: 'BC' },
+        { id: 'O1', type: 'or', x: 450, y: 125, label: 'AB+AC' },
+        { id: 'O2', type: 'or', x: 650, y: 190, label: 'OUT' },
+        { id: 'OUT', type: 'led', x: 850, y: 199, label: 'Maioria' },
+        { id: 'TXT1', type: 'text', x: 70, y: 390, width: 560, label: 'Detector de maioria. A saída liga quando pelo menos duas das três entradas estão ligadas.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'AB', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'AB', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'AC', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'C', pinId: 'out' }, to: { componentId: 'AC', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'BC', pinId: 'a' } },
+        { id: 'W6', from: { componentId: 'C', pinId: 'out' }, to: { componentId: 'BC', pinId: 'b' } },
+        { id: 'W7', from: { componentId: 'AB', pinId: 'out' }, to: { componentId: 'O1', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'AC', pinId: 'out' }, to: { componentId: 'O1', pinId: 'b' } },
+        { id: 'W9', from: { componentId: 'O1', pinId: 'out' }, to: { componentId: 'O2', pinId: 'a' } },
+        { id: 'W10', from: { componentId: 'BC', pinId: 'out' }, to: { componentId: 'O2', pinId: 'b' } },
+        { id: 'W11', from: { componentId: 'O2', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'half-subtractor',
+    name: 'Meio subtrator',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 110, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 210, label: 'B', state: false },
+        { id: 'NA', type: 'not', x: 250, y: 240, label: '!A' },
+        { id: 'X1', type: 'xor', x: 250, y: 105, label: 'DIFF' },
+        { id: 'BRG', type: 'and', x: 430, y: 230, label: 'BORROW' },
+        { id: 'DIFF', type: 'led', x: 620, y: 114, label: 'DIFF' },
+        { id: 'BORROW', type: 'led', x: 620, y: 239, label: 'BORROW' },
+        { id: 'TXT1', type: 'text', x: 70, y: 340, width: 560, label: 'Meio subtrator calcula A - B. DIFF é A XOR B e BORROW liga quando é preciso emprestar: !A AND B.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'NA', pinId: 'in' } },
+        { id: 'W4', from: { componentId: 'NA', pinId: 'out' }, to: { componentId: 'BRG', pinId: 'a' } },
+        { id: 'W5', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'BRG', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'DIFF', pinId: 'in' } },
+        { id: 'W7', from: { componentId: 'BRG', pinId: 'out' }, to: { componentId: 'BORROW', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'full-subtractor',
+    name: 'Subtrator completo',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 60, y: 70, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 60, y: 160, label: 'B', state: false },
+        { id: 'Bin', type: 'input', x: 60, y: 310, label: 'Bin', state: false },
+        { id: 'X1', type: 'xor', x: 230, y: 110, label: 'A⊕B' },
+        { id: 'X2', type: 'xor', x: 430, y: 160, label: 'DIFF' },
+        { id: 'NA', type: 'not', x: 230, y: 250, label: '!A' },
+        { id: 'B1', type: 'and', x: 410, y: 260, label: '!A·B' },
+        { id: 'NX1', type: 'not', x: 410, y: 360, label: '!(A⊕B)' },
+        { id: 'B2', type: 'and', x: 590, y: 350, label: 'Bin·!(A⊕B)' },
+        { id: 'O1', type: 'or', x: 780, y: 305, label: 'Bout' },
+        { id: 'DIFF', type: 'led', x: 650, y: 169, label: 'DIFF' },
+        { id: 'Bout', type: 'led', x: 960, y: 314, label: 'Bout' },
+        { id: 'TXT1', type: 'text', x: 60, y: 470, width: 620, label: 'Subtrator completo calcula A - B - Bin. DIFF é o resultado e Bout indica empréstimo para a próxima coluna.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'X2', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'Bin', pinId: 'out' }, to: { componentId: 'X2', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'X2', pinId: 'out' }, to: { componentId: 'DIFF', pinId: 'in' } },
+        { id: 'W6', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'NA', pinId: 'in' } },
+        { id: 'W7', from: { componentId: 'NA', pinId: 'out' }, to: { componentId: 'B1', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'B1', pinId: 'b' } },
+        { id: 'W9', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'NX1', pinId: 'in' } },
+        { id: 'W10', from: { componentId: 'Bin', pinId: 'out' }, to: { componentId: 'B2', pinId: 'a' } },
+        { id: 'W11', from: { componentId: 'NX1', pinId: 'out' }, to: { componentId: 'B2', pinId: 'b' } },
+        { id: 'W12', from: { componentId: 'B1', pinId: 'out' }, to: { componentId: 'O1', pinId: 'a' } },
+        { id: 'W13', from: { componentId: 'B2', pinId: 'out' }, to: { componentId: 'O1', pinId: 'b' } },
+        { id: 'W14', from: { componentId: 'O1', pinId: 'out' }, to: { componentId: 'Bout', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'encoder-4-2',
+    name: 'Encoder 4 para 2',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D0', type: 'input', x: 70, y: 60, label: 'D0', state: false },
+        { id: 'D1', type: 'input', x: 70, y: 140, label: 'D1', state: false },
+        { id: 'D2', type: 'input', x: 70, y: 220, label: 'D2', state: false },
+        { id: 'D3', type: 'input', x: 70, y: 300, label: 'D3', state: false },
+        { id: 'Y0G', type: 'or', x: 300, y: 130, label: 'Y0' },
+        { id: 'Y1G', type: 'or', x: 300, y: 260, label: 'Y1' },
+        { id: 'Y0', type: 'led', x: 500, y: 139, label: 'Y0' },
+        { id: 'Y1', type: 'led', x: 500, y: 269, label: 'Y1' },
+        { id: 'TXT1', type: 'text', x: 70, y: 410, width: 560, label: 'Encoder 4 para 2. Pressupondo uma entrada ativa por vez, ele codifica D0..D3 em dois bits Y1Y0.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'D1', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'Y0G', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'D2', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'Y1G', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'Y0G', pinId: 'out' }, to: { componentId: 'Y0', pinId: 'in' } },
+        { id: 'W6', from: { componentId: 'Y1G', pinId: 'out' }, to: { componentId: 'Y1', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'mux-4-1',
+    name: 'Multiplexador 4:1',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D0', type: 'input', x: 50, y: 50, label: 'D0', state: false },
+        { id: 'D1', type: 'input', x: 50, y: 130, label: 'D1', state: false },
+        { id: 'D2', type: 'input', x: 50, y: 210, label: 'D2', state: false },
+        { id: 'D3', type: 'input', x: 50, y: 290, label: 'D3', state: false },
+        { id: 'S0', type: 'input', x: 50, y: 390, label: 'S0', state: false },
+        { id: 'S1', type: 'input', x: 50, y: 480, label: 'S1', state: false },
+        { id: 'NS0', type: 'not', x: 210, y: 380, label: '!S0' },
+        { id: 'NS1', type: 'not', x: 210, y: 480, label: '!S1' },
+        { id: 'T0A', type: 'and', x: 390, y: 40, label: 'D0·!S1' },
+        { id: 'T0', type: 'and', x: 570, y: 50, label: 'T0' },
+        { id: 'T1A', type: 'and', x: 390, y: 130, label: 'D1·!S1' },
+        { id: 'T1', type: 'and', x: 570, y: 140, label: 'T1' },
+        { id: 'T2A', type: 'and', x: 390, y: 220, label: 'D2·S1' },
+        { id: 'T2', type: 'and', x: 570, y: 230, label: 'T2' },
+        { id: 'T3A', type: 'and', x: 390, y: 310, label: 'D3·S1' },
+        { id: 'T3', type: 'and', x: 570, y: 320, label: 'T3' },
+        { id: 'O1', type: 'or', x: 760, y: 95, label: 'T0+T1' },
+        { id: 'O2', type: 'or', x: 760, y: 275, label: 'T2+T3' },
+        { id: 'O3', type: 'or', x: 960, y: 185, label: 'OUT' },
+        { id: 'OUT', type: 'led', x: 1160, y: 194, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 50, y: 590, width: 620, label: 'Multiplexador 4:1. S1 e S0 escolhem qual das quatro entradas D0, D1, D2 ou D3 aparece na saída OUT.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'S0', pinId: 'out' }, to: { componentId: 'NS0', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'S1', pinId: 'out' }, to: { componentId: 'NS1', pinId: 'in' } },
+        { id: 'W3', from: { componentId: 'D0', pinId: 'out' }, to: { componentId: 'T0A', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'NS1', pinId: 'out' }, to: { componentId: 'T0A', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'T0A', pinId: 'out' }, to: { componentId: 'T0', pinId: 'a' } },
+        { id: 'W6', from: { componentId: 'NS0', pinId: 'out' }, to: { componentId: 'T0', pinId: 'b' } },
+        { id: 'W7', from: { componentId: 'D1', pinId: 'out' }, to: { componentId: 'T1A', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'NS1', pinId: 'out' }, to: { componentId: 'T1A', pinId: 'b' } },
+        { id: 'W9', from: { componentId: 'T1A', pinId: 'out' }, to: { componentId: 'T1', pinId: 'a' } },
+        { id: 'W10', from: { componentId: 'S0', pinId: 'out' }, to: { componentId: 'T1', pinId: 'b' } },
+        { id: 'W11', from: { componentId: 'D2', pinId: 'out' }, to: { componentId: 'T2A', pinId: 'a' } },
+        { id: 'W12', from: { componentId: 'S1', pinId: 'out' }, to: { componentId: 'T2A', pinId: 'b' } },
+        { id: 'W13', from: { componentId: 'T2A', pinId: 'out' }, to: { componentId: 'T2', pinId: 'a' } },
+        { id: 'W14', from: { componentId: 'NS0', pinId: 'out' }, to: { componentId: 'T2', pinId: 'b' } },
+        { id: 'W15', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'T3A', pinId: 'a' } },
+        { id: 'W16', from: { componentId: 'S1', pinId: 'out' }, to: { componentId: 'T3A', pinId: 'b' } },
+        { id: 'W17', from: { componentId: 'T3A', pinId: 'out' }, to: { componentId: 'T3', pinId: 'a' } },
+        { id: 'W18', from: { componentId: 'S0', pinId: 'out' }, to: { componentId: 'T3', pinId: 'b' } },
+        { id: 'W19', from: { componentId: 'T0', pinId: 'out' }, to: { componentId: 'O1', pinId: 'a' } },
+        { id: 'W20', from: { componentId: 'T1', pinId: 'out' }, to: { componentId: 'O1', pinId: 'b' } },
+        { id: 'W21', from: { componentId: 'T2', pinId: 'out' }, to: { componentId: 'O2', pinId: 'a' } },
+        { id: 'W22', from: { componentId: 'T3', pinId: 'out' }, to: { componentId: 'O2', pinId: 'b' } },
+        { id: 'W23', from: { componentId: 'O1', pinId: 'out' }, to: { componentId: 'O3', pinId: 'a' } },
+        { id: 'W24', from: { componentId: 'O2', pinId: 'out' }, to: { componentId: 'O3', pinId: 'b' } },
+        { id: 'W25', from: { componentId: 'O3', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
 ];
 
 export function App() {
@@ -175,11 +486,16 @@ export function App() {
   const [history, setHistory] = useState<HistoryState>({ past: [], future: [] });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [message, setMessage] = useState('Pronto para testar lógica.');
+  const [wireStyle, setWireStyle] = useState<WireStyle>(() => loadWireStyle());
   const [truthPanelWidth, setTruthPanelWidth] = useState(320);
   const [resizingTruthPanel, setResizingTruthPanel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const evaluation = useMemo(() => evaluateCircuit(circuit), [circuit]);
+
+  useEffect(() => {
+    localStorage.setItem(WIRE_STYLE_STORAGE_KEY, wireStyle);
+  }, [wireStyle]);
 
   useEffect(() => {
     saveCircuit(circuit);
@@ -573,6 +889,17 @@ export function App() {
     setMessage(`Componente renomeado para ${label}.`);
   }
 
+  function resizeTextComponent(componentId: string, width: number) {
+    setCircuit((current) => ({
+      ...current,
+      components: current.components.map((component) =>
+        component.id === componentId && component.type === 'text'
+          ? { ...component, width: Math.round(width) }
+          : component,
+      ),
+    }));
+  }
+
   function removeComponent(componentId: string) {
     rememberCircuit();
     setCircuit((current) => ({
@@ -665,6 +992,13 @@ export function App() {
         <span className="command-separator" />
         <button onClick={() => setSelectedTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
         <button onClick={() => setSelectedTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
+        <label className="wire-style-control">
+          Fios
+          <select value={wireStyle} onChange={(event) => setWireStyle(event.target.value as WireStyle)}>
+            <option value="orthogonal">Ortogonal</option>
+            <option value="bezier">Curvo</option>
+          </select>
+        </label>
         <input ref={fileInputRef} type="file" accept="application/json" onChange={importJson} hidden />
       </div>
 
@@ -706,11 +1040,13 @@ export function App() {
               circuit={circuit}
               evaluation={evaluation}
               selectedTool={selectedTool}
+              wireStyle={wireStyle}
               pendingWire={pendingWire}
               selection={selection}
               onCanvasAdd={addComponent}
               onBeginMoveComponent={beginMoveComponent}
               onMoveComponents={moveComponents}
+              onResizeTextComponent={resizeTextComponent}
               onToggleInput={toggleInput}
               onSetButtonPressed={setButtonPressed}
               onPinClick={onPinClick}
@@ -897,6 +1233,11 @@ function truthOutputClass(value: boolean): string {
   return value ? 'truth-output on' : 'truth-output';
 }
 
+function loadWireStyle(): WireStyle {
+  const stored = localStorage.getItem(WIRE_STYLE_STORAGE_KEY);
+  return stored === 'bezier' ? 'bezier' : 'orthogonal';
+}
+
 function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
   return {
     version: circuit.version,
@@ -931,6 +1272,18 @@ function nextId(type: GateType, components: LogicComponent[]): string {
     xor: 'X',
     xnor: 'XN',
     not: 'N',
+    text: 'T',
+    'half-adder': 'HS',
+    'full-adder': 'FS',
+    'mux-2-1': 'M2',
+    'mux-4-1': 'M4',
+    'decoder-2-4': 'D',
+    'comparator-1-bit': 'C',
+    'encoder-4-2': 'E',
+    'odd-parity-3': 'P',
+    'majority-3': 'MJ',
+    'half-subtractor': 'HSub',
+    'full-subtractor': 'FSub',
   };
   const prefix = prefixByType[type];
   let index = components.length + 1;
@@ -947,5 +1300,6 @@ function defaultLabel(type: GateType, id: string): string {
   if (type === 'input') return id;
   if (type === 'button') return 'Pulso';
   if (type === 'led') return 'LED';
+  if (type === 'text') return 'Texto';
   return COMPONENT_DEFINITIONS[type].label;
 }
