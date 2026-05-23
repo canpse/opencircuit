@@ -1,4 +1,4 @@
-import { MouseEvent, WheelEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { KeyboardEvent as ReactKeyboardEvent, MouseEvent, WheelEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
 import type { CircuitDocument, EvaluationResult, GateType, LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
@@ -40,6 +40,7 @@ interface Props {
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
   onRemoveWire: (wireId: string) => void;
   onRemoveComponent: (componentId: string) => void;
+  onRenameComponent: (componentId: string, label: string) => void;
   onCancelPendingWire: () => void;
   onOpenCanvasMenu: (x: number, y: number, point: Point) => void;
   onOpenComponentMenu: (x: number, y: number, componentId: string) => void;
@@ -72,6 +73,8 @@ export function CircuitCanvas(props: Props) {
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [panning, setPanning] = useState<Panning>(null);
   const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
+  const [editingLabel, setEditingLabel] = useState<{ componentId: string; value: string } | null>(null);
+  const labelInputRef = useRef<HTMLInputElement>(null);
   const suppressNextClick = useRef(false);
   const suppressNextPinClick = useRef(false);
   const componentById = useMemo(
@@ -79,6 +82,12 @@ export function CircuitCanvas(props: Props) {
     [props.circuit.components],
   );
   const zoomPercent = Math.round((DEFAULT_CAMERA.width / camera.width) * 100);
+
+  useEffect(() => {
+    if (!editingLabel) return;
+    labelInputRef.current?.focus();
+    labelInputRef.current?.select();
+  }, [editingLabel?.componentId]);
 
   useEffect(() => {
     function isEditingText(target: EventTarget | null): boolean {
@@ -204,6 +213,38 @@ export function CircuitCanvas(props: Props) {
     if (!isBackgroundEvent(event) || props.pendingWire || props.selectedTool !== 'select') return;
     const point = svgPoint(event);
     setMarquee({ start: point, end: point });
+  }
+
+  function startRename(component: LogicComponent) {
+    const definition = COMPONENT_DEFINITIONS[component.type];
+    props.onSelectComponent(component.id);
+    setDragging(null);
+    setMarquee(null);
+    setEditingLabel({ componentId: component.id, value: component.label ?? definition.label });
+  }
+
+  function commitRename() {
+    if (!editingLabel) return;
+    const component = componentById.get(editingLabel.componentId);
+    if (!component) {
+      setEditingLabel(null);
+      return;
+    }
+    const label = editingLabel.value.trim();
+    if (label) {
+      props.onRenameComponent(component.id, label);
+    }
+    setEditingLabel(null);
+  }
+
+  function onLabelEditorKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitRename();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setEditingLabel(null);
+    }
   }
 
   function finishMarquee(nextMarquee: Marquee) {
@@ -355,6 +396,7 @@ export function CircuitCanvas(props: Props) {
             onToggleInput={() => props.onToggleInput(component.id)}
             onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
             onRemove={() => props.onRemoveComponent(component.id)}
+            onRenameStart={() => startRename(component)}
             onPinMouseDown={(pin, kind) => {
               if (kind !== 'output') return;
               props.onPinClick(pin, kind);
@@ -376,6 +418,32 @@ export function CircuitCanvas(props: Props) {
           />
         ))}
       </g>
+
+      {editingLabel && (() => {
+        const component = componentById.get(editingLabel.componentId);
+        if (!component) return null;
+        const definition = COMPONENT_DEFINITIONS[component.type];
+        return (
+          <foreignObject
+            className="label-editor-object"
+            x={component.x}
+            y={component.y + definition.height + 4}
+            width={definition.width}
+            height="38"
+          >
+            <input
+              ref={labelInputRef}
+              className="label-editor-input"
+              value={editingLabel.value}
+              onChange={(event) => setEditingLabel({ ...editingLabel, value: event.target.value })}
+              onKeyDown={onLabelEditorKeyDown}
+              onBlur={commitRename}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            />
+          </foreignObject>
+        );
+      })()}
       </svg>
       <div className="zoom-controls" onMouseDown={(event) => event.stopPropagation()}>
         <button onClick={() => zoomAtCenter(1 / 1.2)} title="Aproximar">+</button>
@@ -453,7 +521,7 @@ function PendingWire({ pendingWire, componentById, mousePoint }: {
   );
 }
 
-function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onPinMouseDown, onPinMouseUp, onPinClick }: {
+function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onRenameStart, onPinMouseDown, onPinMouseUp, onPinClick }: {
   component: LogicComponent;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -462,6 +530,7 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
   onToggleInput: () => void;
   onSetButtonPressed: (pressed: boolean) => void;
   onRemove: () => void;
+  onRenameStart: () => void;
   onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
@@ -481,6 +550,11 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
         event.preventDefault();
         event.stopPropagation();
         onContextMenu(event);
+      }}
+      onDoubleClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onRenameStart();
       }}
     >
       <rect className="gate-body" width={definition.width} height={definition.height} rx="14" />
@@ -555,7 +629,23 @@ function ComponentView({ component, evaluation, selected, onMouseDown, onContext
           preserveAspectRatio="xMidYMid meet"
         />
       )}
-      <text className="component-label" x={definition.width / 2} y={definition.height + 18} textAnchor="middle">
+      <text
+        className="component-label editable-label"
+        x={definition.width / 2}
+        y={definition.height + 18}
+        textAnchor="middle"
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onRenameStart();
+        }}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onRenameStart();
+        }}
+      >
         {component.label ?? definition.label}
       </text>
       {definition.pins.map((pin) => {

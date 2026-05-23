@@ -3380,3 +3380,41 @@ Risco pequeno: a tabela ignora `button` como entrada variável. Acho certo por e
 
 Próximo refinamento útil: destacar na tabela a linha correspondente ao estado atual dos `Input`s no canvas. Isso conecta simulação atual com a tabela completa.
 
+### Driver / before_edit / 2026-05-22T19:35:51.050Z
+Files: src/ui/App.tsx, src/ui/styles.css
+
+Usuário quer simplificar UI: remover campo buscar componentes, botão Reiniciar, ferramenta Fio, e menu textual Arquivo/Editar/Exibir/Simular/Ajuda do topo. Vou editar App JSX e talvez CSS se classes ficarem sem uso. Manter funcionalidades via conexão por pinos sem ferramenta Fio.
+
+### Navigator / 2026-05-22T19:35:51.050Z
+
+Boa simplificação. Eu removeria só da superfície, sem mexer na lógica interna ainda.
+
+Cuidados antes de editar:
+
+- **Remover do JSX**:
+  - `.menu-strip` inteiro no topo;
+  - `.library-search`;
+  - botão `Reiniciar`;
+  - botão `Fio`.
+
+- **Manter `selectedTool === 'wire'` no tipo/estado por enquanto**, porque:
+  - `onPinClick(output)` ainda faz `setSelectedTool('wire')`;
+  - `pendingWire` usa isso para comunicar modo conexão.
+  - Remover o modo internamente agora pode quebrar fluxo clique saída → clique entrada.
+
+- **Conexão continua via pinos**
+  - Sem botão Fio, o usuário ainda conecta por:
+    - drag saída → entrada;
+    - clique saída → clique entrada.
+  - Isso é suficiente.
+
+- **CSS**
+  - Pode deixar `.menu-strip` e `.library-search` mortos por enquanto, mas se limpar, cuidado para não afetar layout.
+  - `commandbar` com menos botões talvez fique com separadores sobrando; ajustar/remover separador se ficar estranho.
+
+- **Reiniciar**
+  - Se remover botão, a função `resetCircuit` pode ficar não usada. Ok remover função se TS acusar `noUnusedLocals`; senão pode deixar.
+  - Confirme se não há outro caminho usando `resetCircuit`.
+
+Próximo passo pequeno: remover controles visuais primeiro, rodar build, e testar: adicionar componente, conectar por pino, desfazer/refazer, salvar/abrir.
+

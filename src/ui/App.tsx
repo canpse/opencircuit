@@ -46,6 +46,127 @@ const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
   { title: 'Portas Lógicas', tools: ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] },
 ];
 
+const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocument }> = [
+  {
+    id: 'xor',
+    name: 'XOR básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'X1', type: 'xor', x: 250, y: 130, label: 'XOR' },
+        { id: 'OUT', type: 'led', x: 430, y: 139, label: 'OUT' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'nand-not',
+    name: 'NAND como NOT',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 140, label: 'A', state: false },
+        { id: 'N1', type: 'nand', x: 250, y: 130, label: 'NAND' },
+        { id: 'OUT', type: 'led', x: 450, y: 139, label: 'OUT' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'half-adder',
+    name: 'Meio somador',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 110, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 210, label: 'B', state: false },
+        { id: 'X1', type: 'xor', x: 250, y: 105, label: 'SUM' },
+        { id: 'A1', type: 'and', x: 250, y: 220, label: 'CARRY' },
+        { id: 'SUM', type: 'led', x: 450, y: 114, label: 'SUM' },
+        { id: 'CARRY', type: 'led', x: 450, y: 229, label: 'CARRY' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'A1', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'A1', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'SUM', pinId: 'in' } },
+        { id: 'W6', from: { componentId: 'A1', pinId: 'out' }, to: { componentId: 'CARRY', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'full-adder',
+    name: 'Somador completo',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 80, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 170, label: 'B', state: false },
+        { id: 'Cin', type: 'input', x: 70, y: 310, label: 'Cin', state: false },
+        { id: 'X1', type: 'xor', x: 240, y: 120, label: 'A⊕B' },
+        { id: 'X2', type: 'xor', x: 430, y: 160, label: 'SUM' },
+        { id: 'A1', type: 'and', x: 240, y: 250, label: 'A·B' },
+        { id: 'A2', type: 'and', x: 430, y: 300, label: 'Cin·(A⊕B)' },
+        { id: 'O1', type: 'or', x: 620, y: 275, label: 'Cout' },
+        { id: 'SUM', type: 'led', x: 640, y: 169, label: 'SUM' },
+        { id: 'Cout', type: 'led', x: 800, y: 284, label: 'Cout' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'X2', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'Cin', pinId: 'out' }, to: { componentId: 'X2', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'X2', pinId: 'out' }, to: { componentId: 'SUM', pinId: 'in' } },
+        { id: 'W6', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'A1', pinId: 'a' } },
+        { id: 'W7', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'A1', pinId: 'b' } },
+        { id: 'W8', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'A2', pinId: 'a' } },
+        { id: 'W9', from: { componentId: 'Cin', pinId: 'out' }, to: { componentId: 'A2', pinId: 'b' } },
+        { id: 'W10', from: { componentId: 'A1', pinId: 'out' }, to: { componentId: 'O1', pinId: 'a' } },
+        { id: 'W11', from: { componentId: 'A2', pinId: 'out' }, to: { componentId: 'O1', pinId: 'b' } },
+        { id: 'W12', from: { componentId: 'O1', pinId: 'out' }, to: { componentId: 'Cout', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'mux-2-1',
+    name: 'Multiplexador 2:1',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 70, y: 80, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 70, y: 220, label: 'B', state: false },
+        { id: 'Sel', type: 'input', x: 70, y: 360, label: 'Sel', state: false },
+        { id: 'N1', type: 'not', x: 240, y: 340, label: 'NOT Sel' },
+        { id: 'A1', type: 'and', x: 420, y: 105, label: 'A·!Sel' },
+        { id: 'A2', type: 'and', x: 420, y: 250, label: 'B·Sel' },
+        { id: 'O1', type: 'or', x: 620, y: 180, label: 'OUT' },
+        { id: 'OUT', type: 'led', x: 800, y: 189, label: 'OUT' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'Sel', pinId: 'out' }, to: { componentId: 'N1', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'A1', pinId: 'a' } },
+        { id: 'W3', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'A1', pinId: 'b' } },
+        { id: 'W4', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'A2', pinId: 'a' } },
+        { id: 'W5', from: { componentId: 'Sel', pinId: 'out' }, to: { componentId: 'A2', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'A1', pinId: 'out' }, to: { componentId: 'O1', pinId: 'a' } },
+        { id: 'W7', from: { componentId: 'A2', pinId: 'out' }, to: { componentId: 'O1', pinId: 'b' } },
+        { id: 'W8', from: { componentId: 'O1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+];
+
 export function App() {
   const [circuit, setCircuit] = useState<CircuitDocument>(() => loadCircuit());
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
@@ -54,6 +175,8 @@ export function App() {
   const [history, setHistory] = useState<HistoryState>({ past: [], future: [] });
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [message, setMessage] = useState('Pronto para testar lógica.');
+  const [truthPanelWidth, setTruthPanelWidth] = useState(320);
+  const [resizingTruthPanel, setResizingTruthPanel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const evaluation = useMemo(() => evaluateCircuit(circuit), [circuit]);
@@ -61,6 +184,28 @@ export function App() {
   useEffect(() => {
     saveCircuit(circuit);
   }, [circuit]);
+
+  useEffect(() => {
+    if (!resizingTruthPanel) return;
+
+    function onMouseMove(event: globalThis.MouseEvent) {
+      const nextWidth = Math.min(620, Math.max(260, window.innerWidth - event.clientX));
+      setTruthPanelWidth(nextWidth);
+    }
+
+    function onMouseUp() {
+      setResizingTruthPanel(false);
+    }
+
+    document.body.classList.add('resizing-panel');
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      document.body.classList.remove('resizing-panel');
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [resizingTruthPanel]);
 
   useEffect(() => {
     function closeContextMenu() {
@@ -415,6 +560,19 @@ export function App() {
     setMessage('Fio removido.');
   }
 
+  function renameComponent(componentId: string, label: string) {
+    const currentComponent = circuit.components.find((component) => component.id === componentId);
+    if (!currentComponent || currentComponent.label === label) return;
+    rememberCircuit();
+    setCircuit((current) => ({
+      ...current,
+      components: current.components.map((component) =>
+        component.id === componentId ? { ...component, label } : component,
+      ),
+    }));
+    setMessage(`Componente renomeado para ${label}.`);
+  }
+
   function removeComponent(componentId: string) {
     rememberCircuit();
     setCircuit((current) => ({
@@ -444,6 +602,17 @@ export function App() {
     setMessage('Circuito de exemplo restaurado.');
   }
 
+  function loadExample(exampleId: string) {
+    const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
+    if (!example) return;
+    rememberCircuit();
+    setCircuit(cloneCircuit(example.circuit));
+    setPendingWire(null);
+    setSelection(EMPTY_SELECTION);
+    setSelectedTool('select');
+    setMessage(`Exemplo carregado: ${example.name}.`);
+  }
+
   function importJson(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -470,33 +639,41 @@ export function App() {
           <strong>OpenCircuit</strong>
           <span className="project-name">Projeto: circuito_logico.json</span>
         </div>
-        <nav className="menu-strip" aria-label="Menu principal">
-          <span>Arquivo</span>
-          <span>Editar</span>
-          <span>Exibir</span>
-          <span>Simular</span>
-          <span>Ajuda</span>
-        </nav>
+
       </header>
 
       <div className="commandbar">
         <button onClick={() => fileInputRef.current?.click()}>Abrir</button>
         <button onClick={() => downloadJson('circuito-logico.json', circuit)}>Salvar</button>
+        <select
+          className="examples-select"
+          value=""
+          onChange={(event) => {
+            loadExample(event.target.value);
+            event.target.value = '';
+          }}
+          aria-label="Exemplos"
+        >
+          <option value="" disabled>Exemplos</option>
+          {CIRCUIT_EXAMPLES.map((example) => (
+            <option key={example.id} value={example.id}>{example.name}</option>
+          ))}
+        </select>
         <span className="command-separator" />
         <button onClick={undo} disabled={history.past.length === 0}>Desfazer</button>
         <button onClick={redo} disabled={history.future.length === 0}>Refazer</button>
         <span className="command-separator" />
-        <button onClick={resetCircuit}>Reiniciar</button>
         <button onClick={() => setSelectedTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
-        <button onClick={() => setSelectedTool('wire')} className={selectedTool === 'wire' ? 'active' : ''}>Fio</button>
         <button onClick={() => setSelectedTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
         <input ref={fileInputRef} type="file" accept="application/json" onChange={importJson} hidden />
       </div>
 
-      <section className="app-layout">
+      <section
+        className="app-layout"
+        style={{ gridTemplateColumns: `250px minmax(520px, 1fr) 8px ${truthPanelWidth}px` }}
+      >
         <aside className="library-panel" aria-label="Biblioteca de componentes">
           <div className="panel-header">Biblioteca</div>
-          <div className="library-search">Buscar componentes...</div>
           <div className="tool-groups">
             {TOOL_GROUPS.map((group) => (
               <section className="tool-group" key={group.title}>
@@ -539,6 +716,7 @@ export function App() {
               onPinClick={onPinClick}
               onRemoveWire={removeWire}
               onRemoveComponent={removeComponent}
+              onRenameComponent={renameComponent}
               onCancelPendingWire={cancelPendingWire}
               onOpenCanvasMenu={openCanvasMenu}
               onOpenComponentMenu={openComponentMenu}
@@ -551,6 +729,17 @@ export function App() {
             />
           </div>
         </div>
+
+        <div
+          className="panel-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Redimensionar tabela verdade"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            setResizingTruthPanel(true);
+          }}
+        />
 
         <aside className="properties-panel truth-panel">
           <div className="panel-header">Tabela Verdade</div>
@@ -597,6 +786,7 @@ function CircuitTruthTable({ circuit }: { circuit: CircuitDocument }) {
   }
 
   const rows = buildCircuitTruthRows(circuit, inputs, outputs);
+  const currentInputValues = inputs.map((input) => Boolean(input.state));
 
   return (
     <div className="properties-card truth-table-card">
@@ -610,12 +800,15 @@ function CircuitTruthTable({ circuit }: { circuit: CircuitDocument }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.inputs.map((value, index) => <td key={`i-${index}`}>{bit(value)}</td>)}
-                {row.outputs.map((value, index) => <td key={`o-${index}`} className={truthOutputClass(value)}>{bit(value)}</td>)}
-              </tr>
-            ))}
+            {rows.map((row, rowIndex) => {
+              const isCurrent = sameBooleanValues(row.inputs, currentInputValues);
+              return (
+                <tr key={rowIndex} className={isCurrent ? 'current-truth-row' : undefined}>
+                  {row.inputs.map((value, index) => <td key={`i-${index}`}>{bit(value)}</td>)}
+                  {row.outputs.map((value, index) => <td key={`o-${index}`} className={truthOutputClass(value)}>{bit(value)}</td>)}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -692,12 +885,28 @@ function buildCircuitTruthRows(circuit: CircuitDocument, inputs: LogicComponent[
   });
 }
 
+function sameBooleanValues(left: boolean[], right: boolean[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
 function bit(value: boolean): 0 | 1 {
   return value ? 1 : 0;
 }
 
 function truthOutputClass(value: boolean): string {
   return value ? 'truth-output on' : 'truth-output';
+}
+
+function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
+  return {
+    version: circuit.version,
+    components: circuit.components.map((component) => ({ ...component })),
+    wires: circuit.wires.map((wire) => ({
+      id: wire.id,
+      from: { ...wire.from },
+      to: { ...wire.to },
+    })),
+  };
 }
 
 function hasSelection(selection: Selection): boolean {
