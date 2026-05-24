@@ -1,11 +1,11 @@
-import type { ChangeEvent, RefObject } from 'react';
+import { useRef, type ChangeEvent, type RefObject } from 'react';
 import type { GateType } from '../../core/types';
 import type { WireStyle } from '../editor/CircuitCanvas';
 
 type EditorTool = GateType | 'select' | 'wire' | 'pan';
 
 type ExampleOption = { id: string; name: string };
-type LessonOption = { id: string; title: string; examples: ExampleOption[] };
+type LessonOption = { id: string; title: string; description: string; examples: ExampleOption[] };
 
 interface Props {
   selectedTool: EditorTool;
@@ -52,28 +52,43 @@ export function CommandBar({
   onWireStyleChange,
   onImportJson,
 }: Props) {
+  const lessonsMenuRef = useRef<HTMLDetailsElement>(null);
+
+  function loadExampleAndClose(exampleId: string) {
+    onLoadExample(exampleId);
+    if (lessonsMenuRef.current) lessonsMenuRef.current.open = false;
+  }
+
   return (
     <div className="commandbar">
       <button onClick={onOpen}>Abrir</button>
       <button onClick={onSave}>Salvar</button>
-      <select
-        className="examples-select"
-        value=""
-        onChange={(event) => {
-          onLoadExample(event.target.value);
-          event.target.value = '';
-        }}
-        aria-label="Aulas e exemplos"
-      >
-        <option value="" disabled>Aulas</option>
-        {lessons.map((lesson) => (
-          <optgroup key={lesson.id} label={lesson.title}>
-            {lesson.examples.map((example) => (
-              <option key={example.id} value={example.id}>{example.name}</option>
+      <details className="lessons-menu" ref={lessonsMenuRef}>
+        <summary>Aulas</summary>
+        <div className="lessons-popover" role="menu" aria-label="Aulas e exemplos">
+          <div className="lessons-popover-header">
+            <strong>Aulas guiadas</strong>
+            <span>Escolha um experimento para carregar no canvas.</span>
+          </div>
+          <div className="lesson-list">
+            {lessons.map((lesson) => (
+              <section className="lesson-card" key={lesson.id}>
+                <div className="lesson-card-header">
+                  <strong>{lesson.title}</strong>
+                  <span>{lesson.description}</span>
+                </div>
+                <div className="lesson-example-grid">
+                  {lesson.examples.map((example) => (
+                    <button key={example.id} onClick={() => loadExampleAndClose(example.id)} role="menuitem">
+                      {example.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
-          </optgroup>
-        ))}
-      </select>
+          </div>
+        </div>
+      </details>
       <span className="command-separator" />
       <button onClick={onUndo} disabled={!canUndo}>Desfazer</button>
       <button onClick={onRedo} disabled={!canRedo}>Refazer</button>
