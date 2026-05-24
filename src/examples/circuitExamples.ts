@@ -142,6 +142,63 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
     },
   },
   {
+    id: 'nand-basic',
+    name: 'NAND básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'G1', type: 'nand', x: 260, y: 130, label: 'NAND' },
+        { id: 'OUT', type: 'led', x: 470, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 560, label: 'Porta NAND: é o contrário da AND. A saída só desliga quando A=1 e B=1; em todos os outros casos OUT fica ligada.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'nor-basic',
+    name: 'NOR básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'G1', type: 'nor', x: 260, y: 130, label: 'NOR' },
+        { id: 'OUT', type: 'led', x: 470, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 560, label: 'Porta NOR: é o contrário da OR. A saída só liga quando A=0 e B=0; se qualquer entrada ligar, OUT desliga.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'xnor-basic',
+    name: 'XNOR básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'G1', type: 'xnor', x: 260, y: 130, label: 'XNOR' },
+        { id: 'OUT', type: 'led', x: 480, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 570, label: 'Porta XNOR: é o contrário da XOR. A saída liga quando A e B são iguais: ambos 0 ou ambos 1.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
     id: 'd-latch-basic',
     name: 'Latch D básico',
     circuit: {
@@ -798,7 +855,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
     };
   }
 
-  if (example.id === 'nand-not') {
+  if (example.id === 'nand-basic') {
     return {
       ...common,
       moduleId: 'fundamentals',
@@ -807,6 +864,57 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       difficulty: 1,
       level: 'concept',
       prerequisites: ['and-basic', 'not-basic'],
+      concepts: ['porta negada', 'NAND = NOT(AND)', 'porta universal'],
+      next: ['nand-not', 'sr-latch-nand-active-low'],
+      observe: ['Compare com AND: a saída é invertida.', 'OUT só apaga no caso A=1 e B=1.'],
+      experiments: ['Teste as quatro linhas da tabela verdade.', 'Compare a linha A=1,B=1 com as outras três.'],
+      challenge: 'Explique por que NAND pode ser vista como uma AND seguida de uma inversão.',
+    };
+  }
+
+  if (example.id === 'nor-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['or-basic', 'not-basic'],
+      concepts: ['porta negada', 'NOR = NOT(OR)', 'porta universal'],
+      next: ['sr-latch-nor-experiment'],
+      observe: ['Compare com OR: a saída é invertida.', 'OUT só liga quando A=0 e B=0.'],
+      experiments: ['Teste A=0,B=0 primeiro.', 'Depois ligue qualquer entrada e observe OUT desligar.'],
+      challenge: 'Explique por que NOR pode ser vista como uma OR seguida de uma inversão.',
+    };
+  }
+
+  if (example.id === 'xnor-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['xor'],
+      concepts: ['igualdade entre bits', 'XNOR = NOT(XOR)', 'comparação simples'],
+      next: ['comparator-1-bit'],
+      observe: ['OUT liga quando A e B são iguais.', 'OUT apaga quando A e B são diferentes.'],
+      experiments: ['Compare com o XOR básico.', 'Teste 00 e 11: ambos devem ligar OUT.'],
+      challenge: 'Explique por que XNOR pode ser usada como teste de igualdade entre dois bits.',
+    };
+  }
+
+  if (example.id === 'nand-not') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['nand-basic'],
       concepts: ['porta universal', 'equivalência lógica', 'reutilização de portas'],
       next: ['sr-latch-nand-active-low', 'gated-d-latch-from-nand'],
       observe: ['A alimenta as duas entradas da NAND.', 'Quando as duas entradas são iguais, NAND se comporta como NOT.'],
@@ -851,7 +959,7 @@ function extractExampleDescription(circuit: CircuitDocument): string {
 }
 
 export const CIRCUIT_LESSONS: CircuitLesson[] = [
-  lesson('first-steps', 'Aula 1 — Sinais e portas básicas', 'Começa do zero: o que é um sinal 0/1, como fios transportam sinais, como LEDs observam saídas e como NOT, AND, OR, XOR e NAND transformam entradas.', ['signal-led-basic', 'not-basic', 'and-basic', 'or-basic', 'xor', 'nand-not']),
+  lesson('first-steps', 'Aula 1 — Sinais e portas básicas', 'Começa do zero: o que é um sinal 0/1, como fios transportam sinais, como LEDs observam saídas e como NOT, AND, OR, XOR, NAND, NOR e XNOR transformam entradas.', ['signal-led-basic', 'not-basic', 'and-basic', 'or-basic', 'xor', 'nand-basic', 'nor-basic', 'xnor-basic', 'nand-not']),
   lesson('truth-tables', 'Aula 2 — Tabela verdade e aritmética', 'Circuitos combinacionais clássicos observados pela tabela verdade.', ['half-adder', 'full-adder', 'comparator-1-bit', 'half-subtractor', 'full-subtractor']),
   lesson('combinational-blocks', 'Aula 3 — Seleção e codificação', 'Multiplexadores, decodificadores, encoders e detectores combinacionais.', ['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3']),
   lesson('memory-latches', 'Aula 4 — Memória e latches', 'Primeiros circuitos que mantêm estado, tanto nativos quanto por realimentação.', ['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand']),
