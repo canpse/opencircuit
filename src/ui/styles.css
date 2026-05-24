@@ -94,10 +94,13 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 }
 
 .commandbar {
+  position: relative;
+  z-index: 80;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
+  overflow: visible;
 }
 
 .commandbar button {
@@ -141,7 +144,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
 .lessons-menu {
   position: relative;
-  z-index: 30;
+  z-index: 90;
 }
 .lessons-menu summary {
   list-style: none;
@@ -161,6 +164,7 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 }
 .lessons-popover {
   position: absolute;
+  z-index: 100;
   top: 42px;
   left: 0;
   width: min(760px, calc(100vw - 34px));
@@ -230,6 +234,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
 
 .app-layout {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 250px minmax(520px, 1fr) 8px 320px;
   min-height: 0;
