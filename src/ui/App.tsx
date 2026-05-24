@@ -440,12 +440,23 @@ export function App() {
   }
 
   function closeDocument(documentId: string) {
-    if (documents.length === 1) {
-      setMessage('Mantenha pelo menos um arquivo aberto.');
-      return;
-    }
     const closingIndex = documents.findIndex((document) => document.id === documentId);
     const fallback = documents[closingIndex + 1] ?? documents[closingIndex - 1] ?? documents[0];
+
+    if (documents.length === 1) {
+      const replacement = createUntitledDocument(1);
+      setDocuments([{ ...replacement, circuit: normalizeCircuitForEditor(cloneCircuit(replacement.circuit)) }]);
+      resetSimulationRuntime();
+      setActiveDocumentId(replacement.id);
+      setPendingWire(null);
+      setSelection(EMPTY_SELECTION);
+      setSelectedTool('select');
+      setAutoClockRunning(false);
+      setRightPanelTab('simulation');
+      setMessage('Arquivo fechado. Nova aba vazia aberta.');
+      return;
+    }
+
     setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== documentId));
     if (documentId === activeDocumentId) {
       resetSimulationRuntime();
@@ -570,8 +581,7 @@ export function App() {
                   {!document.saved && <span className="unsaved-dot" aria-label="Arquivo ainda não salvo">●</span>}
                   {document.name}
                 </button>
-                {documents.length > 1 && (
-                  <button
+                <button
                     className="document-tab-close"
                     aria-label={`Fechar ${document.name}`}
                     onClick={(event) => {
@@ -581,7 +591,6 @@ export function App() {
                   >
                     ×
                   </button>
-                )}
               </div>
             ))}
             <button className="document-tab add-tab" onClick={createNewDocument}>+</button>

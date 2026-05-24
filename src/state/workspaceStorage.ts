@@ -1,5 +1,5 @@
 import type { CircuitDocument } from '../core/types';
-import { loadCircuit, STARTER_CIRCUIT } from './storage';
+import { loadCircuit } from './storage';
 
 const WORKSPACE_STORAGE_KEY = 'opencircuit.logic.workspace.v1';
 
@@ -55,11 +55,15 @@ export function saveWorkspace(workspace: WorkspaceState): void {
   localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(workspace));
 }
 
+export function createEmptyCircuit(): CircuitDocument {
+  return { version: 1, components: [], wires: [] };
+}
+
 export function createUntitledDocument(index: number): WorkspaceDocument {
   return {
     id: `doc-${Date.now()}`,
     name: `Sem título ${index}`,
-    circuit: STARTER_CIRCUIT,
+    circuit: createEmptyCircuit(),
     exampleId: null,
     saved: false,
   };
