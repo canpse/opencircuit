@@ -5,13 +5,16 @@ import type { WireStyle } from '../editor/CircuitCanvas';
 type EditorTool = GateType | 'select' | 'wire' | 'pan';
 
 type ExampleOption = { id: string; name: string };
+type LessonOption = { id: string; title: string; examples: ExampleOption[] };
 
 interface Props {
   selectedTool: EditorTool;
   wireStyle: WireStyle;
-  examples: ExampleOption[];
+  lessons: LessonOption[];
   canUndo: boolean;
   canRedo: boolean;
+  autoClockRunning: boolean;
+  autoClockIntervalMs: number;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onOpen: () => void;
   onSave: () => void;
@@ -20,6 +23,8 @@ interface Props {
   onRedo: () => void;
   onSelectTool: (tool: EditorTool) => void;
   onTick: () => void;
+  onToggleAutoClock: () => void;
+  onAutoClockIntervalChange: (intervalMs: number) => void;
   onResetSimulation: () => void;
   onWireStyleChange: (style: WireStyle) => void;
   onImportJson: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -28,9 +33,11 @@ interface Props {
 export function CommandBar({
   selectedTool,
   wireStyle,
-  examples,
+  lessons,
   canUndo,
   canRedo,
+  autoClockRunning,
+  autoClockIntervalMs,
   fileInputRef,
   onOpen,
   onSave,
@@ -39,6 +46,8 @@ export function CommandBar({
   onRedo,
   onSelectTool,
   onTick,
+  onToggleAutoClock,
+  onAutoClockIntervalChange,
   onResetSimulation,
   onWireStyleChange,
   onImportJson,
@@ -54,11 +63,15 @@ export function CommandBar({
           onLoadExample(event.target.value);
           event.target.value = '';
         }}
-        aria-label="Exemplos"
+        aria-label="Aulas e exemplos"
       >
-        <option value="" disabled>Exemplos</option>
-        {examples.map((example) => (
-          <option key={example.id} value={example.id}>{example.name}</option>
+        <option value="" disabled>Aulas</option>
+        {lessons.map((lesson) => (
+          <optgroup key={lesson.id} label={lesson.title}>
+            {lesson.examples.map((example) => (
+              <option key={example.id} value={example.id}>{example.name}</option>
+            ))}
+          </optgroup>
         ))}
       </select>
       <span className="command-separator" />
@@ -68,6 +81,18 @@ export function CommandBar({
       <button onClick={() => onSelectTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
       <button onClick={() => onSelectTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
       <button onClick={onTick}>Tick</button>
+      <button onClick={onToggleAutoClock} className={autoClockRunning ? 'active clock-running' : ''}>
+        {autoClockRunning ? 'Pausar clock' : 'Rodar clock'}
+      </button>
+      <label className="clock-speed-control">
+        Velocidade
+        <select value={autoClockIntervalMs} onChange={(event) => onAutoClockIntervalChange(Number(event.target.value))}>
+          <option value={1000}>1 Hz</option>
+          <option value={500}>2 Hz</option>
+          <option value={250}>4 Hz</option>
+          <option value={100}>10 Hz</option>
+        </select>
+      </label>
       <button onClick={onResetSimulation}>Resetar simulação</button>
       <label className="wire-style-control">
         Fios

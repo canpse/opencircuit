@@ -3,70 +3,52 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>OpenCircuit — Guia para o próximo dev</title>
+  <title>OpenCircuit — Guia atualizado para o próximo dev</title>
   <style>
     :root {
-      --bg: #eef3f6;
+      --bg: #eef4f7;
       --panel: #ffffff;
       --ink: #1d2b34;
       --muted: #647481;
       --brand: #2f7dd3;
       --brand-dark: #165fa8;
-      --line: rgba(91, 113, 128, 0.22);
+      --line: rgba(91,113,128,.22);
       --code-bg: #10202c;
       --code-ink: #d9eefb;
-      --note: #fff8cf;
       --ok: #dff7e8;
+      --note: #fff8cf;
       --warn: #fff1db;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-
     * { box-sizing: border-box; }
-
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       color: var(--ink);
-      background: linear-gradient(135deg, #eef3f6, #e3ebf0);
+      background: radial-gradient(circle at 10% 0%, rgba(47,125,211,.12), transparent 34%), linear-gradient(135deg, #eef4f7, #e3ebf0);
       line-height: 1.55;
     }
-
     header {
-      padding: 44px 28px 32px;
-      background: linear-gradient(135deg, #ffffff, #eaf2f9);
+      padding: 46px 28px 34px;
+      background: linear-gradient(135deg, rgba(255,255,255,.98), rgba(232,242,249,.92));
       border-bottom: 1px solid var(--line);
     }
-
     .hero {
-      max-width: 1180px;
+      max-width: 1220px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-columns: minmax(0, 1fr) 360px;
       gap: 28px;
       align-items: center;
     }
-
-    h1 {
-      margin: 0 0 10px;
-      font-size: clamp(32px, 5vw, 56px);
-      line-height: 1;
-      letter-spacing: -0.05em;
-    }
-
-    .subtitle {
-      max-width: 780px;
-      margin: 0;
-      color: var(--muted);
-      font-size: 18px;
-    }
-
-    .badge-box {
-      padding: 18px;
+    h1 { margin: 0 0 10px; font-size: clamp(34px, 5vw, 58px); line-height: .98; letter-spacing: -.055em; }
+    .subtitle { max-width: 840px; margin: 0; color: var(--muted); font-size: 18px; }
+    .badge-box, section, nav {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.82);
-      box-shadow: 0 18px 45px rgba(42, 63, 78, 0.12);
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 16px 38px rgba(42,63,78,.10);
     }
-
+    .badge-box { padding: 18px; border-radius: 20px; }
     .badge-box strong { display: block; margin-bottom: 8px; }
     .badge-box span {
       display: inline-block;
@@ -76,172 +58,56 @@
       background: #e7f1fc;
       color: var(--brand-dark);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 850;
     }
-
     .layout {
-      max-width: 1180px;
+      max-width: 1220px;
       margin: 0 auto;
-      display: grid;
-      grid-template-columns: 270px minmax(0, 1fr);
-      gap: 24px;
       padding: 28px;
-    }
-
-    nav {
-      position: sticky;
-      top: 18px;
-      align-self: start;
-      padding: 16px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.88);
-      box-shadow: 0 10px 28px rgba(42, 63, 78, 0.10);
-    }
-
-    nav h2 {
-      margin: 0 0 12px;
-      color: var(--brand-dark);
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    nav a {
-      display: block;
-      padding: 7px 9px;
-      border-radius: 10px;
-      color: var(--ink);
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    nav a:hover { background: rgba(47, 125, 211, 0.10); color: var(--brand-dark); }
-
-    main { min-width: 0; }
-
-    section {
-      margin-bottom: 22px;
-      padding: 24px;
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: rgba(255, 255, 255, 0.92);
-      box-shadow: 0 12px 30px rgba(42, 63, 78, 0.08);
-    }
-
-    h2 {
-      margin: 0 0 14px;
-      color: var(--brand-dark);
-      font-size: 26px;
-      letter-spacing: -0.03em;
-    }
-
-    h3 { margin: 22px 0 8px; font-size: 18px; }
-    p { margin: 8px 0; }
-    ul { padding-left: 22px; }
-    li { margin: 5px 0; }
-
-    .callout {
-      margin: 14px 0;
-      padding: 14px 16px;
-      border-radius: 14px;
-      border: 1px solid rgba(91, 113, 128, 0.18);
-      background: var(--note);
-    }
-
-    .callout.ok { background: var(--ok); }
-    .callout.warn { background: var(--warn); }
-
-    .file-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
+      grid-template-columns: 285px minmax(0, 1fr);
+      gap: 24px;
     }
-
-    .file-card {
-      padding: 14px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #f8fbfd;
-    }
-
-    .file-card code {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--brand-dark);
-      font-weight: 900;
-    }
-
-    pre {
-      overflow: auto;
-      padding: 16px;
-      border-radius: 14px;
-      background: var(--code-bg);
-      color: var(--code-ink);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    code {
-      padding: 1px 5px;
-      border-radius: 6px;
-      background: rgba(47, 125, 211, 0.10);
-      color: #124f89;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    }
-
-    pre code {
-      padding: 0;
-      background: transparent;
-      color: inherit;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      overflow: hidden;
-      border-radius: 14px;
-    }
-
-    th, td {
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th { background: #edf5fb; color: var(--brand-dark); }
-
-    .checklist li::marker { color: var(--brand); }
-
-    footer {
-      max-width: 1180px;
-      margin: 0 auto 28px;
-      padding: 0 28px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    @media (max-width: 900px) {
-      .hero, .layout { grid-template-columns: 1fr; }
-      nav { position: static; }
-    }
+    nav { position: sticky; top: 18px; align-self: start; padding: 16px; border-radius: 20px; }
+    nav h2 { margin: 0 0 12px; color: var(--brand-dark); font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
+    nav a { display: block; padding: 7px 9px; border-radius: 10px; color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 750; }
+    nav a:hover { background: rgba(47,125,211,.10); color: var(--brand-dark); }
+    main { min-width: 0; }
+    section { margin-bottom: 22px; padding: 24px; border-radius: 24px; }
+    h2 { margin: 0 0 14px; color: var(--brand-dark); font-size: 28px; letter-spacing: -.035em; }
+    h3 { margin: 22px 0 8px; font-size: 19px; }
+    p { margin: 8px 0; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 5px 0; }
+    code { padding: 1px 5px; border-radius: 6px; background: rgba(47,125,211,.10); color: #124f89; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    pre { overflow: auto; padding: 16px; border-radius: 15px; color: var(--code-ink); background: var(--code-bg); font-size: 13px; line-height: 1.45; }
+    pre code { padding: 0; color: inherit; background: transparent; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .card { padding: 14px; border: 1px solid rgba(91,113,128,.16); border-radius: 16px; background: #f7fbfd; }
+    .card strong { color: var(--brand-dark); }
+    .callout { margin: 14px 0; padding: 14px 16px; border-radius: 15px; border: 1px solid rgba(91,113,128,.18); background: var(--note); }
+    .ok { background: var(--ok); }
+    .warn { background: var(--warn); }
+    table { width: 100%; margin-top: 12px; border-collapse: collapse; border-radius: 15px; overflow: hidden; font-size: 14px; }
+    th, td { padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: var(--brand-dark); background: #edf5fb; }
+    .tag { display: inline-block; margin: 2px; padding: 3px 8px; border-radius: 999px; background: #e7f1fc; color: var(--brand-dark); font-size: 12px; font-weight: 850; }
+    footer { max-width: 1220px; margin: 0 auto 30px; padding: 0 28px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 920px) { .hero, .layout { grid-template-columns: 1fr; } nav { position: static; } }
   </style>
 </head>
 <body>
   <header>
     <div class="hero">
       <div>
-        <h1>OpenCircuit: guia para o próximo dev</h1>
+        <h1>OpenCircuit: guia atualizado para o próximo dev</h1>
         <p class="subtitle">
-          Um mapa prático para entender, manter e extender o editor/simulador visual de lógica digital combinacional.
+          Estado consolidado após a grande refatoração: arquitetura, módulos, simulação, UI e caminhos seguros para continuar evoluindo o editor/simulador de lógica digital.
         </p>
       </div>
-      <aside class="badge-box" aria-label="Resumo técnico">
-        <strong>Stack e foco</strong>
-        <span>React</span><span>TypeScript</span><span>Vite</span><span>SVG</span><span>Lógica digital</span><span>Combinacional</span>
+      <aside class="badge-box">
+        <strong>Stack e estado atual</strong>
+        <span>React</span><span>TypeScript</span><span>Vite</span><span>SVG</span><span>Combinacional</span><span>Sequencial</span><span>Feedback</span><span>Testes</span>
       </aside>
     </div>
   </header>
@@ -250,283 +116,240 @@
     <nav>
       <h2>Navegação</h2>
       <a href="#visao">Visão geral</a>
-      <a href="#arquitetura">Arquitetura</a>
+      <a href="#arquitetura">Arquitetura atual</a>
       <a href="#modelo">Modelo de dados</a>
-      <a href="#componentes">Componentes</a>
-      <a href="#simulacao">Simulação</a>
-      <a href="#canvas">Canvas e UI</a>
-      <a href="#fios">Fios</a>
-      <a href="#historico">Histórico</a>
-      <a href="#tabela">Tabela verdade</a>
-      <a href="#exemplos">Exemplos</a>
-      <a href="#como-adicionar">Como adicionar algo</a>
+      <a href="#simulacao">Core de simulação</a>
+      <a href="#ui">UI e editor</a>
+      <a href="#canvas">Canvas SVG</a>
+      <a href="#testes">Testes</a>
+      <a href="#fluxos">Fluxos importantes</a>
+      <a href="#adicionar">Adicionar componentes</a>
       <a href="#cuidados">Cuidados</a>
-      <a href="#futuro">Possíveis próximos passos</a>
+      <a href="#proximos">Próximos passos</a>
     </nav>
 
     <main>
       <section id="visao">
-        <h2>1. Visão geral do produto</h2>
+        <h2>1. Visão geral</h2>
         <p>
-          O OpenCircuit é um editor visual didático de <strong>circuitos lógicos digitais</strong>, inspirado em ferramentas como Logisim,
-          mas com uma UI moderna, simples e fluida.
+          O OpenCircuit é um editor/simulador visual didático de lógica digital. Ele suporta circuitos combinacionais, blocos combinacionais nativos, componentes sequenciais nativos e memória emergente por realimentação usando portas comuns.
         </p>
         <div class="callout ok">
-          <strong>Escopo atual:</strong> lógica digital combinacional, simulação instantânea, tabela verdade automática,
-          exemplos explicados e blocos combinacionais nativos.
+          <strong>Marco atual:</strong> a base foi refatorada de arquivos monolíticos para uma arquitetura modular. O <code>App.tsx</code> e o <code>CircuitCanvas.tsx</code> estão muito menores, e o core tem módulos claros em <code>src/core/simulation/</code>.
         </div>
-        <p>O projeto <strong>não</strong> é um simulador elétrico analógico/DC e não tenta modelar tensão, corrente ou componentes físicos.</p>
+        <p>O projeto continua intencionalmente focado em lógica digital. Não é simulador elétrico analógico.</p>
       </section>
 
       <section id="arquitetura">
-        <h2>2. Arquitetura e arquivos principais</h2>
-        <div class="file-grid">
-          <div class="file-card">
-            <code>src/core/types.ts</code>
-            Tipos centrais: circuito, componente, fio, pino e resultado de avaliação.
-          </div>
-          <div class="file-card">
-            <code>src/core/catalog.ts</code>
-            Catálogo de componentes: tamanho, label e posições dos pinos.
-          </div>
-          <div class="file-card">
-            <code>src/core/evaluateCircuit.ts</code>
-            Motor de simulação combinacional.
-          </div>
-          <div class="file-card">
-            <code>src/ui/App.tsx</code>
-            Orquestra estado global, histórico, exemplos, import/export, tabela verdade e biblioteca.
-          </div>
-          <div class="file-card">
-            <code>src/ui/editor/CircuitCanvas.tsx</code>
-            Canvas SVG, renderização de componentes/fios e interações de edição.
-          </div>
-          <div class="file-card">
-            <code>src/ui/styles.css</code>
-            Visual geral da aplicação.
-          </div>
-          <div class="file-card">
-            <code>src/state/storage.ts</code>
-            Autosave, carregamento inicial e exportação JSON.
-          </div>
-        </div>
+        <h2>2. Arquitetura atual</h2>
+        <pre><code>src/
+  core/
+    types.ts
+    catalog.ts
+    evaluateCircuit.ts        // fachada compatível
+    simulation/
+      signals.ts
+      gates.ts
+      simulate.ts
+      sequential.ts
+      graph.ts
+      truthTable.ts
+  examples/
+    circuitExamples.ts
+  state/
+    storage.ts
+  ui/
+    App.tsx
+    app/editorUtils.ts
+    commandbar/CommandBar.tsx
+    context-menu/ContextMenuView.tsx
+    editor/
+      CircuitCanvas.tsx
+      ComponentView.tsx
+      WireView.tsx
+      wireRouting.ts
+      useCanvasCamera.ts
+      useLabelEditing.ts
+    hooks/
+      useAutoCloseContextMenu.ts
+      useAutoSaveCircuit.ts
+      useCircuitHistory.ts
+      useEditorKeyboardShortcuts.ts
+      useReleaseMomentaryButtons.ts
+      useResizableSidePanel.ts
+      useSimulationRuntime.ts
+      useWireStylePreference.ts
+    library/ComponentLibrary.tsx
+    panels/CircuitTruthTable.tsx
+    styles.css</code></pre>
+        <p>
+          A arquitetura agora separa bem domínio, simulação, editor, canvas, painéis, biblioteca e hooks de comportamento.
+        </p>
       </section>
 
       <section id="modelo">
         <h2>3. Modelo de dados</h2>
-        <p>Um circuito é um documento JSON simples:</p>
         <pre><code>interface CircuitDocument {
   version: 1;
   components: LogicComponent[];
   wires: Wire[];
-}</code></pre>
+}
 
-        <p>Um componente possui tipo, posição e metadados opcionais:</p>
-        <pre><code>interface LogicComponent {
+interface LogicComponent {
   id: string;
   type: GateType;
   x: number;
   y: number;
   label?: string;
   state?: boolean;
-  width?: number; // usado principalmente por blocos de texto
+  width?: number;
+  memory?: Record&lt;string, boolean&gt;;
 }</code></pre>
-
-        <p>Um fio conecta um pino de saída a um pino de entrada:</p>
-        <pre><code>interface Wire {
-  id: string;
-  from: { componentId: string; pinId: string };
-  to: { componentId: string; pinId: string };
-}</code></pre>
-
-        <div class="callout">
-          O caminho visual do fio <strong>não é salvo</strong>. Ele é calculado automaticamente no canvas a partir de <code>from</code> e <code>to</code>.
-        </div>
-      </section>
-
-      <section id="componentes">
-        <h2>4. Catálogo de componentes</h2>
         <p>
-          Todo tipo de componente precisa estar declarado em <code>src/core/catalog.ts</code>. Ali ficam largura, altura e pinos.
+          O documento continua simples: componentes e fios. O campo <code>memory</code> é usado por componentes sequenciais nativos, como <code>d-latch</code> e <code>d-flip-flop</code>.
         </p>
-        <pre><code>'half-adder': block(
-  'half-adder',
-  'Meio Somador',
-  ['A', 'B'],
-  ['SUM', 'CARRY'],
-  150
-)</code></pre>
-        <p>Portas básicas usam definições específicas. Blocos combinacionais nativos usam helper <code>block()</code>.</p>
-
-        <h3>Tipos atuais</h3>
-        <table>
-          <thead><tr><th>Família</th><th>Componentes</th></tr></thead>
-          <tbody>
-            <tr><td>Entradas/saídas</td><td><code>input</code>, <code>button</code>, <code>led</code></td></tr>
-            <tr><td>Portas</td><td><code>and</code>, <code>nand</code>, <code>or</code>, <code>nor</code>, <code>xor</code>, <code>xnor</code>, <code>not</code></td></tr>
-            <tr><td>Blocos</td><td><code>half-adder</code>, <code>full-adder</code>, <code>mux-2-1</code>, <code>mux-4-1</code>, <code>decoder-2-4</code>, <code>comparator-1-bit</code>, <code>encoder-4-2</code>, <code>odd-parity-3</code>, <code>majority-3</code>, <code>half-subtractor</code>, <code>full-subtractor</code></td></tr>
-            <tr><td>Anotações</td><td><code>text</code></td></tr>
-          </tbody>
-        </table>
+        <p>
+          Já a memória emergente de circuitos com feedback fica no runtime de simulação, não no JSON do circuito.
+        </p>
       </section>
 
       <section id="simulacao">
-        <h2>5. Simulação</h2>
-        <p>
-          A simulação fica em <code>src/core/evaluateCircuit.ts</code>. Ela é iterativa e combinacional, com limite de segurança.
-        </p>
-        <pre><code>const MAX_ITERATIONS = 64;</code></pre>
-        <p>
-          Para componentes com lógica própria, adicione um <code>case</code> em <code>evaluateComponent()</code>.
-        </p>
-        <pre><code>case 'half-adder': {
-  const a = inputValue(circuit, values, componentById, component.id, 'A');
-  const b = inputValue(circuit, values, componentById, component.id, 'B');
-  return writeMany(values, component.id, {
-    SUM: a !== b,
-    CARRY: a && b,
-  });
-}</code></pre>
-        <div class="callout warn">
-          Circuitos sequenciais, clock, flip-flops e memória de estado exigirão outra abordagem de simulação.
+        <h2>4. Core de simulação</h2>
+        <p>O arquivo antigo <code>evaluateCircuit.ts</code> virou fachada:</p>
+        <pre><code>export { evaluateCircuit, simulateCircuit } from './simulation/simulate';
+export {
+  SEQUENTIAL_TYPES,
+  isSequentialType,
+  settleSequentialCircuit,
+  stepCircuit,
+  withSequentialDefaults,
+} from './simulation/sequential';</code></pre>
+        <h3>Módulos</h3>
+        <table>
+          <thead><tr><th>Módulo</th><th>Responsabilidade</th></tr></thead>
+          <tbody>
+            <tr><td><code>signals.ts</code></td><td>Inicialização, leitura, escrita e clonagem dos sinais.</td></tr>
+            <tr><td><code>gates.ts</code></td><td>Avaliação das portas básicas, blocos combinacionais e saídas nativas.</td></tr>
+            <tr><td><code>simulate.ts</code></td><td>Loop de estabilização até convergir ou marcar instável.</td></tr>
+            <tr><td><code>sequential.ts</code></td><td>Clock, Latch D, Flip-Flop D, defaults e tick manual.</td></tr>
+            <tr><td><code>graph.ts</code></td><td>Detecção de ciclos/feedback no grafo.</td></tr>
+            <tr><td><code>truthTable.ts</code></td><td>Geração da tabela verdade do circuito inteiro.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout ok">
+          <strong>Ideia central:</strong> portas continuam combinacionais puras. O simulador guarda o último estado dos sinais para resolver circuitos com realimentação, como latch SR com NOR/NAND.
+        </div>
+      </section>
+
+      <section id="ui">
+        <h2>5. UI e editor</h2>
+        <p>O <code>App.tsx</code> agora é principalmente orquestrador. Ele coordena circuito, seleção, histórico, runtime, import/export e passa callbacks para componentes especializados.</p>
+        <div class="grid">
+          <div class="card"><strong>CommandBar</strong><br /><code>src/ui/commandbar/CommandBar.tsx</code><br />Abrir, salvar, exemplos, undo/redo, ferramentas, tick, reset de simulação e estilo dos fios.</div>
+          <div class="card"><strong>ComponentLibrary</strong><br /><code>src/ui/library/ComponentLibrary.tsx</code><br />Biblioteca lateral, grupos de componentes, cards e assets.</div>
+          <div class="card"><strong>ContextMenuView</strong><br /><code>src/ui/context-menu/ContextMenuView.tsx</code><br />Menu contextual de adicionar/excluir.</div>
+          <div class="card"><strong>CircuitTruthTable</strong><br /><code>src/ui/panels/CircuitTruthTable.tsx</code><br />Tabela verdade ou painel de estado quando há sequencial/feedback.</div>
         </div>
       </section>
 
       <section id="canvas">
-        <h2>6. Canvas SVG e interações</h2>
-        <p>O editor visual é SVG. O arquivo principal é <code>src/ui/editor/CircuitCanvas.tsx</code>.</p>
+        <h2>6. Canvas SVG</h2>
+        <p>O canvas foi quebrado em partes:</p>
+        <table>
+          <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+          <tbody>
+            <tr><td><code>CircuitCanvas.tsx</code></td><td>Orquestra SVG, eventos principais, seleção, drag, marquee e integração dos renderers.</td></tr>
+            <tr><td><code>ComponentView.tsx</code></td><td>Renderiza componentes, imagens, pinos, labels, texto e resize handle.</td></tr>
+            <tr><td><code>WireView.tsx</code></td><td>Renderiza fios existentes e preview de fio pendente.</td></tr>
+            <tr><td><code>wireRouting.ts</code></td><td>Roteamento ortogonal, self-loop/balão, curvas, bounds, jumps e helpers de seleção.</td></tr>
+            <tr><td><code>useCanvasCamera.ts</code></td><td>Pan, zoom, atalhos de zoom, reset e porcentagem.</td></tr>
+            <tr><td><code>useLabelEditing.ts</code></td><td>Edição inline de nomes/textos no canvas.</td></tr>
+          </tbody>
+        </table>
+        <p>Self-loops agora são permitidos e desenhados como balão visível; no modo curvo, usam cantos arredondados.</p>
+      </section>
+
+      <section id="testes">
+        <h2>7. Testes</h2>
+        <p>Comando principal:</p>
+        <pre><code>npm test</code></pre>
+        <p>Hoje os testes cobrem:</p>
         <ul>
-          <li>Componentes são renderizados como grupos SVG <code>&lt;g&gt;</code>.</li>
-          <li>Fios são <code>&lt;path&gt;</code>.</li>
-          <li>Pinos são círculos com hitbox.</li>
-          <li>Zoom/pan usam alteração de <code>viewBox</code>.</li>
-          <li>Texto editável usa estado local e <code>foreignObject</code> para input HTML.</li>
+          <li>XOR combinacional básico;</li>
+          <li>Latch SR com NOR mantendo estado;</li>
+          <li>Latch SR com NAND ativo baixo mantendo estado;</li>
+          <li>Latch D construído com NANDs;</li>
+          <li>NOT realimentado detectado como instável;</li>
+          <li>detecção de feedback no grafo;</li>
+          <li><code>stepCircuit()</code> com borda de subida/descida;</li>
+          <li>tabela verdade do XOR;</li>
+          <li>roteamento de self-loop/balão.</li>
         </ul>
-        <pre><code>function svgPoint(event: { clientX: number; clientY: number }): Point {
-  const svg = svgRef.current;
-  const ctm = svg?.getScreenCTM();
-  // converte coordenadas de tela para coordenadas do SVG
-}</code></pre>
+        <p>Validação completa recomendada:</p>
+        <pre><code>npm test
+npm run build</code></pre>
       </section>
 
-      <section id="fios">
-        <h2>7. Fios</h2>
-        <p>Existem dois estilos visuais, selecionáveis na barra superior:</p>
-        <ul>
-          <li><strong>Ortogonal:</strong> segmentos retos, tenta evitar componentes e desenha “pulos” em cruzamentos.</li>
-          <li><strong>Curvo/Bézier:</strong> visual mais suave, parecido com o estilo inicial.</li>
-        </ul>
-        <p>A preferência é salva em <code>localStorage</code>, não no circuito.</p>
-        <div class="callout">
-          O roteamento ortogonal é visual/calculado. Se o circuito for exportado, apenas origem e destino dos fios são salvos.
-        </div>
+      <section id="fluxos">
+        <h2>8. Fluxos importantes</h2>
+        <h3>Simulação normal</h3>
+        <pre><code>const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);</code></pre>
+        <p>O runtime preserva sinais anteriores para feedback. Use <code>resetSimulationRuntime()</code> para limpar memória emergente sem apagar o circuito.</p>
+
+        <h3>Tick sequencial</h3>
+        <pre><code>setCircuit((current) =&gt; stepCircuit(current));</code></pre>
+        <p>Alterna clocks e atualiza memória de latches/flip-flops nativos.</p>
+
+        <h3>Tabela verdade</h3>
+        <p>É exibida somente quando não há sequenciais nem feedback. Caso contrário, o painel vira estado do circuito.</p>
       </section>
 
-      <section id="historico">
-        <h2>8. Histórico, undo e redo</h2>
-        <p>O histórico é manual em <code>App.tsx</code>. Antes de mudanças estruturais, chame <code>rememberCircuit()</code>.</p>
-        <ul>
-          <li>Adicionar/remover componente: registra histórico.</li>
-          <li>Renomear: registra histórico.</li>
-          <li>Carregar exemplo/importar: registra histórico.</li>
-          <li>Drag/resize contínuo: deve registrar apenas uma vez no início da ação.</li>
-        </ul>
-        <pre><code>function renameComponent(componentId: string, label: string) {
-  const currentComponent = circuit.components.find(c =&gt; c.id === componentId);
-  if (!currentComponent || currentComponent.label === label) return;
-  rememberCircuit();
-  // altera estado...
-}</code></pre>
-      </section>
-
-      <section id="tabela">
-        <h2>9. Tabela verdade</h2>
-        <p>A tabela verdade é do circuito inteiro por padrão:</p>
-        <ul>
-          <li>Entradas: todos os componentes <code>input</code>.</li>
-          <li>Saídas: todos os componentes <code>led</code>.</li>
-          <li>Gera combinações até um limite.</li>
-          <li>Avalia cópias temporárias do circuito, sem alterar o circuito real.</li>
-          <li>Destaca a linha correspondente ao estado atual dos inputs.</li>
-        </ul>
-        <pre><code>const testCircuit: CircuitDocument = {
-  ...circuit,
-  components: circuit.components.map(component =&gt;
-    component.type === 'input'
-      ? { ...component, state: inputValueById.get(component.id) ?? false }
-      : component
-  ),
-};</code></pre>
-      </section>
-
-      <section id="exemplos">
-        <h2>10. Exemplos didáticos</h2>
-        <p>Os exemplos ficam hardcoded em <code>src/ui/App.tsx</code>, em <code>CIRCUIT_EXAMPLES</code>.</p>
-        <p>Eles são documentos <code>CircuitDocument</code> completos e podem conter textos explicativos.</p>
-        <pre><code>{
-  id: 'half-adder',
-  name: 'Meio somador',
-  circuit: {
-    version: 1,
-    components: [
-      { id: 'A', type: 'input', x: 80, y: 110, label: 'A', state: false },
-      { id: 'TXT1', type: 'text', x: 80, y: 330, width: 440,
-        label: 'Meio somador soma dois bits...' }
-    ],
-    wires: []
-  }
-}</code></pre>
-      </section>
-
-      <section id="como-adicionar">
-        <h2>11. Como adicionar um novo componente lógico</h2>
+      <section id="adicionar">
+        <h2>9. Como adicionar componentes</h2>
         <ol>
-          <li>Adicionar o tipo em <code>GateType</code>, no arquivo <code>src/core/types.ts</code>.</li>
-          <li>Adicionar definição em <code>COMPONENT_DEFINITIONS</code>, no <code>catalog.ts</code>.</li>
-          <li>Implementar avaliação em <code>evaluateCircuit.ts</code>.</li>
-          <li>Adicionar na biblioteca em <code>TOOL_GROUPS</code>, no <code>App.tsx</code>.</li>
-          <li>Atualizar prefixo de ID em <code>nextId()</code>.</li>
-          <li>Rodar <code>npm run build</code>.</li>
+          <li>Adicionar o tipo em <code>GateType</code>, em <code>src/core/types.ts</code>.</li>
+          <li>Adicionar definição visual/lógica em <code>src/core/catalog.ts</code>.</li>
+          <li>Adicionar avaliação em <code>src/core/simulation/gates.ts</code> ou comportamento sequencial em <code>sequential.ts</code>.</li>
+          <li>Adicionar na biblioteca em <code>src/ui/library/ComponentLibrary.tsx</code>.</li>
+          <li>Adicionar prefixo de ID em <code>src/ui/app/editorUtils.ts</code>.</li>
+          <li>Adicionar exemplo didático em <code>src/examples/circuitExamples.ts</code>, se fizer sentido.</li>
+          <li>Adicionar teste em <code>tests/core/simulation.test.ts</code>.</li>
         </ol>
-        <div class="callout ok">
-          Se o componente só for visual, como <code>text</code>, ele pode ter <code>pins: []</code> e retornar <code>false</code> na avaliação.
-        </div>
       </section>
 
       <section id="cuidados">
-        <h2>12. Cuidados ao manter/extender</h2>
-        <ul class="checklist">
-          <li>Verifique se pinos do catálogo batem com os nomes usados na simulação.</li>
-          <li>Não mude o formato JSON sem pensar em compatibilidade.</li>
-          <li>Não salve caminhos visuais de fios sem uma decisão explícita de produto.</li>
-          <li>Ao mexer em interações SVG, teste clique, drag, menu de contexto e seleção múltipla.</li>
-          <li>Ao mexer em texto editável, teste Enter, Esc, blur e undo.</li>
-          <li>Ao mexer em tabela verdade, garanta que ela não muta o circuito real.</li>
-          <li>Ao mexer em histórico, evite registrar centenas de estados durante drag contínuo.</li>
-          <li>Sempre rode <code>npm run build</code>.</li>
+        <h2>10. Cuidados ao manter</h2>
+        <ul>
+          <li>Não quebre a compatibilidade do JSON <code>version: 1</code>.</li>
+          <li>Não confunda estado do documento com estado runtime da simulação.</li>
+          <li>Ao mexer em feedback, teste latch NOR, latch NAND e NOT self-loop.</li>
+          <li>Ao mexer em canvas, teste drag, seleção múltipla, conexão por clique, conexão por drag, self-loop, pan e zoom.</li>
+          <li>Ao mexer em histórico, evite registrar estados demais durante drag/resize.</li>
+          <li>Ao mexer em tabela verdade, garanta que a avaliação temporária não muta o circuito real.</li>
         </ul>
+        <div class="callout warn">
+          <strong>Atenção:</strong> os arquivos estão mais modulares, mas ainda há interações complexas entre canvas, seleção, fios e histórico. Faça mudanças pequenas e rode testes sempre.
+        </div>
       </section>
 
-      <section id="futuro">
-        <h2>13. Próximos caminhos possíveis</h2>
-        <h3>Consolidar combinacional</h3>
-        <ul>
-          <li>Copiar/exportar tabela verdade como CSV/Markdown.</li>
-          <li>Melhorar auto-layout de fios.</li>
-          <li>Adicionar mais exemplos didáticos.</li>
-        </ul>
-
-        <h3>Subcircuitos</h3>
-        <p>Permitir que o usuário crie um circuito e transforme em bloco reutilizável. É poderoso, mas muda bastante o modelo.</p>
-
-        <h3>Lógica sequencial</h3>
-        <p>Clock, latch, flip-flop, registradores e contadores. Esse é o próximo grande capítulo, mas requer simulação por ticks/estado.</p>
+      <section id="proximos">
+        <h2>11. Próximos passos sugeridos</h2>
+        <ol>
+          <li><strong>Clock automático:</strong> play/pause com intervalo controlado.</li>
+          <li><strong>Registrador 4 bits:</strong> componente nativo e exemplo didático.</li>
+          <li><strong>Contador:</strong> primeiro 2 bits, depois 4 bits.</li>
+          <li><strong>Mais testes:</strong> clock automático, registradores, contador e roteamento complexo.</li>
+          <li><strong>Subcircuitos:</strong> futuro maior, quando a camada atual estiver estável.</li>
+        </ol>
+        <div class="callout ok">
+          <strong>Estado final desta rodada:</strong> o framework está consolidado o suficiente para voltar a evoluir funcionalidades com muito menos risco.
+        </div>
       </section>
     </main>
   </div>
 
   <footer>
-    Gerado como documentação de manutenção para o projeto OpenCircuit. Última atualização: 2026-05-23.
+    Guia atualizado após a refatoração modular do OpenCircuit. Comandos de confiança: <code>npm test</code> e <code>npm run build</code>.
   </footer>
 </body>
 </html>

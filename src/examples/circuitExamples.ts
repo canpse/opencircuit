@@ -1,6 +1,9 @@
 import type { CircuitDocument } from '../core/types';
 
-export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocument }> = [
+export type CircuitExample = { id: string; name: string; circuit: CircuitDocument };
+export type CircuitLesson = { id: string; title: string; description: string; exampleIds: string[]; examples: CircuitExample[] };
+
+export const CIRCUIT_EXAMPLES: CircuitExample[] = [
   {
     id: 'xor',
     name: 'XOR básico',
@@ -35,6 +38,61 @@ export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: Circui
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'a' } },
         { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'b' } },
         { id: 'W3', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'and-basic',
+    name: 'AND básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'G1', type: 'and', x: 260, y: 130, label: 'AND' },
+        { id: 'OUT', type: 'led', x: 450, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 430, label: 'Porta AND: a saída liga somente quando A=1 e B=1. Use os switches e observe a tabela verdade.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'or-basic',
+    name: 'OR básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 100, label: 'A', state: false },
+        { id: 'B', type: 'input', x: 80, y: 190, label: 'B', state: false },
+        { id: 'G1', type: 'or', x: 260, y: 130, label: 'OR' },
+        { id: 'OUT', type: 'led', x: 450, y: 139, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 430, label: 'Porta OR: a saída liga quando A=1 ou B=1. Ela só fica desligada quando todas as entradas são 0.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'not-basic',
+    name: 'NOT básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 80, y: 140, label: 'A', state: false },
+        { id: 'N1', type: 'not', x: 260, y: 138, label: 'NOT' },
+        { id: 'OUT', type: 'led', x: 440, y: 140, label: '!A' },
+        { id: 'TXT1', type: 'text', x: 80, y: 250, width: 430, label: 'Porta NOT, ou inversor: OUT é sempre o contrário de A. Se A=0, OUT=1; se A=1, OUT=0.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
       ],
     },
   },
@@ -77,6 +135,37 @@ export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: Circui
     },
   },
   {
+    id: 'register-4-basic',
+    name: 'Registrador 4 bits básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D0', type: 'input', x: 70, y: 80, label: 'D0', state: false },
+        { id: 'D1', type: 'input', x: 70, y: 150, label: 'D1', state: false },
+        { id: 'D2', type: 'input', x: 70, y: 220, label: 'D2', state: false },
+        { id: 'D3', type: 'input', x: 70, y: 290, label: 'D3', state: false },
+        { id: 'CLK', type: 'clock', x: 70, y: 390, label: 'Clock', state: false },
+        { id: 'REG1', type: 'register-4', x: 320, y: 140, label: 'Registrador 4 bits', memory: { q0: false, q1: false, q2: false, q3: false, previousClk: false } },
+        { id: 'Q0', type: 'led', x: 610, y: 157, label: 'Q0' },
+        { id: 'Q1', type: 'led', x: 610, y: 181, label: 'Q1' },
+        { id: 'Q2', type: 'led', x: 610, y: 205, label: 'Q2' },
+        { id: 'Q3', type: 'led', x: 610, y: 229, label: 'Q3' },
+        { id: 'TXT1', type: 'text', x: 70, y: 490, width: 690, label: 'Registrador de 4 bits. Ajuste D0–D3 e pressione Tick ou rode o clock automático. Na borda de subida do clock, Q0–Q3 copiam D0–D3 e depois mantêm o valor salvo.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'D0', pinId: 'out' }, to: { componentId: 'REG1', pinId: 'D0' } },
+        { id: 'W2', from: { componentId: 'D1', pinId: 'out' }, to: { componentId: 'REG1', pinId: 'D1' } },
+        { id: 'W3', from: { componentId: 'D2', pinId: 'out' }, to: { componentId: 'REG1', pinId: 'D2' } },
+        { id: 'W4', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'REG1', pinId: 'D3' } },
+        { id: 'W5', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'REG1', pinId: 'CLK' } },
+        { id: 'W6', from: { componentId: 'REG1', pinId: 'Q0' }, to: { componentId: 'Q0', pinId: 'in' } },
+        { id: 'W7', from: { componentId: 'REG1', pinId: 'Q1' }, to: { componentId: 'Q1', pinId: 'in' } },
+        { id: 'W8', from: { componentId: 'REG1', pinId: 'Q2' }, to: { componentId: 'Q2', pinId: 'in' } },
+        { id: 'W9', from: { componentId: 'REG1', pinId: 'Q3' }, to: { componentId: 'Q3', pinId: 'in' } },
+      ],
+    },
+  },
+  {
     id: 'sr-latch-nor-experiment',
     name: 'Experimento: latch SR com NOR',
     circuit: {
@@ -88,7 +177,7 @@ export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: Circui
         { id: 'GQB', type: 'nor', x: 280, y: 250, label: 'NOR !Q' },
         { id: 'Q', type: 'led', x: 500, y: 99, label: 'Q' },
         { id: 'QB', type: 'led', x: 500, y: 259, label: '!Q' },
-        { id: 'TXT1', type: 'text', x: 70, y: 370, width: 620, label: 'Latch SR feito com duas portas NOR cruzadas. Em hardware real, S=1 seta Q, R=1 reseta Q e S=R=0 mantém o estado. Neste simulador combinacional atual, o feedback aparece, mas o estado mantido ainda não é confiável: este exemplo mostra por que precisamos de uma etapa sequencial com memória.' },
+        { id: 'TXT1', type: 'text', x: 70, y: 370, width: 620, label: 'Latch SR feito com duas portas NOR cruzadas. S=1 seta Q, R=1 reseta Q e S=R=0 mantém o estado anterior. S=R=1 é a condição proibida.' },
       ],
       wires: [
         { id: 'W1', from: { componentId: 'R', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'a' } },
@@ -97,6 +186,62 @@ export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: Circui
         { id: 'W4', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'QB', pinId: 'in' } },
         { id: 'W5', from: { componentId: 'GQ', pinId: 'out' }, to: { componentId: 'GQB', pinId: 'b' } },
         { id: 'W6', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'b' } },
+      ],
+    },
+  },
+  {
+    id: 'sr-latch-nand-active-low',
+    name: 'Latch SR com NAND ativo baixo',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'SB', type: 'input', x: 60, y: 90, label: 'S̅', state: true },
+        { id: 'RB', type: 'input', x: 60, y: 250, label: 'R̅', state: true },
+        { id: 'GQ', type: 'nand', x: 280, y: 90, label: 'NAND Q' },
+        { id: 'GQB', type: 'nand', x: 280, y: 250, label: 'NAND !Q' },
+        { id: 'Q', type: 'led', x: 530, y: 99, label: 'Q' },
+        { id: 'QB', type: 'led', x: 530, y: 259, label: '!Q' },
+        { id: 'TXT1', type: 'text', x: 60, y: 370, width: 720, label: 'Latch SR com NAND ativo em nível baixo. Repouso: S̅=1 e R̅=1. Para SET, coloque S̅=0 e volte para 1. Para RESET, coloque R̅=0 e volte para 1. S̅=R̅=0 é proibido.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'SB', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'RB', pinId: 'out' }, to: { componentId: 'GQB', pinId: 'a' } },
+        { id: 'W3', from: { componentId: 'GQ', pinId: 'out' }, to: { componentId: 'Q', pinId: 'in' } },
+        { id: 'W4', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'QB', pinId: 'in' } },
+        { id: 'W5', from: { componentId: 'GQ', pinId: 'out' }, to: { componentId: 'GQB', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'b' } },
+      ],
+    },
+  },
+  {
+    id: 'gated-d-latch-from-nand',
+    name: 'Latch D com NANDs',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D', type: 'input', x: 50, y: 120, label: 'D', state: false },
+        { id: 'EN', type: 'input', x: 50, y: 300, label: 'EN', state: false },
+        { id: 'ND', type: 'not', x: 210, y: 200, label: '!D' },
+        { id: 'GS', type: 'nand', x: 390, y: 115, label: 'gera S̅' },
+        { id: 'GR', type: 'nand', x: 390, y: 280, label: 'gera R̅' },
+        { id: 'LQ', type: 'nand', x: 620, y: 130, label: 'Latch Q' },
+        { id: 'LQB', type: 'nand', x: 620, y: 295, label: 'Latch !Q' },
+        { id: 'Q', type: 'led', x: 870, y: 139, label: 'Q' },
+        { id: 'QB', type: 'led', x: 870, y: 304, label: '!Q' },
+        { id: 'TXT1', type: 'text', x: 50, y: 430, width: 760, label: 'Latch D construído só com portas comuns. Com EN=1, Q acompanha D. Com EN=0, Q mantém o último valor, mesmo se D mudar.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'ND', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'GS', pinId: 'a' } },
+        { id: 'W3', from: { componentId: 'EN', pinId: 'out' }, to: { componentId: 'GS', pinId: 'b' } },
+        { id: 'W4', from: { componentId: 'ND', pinId: 'out' }, to: { componentId: 'GR', pinId: 'a' } },
+        { id: 'W5', from: { componentId: 'EN', pinId: 'out' }, to: { componentId: 'GR', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'GS', pinId: 'out' }, to: { componentId: 'LQ', pinId: 'a' } },
+        { id: 'W7', from: { componentId: 'GR', pinId: 'out' }, to: { componentId: 'LQB', pinId: 'a' } },
+        { id: 'W8', from: { componentId: 'LQ', pinId: 'out' }, to: { componentId: 'Q', pinId: 'in' } },
+        { id: 'W9', from: { componentId: 'LQB', pinId: 'out' }, to: { componentId: 'QB', pinId: 'in' } },
+        { id: 'W10', from: { componentId: 'LQ', pinId: 'out' }, to: { componentId: 'LQB', pinId: 'b' } },
+        { id: 'W11', from: { componentId: 'LQB', pinId: 'out' }, to: { componentId: 'LQ', pinId: 'b' } },
       ],
     },
   },
@@ -486,4 +631,21 @@ export const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: Circui
       ],
     },
   },
+];
+
+function lesson(id: string, title: string, description: string, exampleIds: string[]): CircuitLesson {
+  const examples = exampleIds.map((exampleId) => {
+    const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
+    if (!example) throw new Error(`Exemplo não encontrado: ${exampleId}`);
+    return example;
+  });
+  return { id, title, description, exampleIds, examples };
+}
+
+export const CIRCUIT_LESSONS: CircuitLesson[] = [
+  lesson('first-steps', 'Aula 1 — Primeiros circuitos', 'Portas básicas, switches, LEDs e leitura da tabela verdade.', ['and-basic', 'or-basic', 'not-basic', 'xor', 'nand-not']),
+  lesson('truth-tables', 'Aula 2 — Tabela verdade e aritmética', 'Circuitos combinacionais clássicos observados pela tabela verdade.', ['half-adder', 'full-adder', 'comparator-1-bit', 'half-subtractor', 'full-subtractor']),
+  lesson('combinational-blocks', 'Aula 3 — Seleção e codificação', 'Multiplexadores, decodificadores, encoders e detectores combinacionais.', ['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3']),
+  lesson('memory-latches', 'Aula 4 — Memória e latches', 'Primeiros circuitos que mantêm estado, tanto nativos quanto por realimentação.', ['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand']),
+  lesson('clocked-systems', 'Aula 5 — Clock, flip-flops e registradores', 'Circuitos sincronizados pelo Tick ou pelo clock automático.', ['d-flip-flop-basic', 'register-4-basic']),
 ];

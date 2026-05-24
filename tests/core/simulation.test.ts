@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { evaluateCircuit, simulateCircuit, stepCircuit } from '../../src/core/evaluateCircuit';
 import { circuitHasFeedback } from '../../src/core/simulation/graph';
+import { buildCircuitTruthRows } from '../../src/core/simulation/truthTable';
+import { bezierPathFromPoints, orthogonalPath, selfLoopRoute } from '../../src/ui/editor/wireRouting';
 import type { CircuitDocument, SimulationState } from '../../src/core/types';
 
 type InputValues = Record<string, boolean>;
@@ -185,6 +187,83 @@ function testStepCircuitCapturesFlipFlopOnRisingEdgeOnly() {
   assert.equal(circuit.components.find((component) => component.id === 'FF')?.memory?.q, false, 'Nova borda de subida deve capturar D=0');
 }
 
+function testRegister4CapturesOnRisingEdgeOnly() {
+  let circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'D0', type: 'input', x: 0, y: 0, state: true },
+      { id: 'D1', type: 'input', x: 0, y: 60, state: false },
+      { id: 'D2', type: 'input', x: 0, y: 120, state: true },
+      { id: 'D3', type: 'input', x: 0, y: 180, state: false },
+      { id: 'CLK', type: 'clock', x: 0, y: 240, state: false },
+      { id: 'REG', type: 'register-4', x: 180, y: 80, memory: { q0: false, q1: false, q2: false, q3: false, previousClk: false } },
+    ],
+    wires: [
+      { id: 'W0', from: { componentId: 'D0', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D0' } },
+      { id: 'W1', from: { componentId: 'D1', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D1' } },
+      { id: 'W2', from: { componentId: 'D2', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D2' } },
+      { id: 'W3', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D3' } },
+      { id: 'W4', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'REG', pinId: 'CLK' } },
+    ],
+  };
+
+  circuit = stepCircuit(circuit);
+  const registerAfterRise = circuit.components.find((component) => component.id === 'REG');
+  assert.equal(registerAfterRise?.memory?.q0, true, 'Q0 deve capturar D0 na subida');
+  assert.equal(registerAfterRise?.memory?.q1, false, 'Q1 deve capturar D1 na subida');
+  assert.equal(registerAfterRise?.memory?.q2, true, 'Q2 deve capturar D2 na subida');
+  assert.equal(registerAfterRise?.memory?.q3, false, 'Q3 deve capturar D3 na subida');
+
+  circuit = setInputs(circuit, { D0: false, D1: true, D2: false, D3: true });
+  circuit = stepCircuit(circuit);
+  const registerAfterFall = circuit.components.find((component) => component.id === 'REG');
+  assert.equal(registerAfterFall?.memory?.q0, true, 'Borda de descida não deve alterar Q0');
+  assert.equal(registerAfterFall?.memory?.q1, false, 'Borda de descida não deve alterar Q1');
+  assert.equal(registerAfterFall?.memory?.q2, true, 'Borda de descida não deve alterar Q2');
+  assert.equal(registerAfterFall?.memory?.q3, false, 'Borda de descida não deve alterar Q3');
+
+  circuit = stepCircuit(circuit);
+  const registerAfterSecondRise = circuit.components.find((component) => component.id === 'REG');
+  assert.equal(registerAfterSecondRise?.memory?.q0, false, 'Nova subida deve capturar novo D0');
+  assert.equal(registerAfterSecondRise?.memory?.q1, true, 'Nova subida deve capturar novo D1');
+  assert.equal(registerAfterSecondRise?.memory?.q2, false, 'Nova subida deve capturar novo D2');
+  assert.equal(registerAfterSecondRise?.memory?.q3, true, 'Nova subida deve capturar novo D3');
+}
+
+function testTruthTableRowsForXor() {
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'A', type: 'input', x: 0, y: 0 },
+      { id: 'B', type: 'input', x: 0, y: 80 },
+      { id: 'X1', type: 'xor', x: 160, y: 20 },
+      { id: 'OUT', type: 'led', x: 320, y: 20 },
+    ],
+    wires: [
+      { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
+      { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
+      { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+    ],
+  };
+  const inputs = circuit.components.filter((component) => component.type === 'input');
+  const outputs = circuit.components.filter((component) => component.type === 'led');
+  const rows = buildCircuitTruthRows(circuit, inputs, outputs);
+  assert.deepEqual(rows.map((row) => row.outputs[0]), [false, true, true, false], 'Tabela verdade do XOR deve ser 0,1,1,0');
+}
+
+function testWireRoutingSelfLoopGoesAroundComponent() {
+  const component = { id: 'N1', type: 'not', x: 100, y: 100 } satisfies CircuitDocument['components'][number];
+  const start = { x: 182, y: 128 };
+  const end = { x: 100, y: 128 };
+  const route = selfLoopRoute(component, start, end, 0);
+  assert.deepEqual(route[0], start, 'Self-loop deve começar no pino de saída');
+  assert.deepEqual(route[route.length - 1], end, 'Self-loop deve terminar no pino de entrada');
+  assert.ok(route.some((point) => point.y < component.y), 'Self-loop deve subir acima do componente');
+  assert.ok(route.some((point) => point.x < component.x), 'Self-loop deve passar à esquerda antes de conectar entrada');
+  assert.match(orthogonalPath(route, []), /^M /, 'Rota ortogonal deve gerar path SVG');
+  assert.match(bezierPathFromPoints(route), /Q/, 'Rota curva do self-loop deve ter cantos arredondados');
+}
+
 function testNativeDFlipFlopCapturesOnlyOnRisingEdge() {
   let circuit = nativeFlipFlopCircuit(false);
 
@@ -207,6 +286,9 @@ const tests = [
   testNotSelfFeedbackIsUnstable,
   testFeedbackGraphDistinguishesAcyclicCircuit,
   testStepCircuitCapturesFlipFlopOnRisingEdgeOnly,
+  testRegister4CapturesOnRisingEdgeOnly,
+  testTruthTableRowsForXor,
+  testWireRoutingSelfLoopGoesAroundComponent,
   testNativeDFlipFlopCapturesOnlyOnRisingEdge,
 ];
 

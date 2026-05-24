@@ -39,6 +39,7 @@ button {
 button:hover { transform: translateY(-1px); box-shadow: var(--inset), 0 7px 18px rgba(52, 76, 91, 0.18); }
 button:active { transform: translateY(1px); }
 button.active { color: #fff; background: linear-gradient(#3b8ee6, #1769b7); }
+button.clock-running { color: #fff; background: linear-gradient(#2fb36d, #16864d); }
 button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
 .app-shell {
@@ -110,8 +111,14 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
   background: rgba(47, 125, 211, 0.16);
   box-shadow: inset 0 0 0 1px rgba(47, 125, 211, 0.28);
 }
+.commandbar button.clock-running {
+  color: #0f5f35;
+  background: rgba(47, 179, 109, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(47, 179, 109, 0.35);
+}
 .examples-select,
-.wire-style-control select {
+.wire-style-control select,
+.clock-speed-control select {
   height: 34px;
   padding: 0 12px;
   border: 1px solid rgba(91, 113, 128, 0.22);
@@ -120,7 +127,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
   background: #fff;
   font-weight: 800;
 }
-.wire-style-control {
+.wire-style-control,
+.clock-speed-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;

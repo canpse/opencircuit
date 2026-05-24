@@ -1,27 +1,29 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { COMPONENT_DEFINITIONS } from '../core/catalog';
-import { isSequentialType, settleSequentialCircuit, stepCircuit, withSequentialDefaults } from '../core/evaluateCircuit';
+import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
 import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
-import { downloadJson, loadCircuit, saveCircuit, STARTER_CIRCUIT } from '../state/storage';
+import { downloadJson, loadCircuit, STARTER_CIRCUIT } from '../state/storage';
 import { CircuitCanvas, type WireStyle } from './editor/CircuitCanvas';
-import { CIRCUIT_EXAMPLES } from '../examples/circuitExamples';
+import { CIRCUIT_EXAMPLES, CIRCUIT_LESSONS } from '../examples/circuitExamples';
 import { CircuitTruthTable } from './panels/CircuitTruthTable';
 import { circuitHasFeedback } from '../core/simulation/graph';
 import { CommandBar } from './commandbar/CommandBar';
+import { useAutoClock } from './hooks/useAutoClock';
+import { useAutoCloseContextMenu } from './hooks/useAutoCloseContextMenu';
+import { useAutoSaveCircuit } from './hooks/useAutoSaveCircuit';
+import { useCircuitHistory } from './hooks/useCircuitHistory';
+import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
+import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
+import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useSimulationRuntime } from './hooks/useSimulationRuntime';
-import { ComponentLibrary, LOGIC_COMPONENT_TOOLS, ToolButtonContent } from './library/ComponentLibrary';
+import { useWireStylePreference } from './hooks/useWireStylePreference';
+import { cloneCircuit, componentDefinitionLabel, createLogicComponent, hasSelection, nextId, normalizeCircuitForEditor, snap } from './app/editorUtils';
+import { ContextMenuView, type ContextMenu, type Selection } from './context-menu/ContextMenuView';
+import { ComponentLibrary } from './library/ComponentLibrary';
 
 const GRID = 20;
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 
-type Selection = { componentIds: string[]; wireIds: string[] };
-type HistoryState = { past: CircuitDocument[]; future: CircuitDocument[] };
-type ContextMenu =
-  | { kind: 'canvas'; x: number; y: number; point: Point }
-  | { kind: 'component'; x: number; y: number; componentId: string }
-  | { kind: 'wire'; x: number; y: number; wireId: string }
-  | null;
 
 const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 export function App() {
@@ -29,157 +31,42 @@ export function App() {
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
-  const [history, setHistory] = useState<HistoryState>({ past: [], future: [] });
+  const { canUndo, canRedo, remember: rememberCircuit, undo: undoHistory, redo: redoHistory } = useCircuitHistory(circuit, HISTORY_LIMIT);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(null);
   const [message, setMessage] = useState('Pronto para testar lógica.');
-  const [wireStyle, setWireStyle] = useState<WireStyle>(() => loadWireStyle());
-  const [truthPanelWidth, setTruthPanelWidth] = useState(320);
-  const [resizingTruthPanel, setResizingTruthPanel] = useState(false);
+  const [autoClockRunning, setAutoClockRunning] = useState(false);
+  const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
+  const [wireStyle, setWireStyle] = useWireStylePreference(WIRE_STYLE_STORAGE_KEY);
+  const truthPanel = useResizableSidePanel(320, 260, 620);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);
   const hasSequentialComponents = circuit.components.some((component) => isSequentialType(component.type));
   const hasFeedback = useMemo(() => circuitHasFeedback(circuit), [circuit]);
 
-  useEffect(() => {
-    localStorage.setItem(WIRE_STYLE_STORAGE_KEY, wireStyle);
-  }, [wireStyle]);
-
-  useEffect(() => {
-    saveCircuit(circuit);
-  }, [circuit]);
-
-  useEffect(() => {
-    if (!resizingTruthPanel) return;
-
-    function onMouseMove(event: globalThis.MouseEvent) {
-      const nextWidth = Math.min(620, Math.max(260, window.innerWidth - event.clientX));
-      setTruthPanelWidth(nextWidth);
-    }
-
-    function onMouseUp() {
-      setResizingTruthPanel(false);
-    }
-
-    document.body.classList.add('resizing-panel');
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      document.body.classList.remove('resizing-panel');
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [resizingTruthPanel]);
-
-  useEffect(() => {
-    function closeContextMenu() {
-      setContextMenu(null);
-    }
-
-    window.addEventListener('click', closeContextMenu);
-    window.addEventListener('resize', closeContextMenu);
-    return () => {
-      window.removeEventListener('click', closeContextMenu);
-      window.removeEventListener('resize', closeContextMenu);
-    };
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const autoClockTick = useCallback(() => {
+    setCircuit((current) => stepCircuit(current));
   }, []);
 
-  useEffect(() => {
-    function releaseButtons() {
-      setCircuit((current) => ({
-        ...current,
-        components: current.components.map((component) =>
-          component.type === 'button' && component.state ? { ...component, state: false } : component,
-        ),
-      }));
-    }
+  useAutoSaveCircuit(circuit);
+  useAutoClock({ running: autoClockRunning, intervalMs: autoClockIntervalMs, onTick: autoClockTick });
+  useAutoCloseContextMenu(closeContextMenu);
+  useReleaseMomentaryButtons(setCircuit);
 
-    window.addEventListener('mouseup', releaseButtons);
-    window.addEventListener('blur', releaseButtons);
-    return () => {
-      window.removeEventListener('mouseup', releaseButtons);
-      window.removeEventListener('blur', releaseButtons);
-    };
-  }, []);
-
-  useEffect(() => {
-    function isEditingText(target: EventTarget | null): boolean {
-      const element = target as HTMLElement | null;
-      return element?.tagName === 'INPUT' || element?.tagName === 'TEXTAREA' || Boolean(element?.isContentEditable);
-    }
-
-    function onSpaceDown(event: KeyboardEvent) {
-      if (event.code !== 'Space' || event.repeat || isEditingText(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
-
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (activeElement?.tagName === 'BUTTON') activeElement.blur();
-
-      setSelectedTool('pan');
-      setMessage('Ferramenta Mão ativa.');
-    }
-
-    window.addEventListener('keydown', onSpaceDown, true);
-    return () => {
-      window.removeEventListener('keydown', onSpaceDown, true);
-    };
-  }, []);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null;
-      const isEditingText = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
-      if (isEditingText) return;
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        if (contextMenu) {
-          setContextMenu(null);
-          return;
-        }
-        const hadPendingWire = Boolean(pendingWire);
-        setPendingWire(null);
-        setSelectedTool('select');
-        setMessage(hadPendingWire ? 'Conexão cancelada. Modo selecionar.' : 'Modo selecionar.');
-        return;
-      }
-
-      const key = event.key.toLowerCase();
-      const command = event.ctrlKey || event.metaKey;
-      const isUndo = command && key === 'z' && !event.shiftKey;
-      const isRedo = command && ((key === 'z' && event.shiftKey) || key === 'y');
-
-      if (isUndo) {
-        event.preventDefault();
-        undo();
-        return;
-      }
-
-      if (isRedo) {
-        event.preventDefault();
-        redo();
-        return;
-      }
-
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
-      if (!hasSelection(selection)) return;
-
-      event.preventDefault();
-      removeSelection();
-    }
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [selection, pendingWire, history, circuit, contextMenu]);
-
-  function rememberCircuit(snapshot: CircuitDocument = circuit) {
-    setHistory((current) => ({
-      past: [...current.past, snapshot].slice(-HISTORY_LIMIT),
-      future: [],
-    }));
-  }
+  useEditorKeyboardShortcuts({
+    selection,
+    pendingWire,
+    contextMenu,
+    hasSelection,
+    onCancelContextMenu: () => setContextMenu(null),
+    onCancelPendingWire: () => setPendingWire(null),
+    onSelectTool: setSelectedTool,
+    onMessage: setMessage,
+    onUndo: undo,
+    onRedo: redo,
+    onRemoveSelection: removeSelection,
+  });
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
     resetSimulationRuntime();
@@ -187,34 +74,27 @@ export function App() {
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
+    setAutoClockRunning(false);
     setMessage(nextMessage);
   }
 
   function undo() {
-    const previous = history.past[history.past.length - 1];
+    const previous = undoHistory();
     if (!previous) {
       setMessage('Nada para desfazer.');
       return;
     }
 
-    setHistory((current) => ({
-      past: current.past.slice(0, -1),
-      future: [circuit, ...current.future].slice(0, HISTORY_LIMIT),
-    }));
     restoreCircuit(previous, 'Desfeito.');
   }
 
   function redo() {
-    const next = history.future[0];
+    const next = redoHistory();
     if (!next) {
       setMessage('Nada para refazer.');
       return;
     }
 
-    setHistory((current) => ({
-      past: [...current.past, circuit].slice(-HISTORY_LIMIT),
-      future: current.future.slice(1),
-    }));
     restoreCircuit(next, 'Refeito.');
   }
 
@@ -241,20 +121,13 @@ export function App() {
   }
 
   function addComponent(type: GateType, point: Point) {
-    const snapped = snap(point);
+    const snapped = snap(point, GRID);
     const id = nextId(type, circuit.components);
-    const component: LogicComponent = withSequentialDefaults({
-      id,
-      type,
-      x: snapped.x,
-      y: snapped.y,
-      label: defaultLabel(type, id),
-      state: type === 'input' || type === 'button' ? false : undefined,
-    });
+    const component = createLogicComponent(type, id, snapped);
     rememberCircuit();
     setCircuit((current) => ({ ...current, components: [...current.components, component] }));
     setSelection({ componentIds: [id], wireIds: [] });
-    setMessage(`${COMPONENT_DEFINITIONS[type].label} adicionado.`);
+    setMessage(`${componentDefinitionLabel(type)} adicionado.`);
   }
 
   function addComponentFromContextMenu(type: GateType) {
@@ -269,7 +142,7 @@ export function App() {
 
   function moveComponents(moves: Array<{ componentId: string; point: Point }>) {
     const positions = new Map(
-      moves.map((move) => [move.componentId, snap(move.point)]),
+      moves.map((move) => [move.componentId, snap(move.point, GRID)]),
     );
     setCircuit((current) => ({
       ...current,
@@ -303,8 +176,12 @@ export function App() {
     }));
   }
 
+  function circuitCanTick() {
+    return circuit.components.some((component) => isSequentialType(component.type));
+  }
+
   function tickSequentialCircuit() {
-    if (!circuit.components.some((component) => isSequentialType(component.type))) {
+    if (!circuitCanTick()) {
       setMessage('Adicione Clock, Latch D ou Flip-Flop D para usar Tick.');
       return;
     }
@@ -313,7 +190,20 @@ export function App() {
     setMessage('Tick: tempo sequencial avançado.');
   }
 
+  function toggleAutoClock() {
+    if (!autoClockRunning && !circuitCanTick()) {
+      setMessage('Adicione Clock, Latch D ou Flip-Flop D para rodar o clock automático.');
+      return;
+    }
+    if (!autoClockRunning) {
+      rememberCircuit();
+    }
+    setAutoClockRunning((running) => !running);
+    setMessage(autoClockRunning ? 'Clock automático pausado.' : 'Clock automático rodando.');
+  }
+
   function resetSimulation() {
+    setAutoClockRunning(false);
     resetSimulationRuntime();
     setMessage('Estado da simulação resetado.');
   }
@@ -406,6 +296,12 @@ export function App() {
     setMessage('Conexão cancelada.');
   }
 
+  function renameContextTarget() {
+    if (!contextMenu || contextMenu.kind !== 'component') return;
+    setRenameRequest({ componentId: contextMenu.componentId, nonce: Date.now() });
+    setContextMenu(null);
+  }
+
   function removeContextTarget() {
     if (!contextMenu || contextMenu.kind === 'canvas') return;
     const targetIsSelected =
@@ -451,7 +347,7 @@ export function App() {
       ...current,
       components: current.components.map((component) =>
         component.id === componentId && component.type === 'text'
-          ? { ...component, width: Math.round(width) }
+          ? { ...component, width: snap({ x: width, y: 0 }, GRID).x }
           : component,
       ),
     }));
@@ -484,6 +380,7 @@ export function App() {
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
+    setAutoClockRunning(false);
     setMessage('Circuito de exemplo restaurado.');
   }
 
@@ -496,6 +393,7 @@ export function App() {
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
+    setAutoClockRunning(false);
     setMessage(`Exemplo carregado: ${example.name}.`);
   }
 
@@ -512,6 +410,7 @@ export function App() {
         resetSimulationRuntime();
         setCircuit(normalizeCircuitForEditor(parsed));
         setSelection(EMPTY_SELECTION);
+        setAutoClockRunning(false);
         setMessage('Circuito importado.');
       })
       .catch(() => setMessage('Não foi possível importar esse JSON.'));
@@ -532,9 +431,11 @@ export function App() {
       <CommandBar
         selectedTool={selectedTool}
         wireStyle={wireStyle}
-        examples={CIRCUIT_EXAMPLES}
-        canUndo={history.past.length > 0}
-        canRedo={history.future.length > 0}
+        lessons={CIRCUIT_LESSONS}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        autoClockRunning={autoClockRunning}
+        autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
         onOpen={() => fileInputRef.current?.click()}
         onSave={() => downloadJson('circuito-logico.json', circuit)}
@@ -543,6 +444,8 @@ export function App() {
         onRedo={redo}
         onSelectTool={setSelectedTool}
         onTick={tickSequentialCircuit}
+        onToggleAutoClock={toggleAutoClock}
+        onAutoClockIntervalChange={setAutoClockIntervalMs}
         onResetSimulation={resetSimulation}
         onWireStyleChange={setWireStyle}
         onImportJson={importJson}
@@ -550,7 +453,7 @@ export function App() {
 
       <section
         className="app-layout"
-        style={{ gridTemplateColumns: `250px minmax(520px, 1fr) 8px ${truthPanelWidth}px` }}
+        style={{ gridTemplateColumns: `250px minmax(520px, 1fr) 8px ${truthPanel.width}px` }}
       >
         <ComponentLibrary selectedTool={selectedTool} onSelectTool={setSelectedTool} />
 
@@ -567,6 +470,8 @@ export function App() {
               wireStyle={wireStyle}
               pendingWire={pendingWire}
               selection={selection}
+              renameRequest={renameRequest}
+              onRenameRequestHandled={() => setRenameRequest(null)}
               onCanvasAdd={addComponent}
               onBeginMoveComponent={beginMoveComponent}
               onMoveComponents={moveComponents}
@@ -597,7 +502,7 @@ export function App() {
           aria-label="Redimensionar tabela verdade"
           onMouseDown={(event) => {
             event.preventDefault();
-            setResizingTruthPanel(true);
+            truthPanel.startResizing();
           }}
         />
 
@@ -617,6 +522,7 @@ export function App() {
           menu={contextMenu}
           selection={selection}
           onAddComponent={addComponentFromContextMenu}
+          onRename={renameContextTarget}
           onRemove={removeContextTarget}
         />
       )}
@@ -624,116 +530,3 @@ export function App() {
   );
 }
 
-function ContextMenuView({ menu, selection, onAddComponent, onRemove }: {
-  menu: NonNullable<ContextMenu>;
-  selection: Selection;
-  onAddComponent: (type: GateType) => void;
-  onRemove: () => void;
-}) {
-  const selectedCount = selection.componentIds.length + selection.wireIds.length;
-  const canRemove = menu.kind !== 'canvas';
-
-  return (
-    <div
-      className="context-menu"
-      style={{ left: menu.x, top: menu.y }}
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => event.stopPropagation()}
-      role="menu"
-    >
-      {menu.kind === 'canvas' ? (
-        <>
-          <div className="context-menu-title">Adicionar</div>
-          {LOGIC_COMPONENT_TOOLS.map((type) => (
-            <button key={type} onClick={() => onAddComponent(type)} role="menuitem">
-              <ToolButtonContent type={type} />
-            </button>
-          ))}
-        </>
-      ) : (
-        <button disabled={!canRemove} onClick={onRemove} role="menuitem">
-          {selectedCount > 1 ? `Excluir seleção (${selectedCount})` : 'Excluir'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function loadWireStyle(): WireStyle {
-  const stored = localStorage.getItem(WIRE_STYLE_STORAGE_KEY);
-  return stored === 'bezier' ? 'bezier' : 'orthogonal';
-}
-
-function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
-  return {
-    version: circuit.version,
-    components: circuit.components.map((component) => ({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
-    wires: circuit.wires.map((wire) => ({
-      id: wire.id,
-      from: { ...wire.from },
-      to: { ...wire.to },
-    })),
-  };
-}
-
-function normalizeCircuitForEditor(circuit: CircuitDocument): CircuitDocument {
-  return {
-    ...cloneCircuit(circuit),
-    components: circuit.components.map((component) => withSequentialDefaults({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
-  };
-}
-
-function hasSelection(selection: Selection): boolean {
-  return selection.componentIds.length > 0 || selection.wireIds.length > 0;
-}
-
-function snap(point: Point): Point {
-  return { x: Math.round(point.x / GRID) * GRID, y: Math.round(point.y / GRID) * GRID };
-}
-
-function nextId(type: GateType, components: LogicComponent[]): string {
-  const prefixByType: Record<GateType, string> = {
-    input: 'I',
-    button: 'P',
-    led: 'L',
-    and: 'A',
-    nand: 'NA',
-    or: 'O',
-    nor: 'NO',
-    xor: 'X',
-    xnor: 'XN',
-    not: 'N',
-    text: 'T',
-    'half-adder': 'HS',
-    'full-adder': 'FS',
-    'mux-2-1': 'M2',
-    'mux-4-1': 'M4',
-    'decoder-2-4': 'D',
-    'comparator-1-bit': 'C',
-    'encoder-4-2': 'E',
-    'odd-parity-3': 'P',
-    'majority-3': 'MJ',
-    'half-subtractor': 'HSub',
-    'full-subtractor': 'FSub',
-    clock: 'CLK',
-    'd-latch': 'DL',
-    'd-flip-flop': 'DFF',
-  };
-  const prefix = prefixByType[type];
-  let index = components.length + 1;
-  let id = `${prefix}${index}`;
-  const ids = new Set(components.map((component) => component.id));
-  while (ids.has(id)) {
-    index += 1;
-    id = `${prefix}${index}`;
-  }
-  return id;
-}
-
-function defaultLabel(type: GateType, id: string): string {
-  if (type === 'input') return id;
-  if (type === 'button') return 'Pulso';
-  if (type === 'led') return 'LED';
-  if (type === 'text') return 'Texto';
-  return COMPONENT_DEFINITIONS[type].label;
-}

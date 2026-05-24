@@ -16,6 +16,13 @@ export function evaluateComponent(
     case 'd-latch':
     case 'd-flip-flop':
       return writePin(values, { componentId: component.id, pinId: 'Q' }, Boolean(component.memory?.q));
+    case 'register-4':
+      return writeMany(values, component.id, {
+        Q0: Boolean(component.memory?.q0),
+        Q1: Boolean(component.memory?.q1),
+        Q2: Boolean(component.memory?.q2),
+        Q3: Boolean(component.memory?.q3),
+      });
     case 'led':
     case 'text':
       return false;

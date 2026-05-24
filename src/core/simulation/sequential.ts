@@ -2,7 +2,7 @@ import type { CircuitDocument, LogicComponent } from '../types';
 import { evaluateCircuit } from './simulate';
 import { inputValue } from './signals';
 
-export const SEQUENTIAL_TYPES = ['clock', 'd-latch', 'd-flip-flop'] as const;
+export const SEQUENTIAL_TYPES = ['clock', 'd-latch', 'd-flip-flop', 'register-4'] as const;
 
 export function isSequentialType(type: LogicComponent['type']): boolean {
   return SEQUENTIAL_TYPES.includes(type as (typeof SEQUENTIAL_TYPES)[number]);
@@ -12,6 +12,18 @@ export function withSequentialDefaults(component: LogicComponent): LogicComponen
   if (component.type === 'clock') return { ...component, state: Boolean(component.state) };
   if (component.type === 'd-latch' || component.type === 'd-flip-flop') {
     return { ...component, memory: { q: Boolean(component.memory?.q), previousClk: Boolean(component.memory?.previousClk) } };
+  }
+  if (component.type === 'register-4') {
+    return {
+      ...component,
+      memory: {
+        q0: Boolean(component.memory?.q0),
+        q1: Boolean(component.memory?.q1),
+        q2: Boolean(component.memory?.q2),
+        q3: Boolean(component.memory?.q3),
+        previousClk: Boolean(component.memory?.previousClk),
+      },
+    };
   }
   return component;
 }
@@ -65,6 +77,24 @@ export function stepCircuit(circuit: CircuitDocument): CircuitDocument {
             previousClk: clk,
           },
         };
+      }
+      if (component.type === 'register-4') {
+        const clk = inputValue(clockedCircuit, values, componentById, component.id, 'CLK');
+        const previousClk = Boolean(component.memory?.previousClk);
+        if (!previousClk && clk) {
+          return {
+            ...component,
+            memory: {
+              ...component.memory,
+              q0: inputValue(clockedCircuit, values, componentById, component.id, 'D0'),
+              q1: inputValue(clockedCircuit, values, componentById, component.id, 'D1'),
+              q2: inputValue(clockedCircuit, values, componentById, component.id, 'D2'),
+              q3: inputValue(clockedCircuit, values, componentById, component.id, 'D3'),
+              previousClk: clk,
+            },
+          };
+        }
+        return { ...component, memory: { ...component.memory, previousClk: clk } };
       }
       return component;
     }),

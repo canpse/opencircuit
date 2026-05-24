@@ -202,7 +202,19 @@ var COMPONENT_DEFINITIONS = {
 	], ["DIFF", "Bout"], 180),
 	clock: block("clock", "Clock", [], ["CLK"], 110),
 	"d-latch": block("d-latch", "Latch D", ["D", "EN"], ["Q"], 130),
-	"d-flip-flop": block("d-flip-flop", "Flip-Flop D", ["D", "CLK"], ["Q"], 150)
+	"d-flip-flop": block("d-flip-flop", "Flip-Flop D", ["D", "CLK"], ["Q"], 150),
+	"register-4": block("register-4", "Registrador 4 bits", [
+		"D0",
+		"D1",
+		"D2",
+		"D3",
+		"CLK"
+	], [
+		"Q0",
+		"Q1",
+		"Q2",
+		"Q3"
+	], 180)
 };
 function getPins(component) {
 	return COMPONENT_DEFINITIONS[component.type].pins;
@@ -274,6 +286,12 @@ function evaluateComponent(component, circuit, values, componentById) {
 			componentId: component.id,
 			pinId: "Q"
 		}, Boolean(component.memory?.q));
+		case "register-4": return writeMany(values, component.id, {
+			Q0: Boolean(component.memory?.q0),
+			Q1: Boolean(component.memory?.q1),
+			Q2: Boolean(component.memory?.q2),
+			Q3: Boolean(component.memory?.q3)
+		});
 		case "led":
 		case "text": return false;
 		case "not": return writePin(values, {
@@ -465,6 +483,16 @@ function withSequentialDefaults(component) {
 			previousClk: Boolean(component.memory?.previousClk)
 		}
 	};
+	if (component.type === "register-4") return {
+		...component,
+		memory: {
+			q0: Boolean(component.memory?.q0),
+			q1: Boolean(component.memory?.q1),
+			q2: Boolean(component.memory?.q2),
+			q3: Boolean(component.memory?.q3),
+			previousClk: Boolean(component.memory?.previousClk)
+		}
+	};
 	return component;
 }
 function stepCircuit(circuit) {
@@ -505,6 +533,27 @@ function stepCircuit(circuit) {
 					}
 				};
 			}
+			if (component.type === "register-4") {
+				const clk = inputValue(clockedCircuit, values, componentById, component.id, "CLK");
+				if (!Boolean(component.memory?.previousClk) && clk) return {
+					...component,
+					memory: {
+						...component.memory,
+						q0: inputValue(clockedCircuit, values, componentById, component.id, "D0"),
+						q1: inputValue(clockedCircuit, values, componentById, component.id, "D1"),
+						q2: inputValue(clockedCircuit, values, componentById, component.id, "D2"),
+						q3: inputValue(clockedCircuit, values, componentById, component.id, "D3"),
+						previousClk: clk
+					}
+				};
+				return {
+					...component,
+					memory: {
+						...component.memory,
+						previousClk: clk
+					}
+				};
+			}
 			return component;
 		})
 	};
@@ -534,6 +583,175 @@ function circuitHasFeedback(circuit) {
 		return false;
 	}
 	return Array.from(componentIds).some(visit);
+}
+//#endregion
+//#region src/core/simulation/truthTable.ts
+function buildCircuitTruthRows(circuit, inputs, outputs) {
+	const rowCount = 2 ** inputs.length;
+	return Array.from({ length: rowCount }, (_, rowIndex) => {
+		const inputValues = inputs.map((_, inputIndex) => {
+			const bitIndex = inputs.length - inputIndex - 1;
+			return Boolean(rowIndex >> bitIndex & 1);
+		});
+		const inputValueById = new Map(inputs.map((input, index) => [input.id, inputValues[index]]));
+		const result = evaluateCircuit({
+			...circuit,
+			components: circuit.components.map((component) => component.type === "input" ? {
+				...component,
+				state: inputValueById.get(component.id) ?? false
+			} : component)
+		});
+		return {
+			inputs: inputValues,
+			outputs: outputs.map((output) => Boolean(result[output.id]?.in))
+		};
+	});
+}
+//#endregion
+//#region src/ui/editor/wireRouting.ts
+function componentBounds(component) {
+	const definition = COMPONENT_DEFINITIONS[component.type];
+	if (component.type === "text") {
+		const width = textComponentWidth(component);
+		const lines = wrapText(component.label ?? definition.label, width - 42);
+		return {
+			x: component.x,
+			y: component.y,
+			width,
+			height: Math.max(definition.height, lines.length * 18 + 24)
+		};
+	}
+	return {
+		x: component.x,
+		y: component.y,
+		width: definition.width,
+		height: definition.height
+	};
+}
+function textComponentWidth(component) {
+	return Math.max(90, component.width ?? COMPONENT_DEFINITIONS.text.width);
+}
+function wrapText(text, maxWidth) {
+	const maxChars = Math.max(5, Math.floor(maxWidth / 10));
+	const words = text.split(/\s+/).filter(Boolean);
+	if (words.length === 0) return ["Texto"];
+	const lines = [];
+	let current = "";
+	for (const word of words) {
+		if (word.length > maxChars) {
+			if (current) {
+				lines.push(current);
+				current = "";
+			}
+			for (let index = 0; index < word.length; index += maxChars) lines.push(word.slice(index, index + maxChars));
+			continue;
+		}
+		const next = current ? `${current} ${word}` : word;
+		if (next.length > maxChars && current) {
+			lines.push(current);
+			current = word;
+		} else current = next;
+	}
+	if (current) lines.push(current);
+	return lines;
+}
+function selfLoopRoute(component, start, end, index) {
+	const bounds = componentBounds(component);
+	const lane = 34 + index % 4 * 14;
+	const firstX = Math.max(start.x, bounds.x + bounds.width) + lane;
+	const topY = bounds.y - lane;
+	const leftX = bounds.x - lane;
+	return compactRoute([
+		start,
+		{
+			x: firstX,
+			y: start.y
+		},
+		{
+			x: firstX,
+			y: topY
+		},
+		{
+			x: leftX,
+			y: topY
+		},
+		{
+			x: leftX,
+			y: end.y
+		},
+		end
+	]);
+}
+function compactRoute(points) {
+	return points.filter((point, index) => {
+		const previous = points[index - 1];
+		return !previous || previous.x !== point.x || previous.y !== point.y;
+	});
+}
+function routeSegments(points) {
+	return points.slice(0, -1).map((point, index) => ({
+		a: point,
+		b: points[index + 1]
+	}));
+}
+function bezierPathFromPoints(points) {
+	if (points.length <= 2) return bezierPath(points[0], points[1]);
+	return roundedPolylinePath(points, 18);
+}
+function roundedPolylinePath(points, radius) {
+	if (points.length === 0) return "";
+	if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+	const commands = [`M ${points[0].x} ${points[0].y}`];
+	for (let index = 1; index < points.length - 1; index += 1) {
+		const previous = points[index - 1];
+		const current = points[index];
+		const next = points[index + 1];
+		const before = pointToward(current, previous, radius);
+		const after = pointToward(current, next, radius);
+		commands.push(`L ${before.x} ${before.y}`);
+		commands.push(`Q ${current.x} ${current.y} ${after.x} ${after.y}`);
+	}
+	const last = points[points.length - 1];
+	commands.push(`L ${last.x} ${last.y}`);
+	return commands.join(" ");
+}
+function pointToward(from, to, distance) {
+	const dx = to.x - from.x;
+	const dy = to.y - from.y;
+	const length = Math.max(1, Math.abs(dx) + Math.abs(dy));
+	const amount = Math.min(distance, length / 2);
+	return {
+		x: from.x + Math.sign(dx) * amount,
+		y: from.y + Math.sign(dy) * amount
+	};
+}
+function bezierPath(start, end) {
+	const midX = Math.round((start.x + end.x) / 2);
+	return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
+}
+function orthogonalPath(points, jumps) {
+	if (points.length === 0) return "";
+	const commands = [`M ${points[0].x} ${points[0].y}`];
+	for (const segment of routeSegments(points)) {
+		const segmentJumps = jumps.filter((jump) => pointOnSegment(jump, segment.a, segment.b)).sort((left, right) => distanceAlongSegment(segment.a, left) - distanceAlongSegment(segment.a, right));
+		if (segment.a.y === segment.b.y && segmentJumps.length > 0) {
+			const direction = segment.b.x >= segment.a.x ? 1 : -1;
+			for (const jump of segmentJumps) {
+				commands.push(`L ${jump.x - direction * 8} ${jump.y}`);
+				commands.push(`Q ${jump.x} ${jump.y - 10} ${jump.x + direction * 8} ${jump.y}`);
+			}
+		}
+		commands.push(`L ${segment.b.x} ${segment.b.y}`);
+	}
+	return commands.join(" ");
+}
+function pointOnSegment(point, a, b) {
+	if (a.y === b.y && point.y === a.y) return point.x > Math.min(a.x, b.x) && point.x < Math.max(a.x, b.x);
+	if (a.x === b.x && point.x === a.x) return point.y > Math.min(a.y, b.y) && point.y < Math.max(a.y, b.y);
+	return false;
+}
+function distanceAlongSegment(start, point) {
+	return Math.abs(point.x - start.x) + Math.abs(point.y - start.y);
 }
 //#endregion
 //#region tests/core/simulation.test.ts
@@ -859,6 +1077,238 @@ function testStepCircuitCapturesFlipFlopOnRisingEdgeOnly() {
 	assert.equal(circuit.components.find((component) => component.id === "CLK")?.state, true, "Terceiro tick deve subir clock de novo");
 	assert.equal(circuit.components.find((component) => component.id === "FF")?.memory?.q, false, "Nova borda de subida deve capturar D=0");
 }
+function testRegister4CapturesOnRisingEdgeOnly() {
+	let circuit = {
+		version: 1,
+		components: [
+			{
+				id: "D0",
+				type: "input",
+				x: 0,
+				y: 0,
+				state: true
+			},
+			{
+				id: "D1",
+				type: "input",
+				x: 0,
+				y: 60,
+				state: false
+			},
+			{
+				id: "D2",
+				type: "input",
+				x: 0,
+				y: 120,
+				state: true
+			},
+			{
+				id: "D3",
+				type: "input",
+				x: 0,
+				y: 180,
+				state: false
+			},
+			{
+				id: "CLK",
+				type: "clock",
+				x: 0,
+				y: 240,
+				state: false
+			},
+			{
+				id: "REG",
+				type: "register-4",
+				x: 180,
+				y: 80,
+				memory: {
+					q0: false,
+					q1: false,
+					q2: false,
+					q3: false,
+					previousClk: false
+				}
+			}
+		],
+		wires: [
+			{
+				id: "W0",
+				from: {
+					componentId: "D0",
+					pinId: "out"
+				},
+				to: {
+					componentId: "REG",
+					pinId: "D0"
+				}
+			},
+			{
+				id: "W1",
+				from: {
+					componentId: "D1",
+					pinId: "out"
+				},
+				to: {
+					componentId: "REG",
+					pinId: "D1"
+				}
+			},
+			{
+				id: "W2",
+				from: {
+					componentId: "D2",
+					pinId: "out"
+				},
+				to: {
+					componentId: "REG",
+					pinId: "D2"
+				}
+			},
+			{
+				id: "W3",
+				from: {
+					componentId: "D3",
+					pinId: "out"
+				},
+				to: {
+					componentId: "REG",
+					pinId: "D3"
+				}
+			},
+			{
+				id: "W4",
+				from: {
+					componentId: "CLK",
+					pinId: "CLK"
+				},
+				to: {
+					componentId: "REG",
+					pinId: "CLK"
+				}
+			}
+		]
+	};
+	circuit = stepCircuit(circuit);
+	const registerAfterRise = circuit.components.find((component) => component.id === "REG");
+	assert.equal(registerAfterRise?.memory?.q0, true, "Q0 deve capturar D0 na subida");
+	assert.equal(registerAfterRise?.memory?.q1, false, "Q1 deve capturar D1 na subida");
+	assert.equal(registerAfterRise?.memory?.q2, true, "Q2 deve capturar D2 na subida");
+	assert.equal(registerAfterRise?.memory?.q3, false, "Q3 deve capturar D3 na subida");
+	circuit = setInputs(circuit, {
+		D0: false,
+		D1: true,
+		D2: false,
+		D3: true
+	});
+	circuit = stepCircuit(circuit);
+	const registerAfterFall = circuit.components.find((component) => component.id === "REG");
+	assert.equal(registerAfterFall?.memory?.q0, true, "Borda de descida não deve alterar Q0");
+	assert.equal(registerAfterFall?.memory?.q1, false, "Borda de descida não deve alterar Q1");
+	assert.equal(registerAfterFall?.memory?.q2, true, "Borda de descida não deve alterar Q2");
+	assert.equal(registerAfterFall?.memory?.q3, false, "Borda de descida não deve alterar Q3");
+	circuit = stepCircuit(circuit);
+	const registerAfterSecondRise = circuit.components.find((component) => component.id === "REG");
+	assert.equal(registerAfterSecondRise?.memory?.q0, false, "Nova subida deve capturar novo D0");
+	assert.equal(registerAfterSecondRise?.memory?.q1, true, "Nova subida deve capturar novo D1");
+	assert.equal(registerAfterSecondRise?.memory?.q2, false, "Nova subida deve capturar novo D2");
+	assert.equal(registerAfterSecondRise?.memory?.q3, true, "Nova subida deve capturar novo D3");
+}
+function testTruthTableRowsForXor() {
+	const circuit = {
+		version: 1,
+		components: [
+			{
+				id: "A",
+				type: "input",
+				x: 0,
+				y: 0
+			},
+			{
+				id: "B",
+				type: "input",
+				x: 0,
+				y: 80
+			},
+			{
+				id: "X1",
+				type: "xor",
+				x: 160,
+				y: 20
+			},
+			{
+				id: "OUT",
+				type: "led",
+				x: 320,
+				y: 20
+			}
+		],
+		wires: [
+			{
+				id: "W1",
+				from: {
+					componentId: "A",
+					pinId: "out"
+				},
+				to: {
+					componentId: "X1",
+					pinId: "a"
+				}
+			},
+			{
+				id: "W2",
+				from: {
+					componentId: "B",
+					pinId: "out"
+				},
+				to: {
+					componentId: "X1",
+					pinId: "b"
+				}
+			},
+			{
+				id: "W3",
+				from: {
+					componentId: "X1",
+					pinId: "out"
+				},
+				to: {
+					componentId: "OUT",
+					pinId: "in"
+				}
+			}
+		]
+	};
+	const rows = buildCircuitTruthRows(circuit, circuit.components.filter((component) => component.type === "input"), circuit.components.filter((component) => component.type === "led"));
+	assert.deepEqual(rows.map((row) => row.outputs[0]), [
+		false,
+		true,
+		true,
+		false
+	], "Tabela verdade do XOR deve ser 0,1,1,0");
+}
+function testWireRoutingSelfLoopGoesAroundComponent() {
+	const component = {
+		id: "N1",
+		type: "not",
+		x: 100,
+		y: 100
+	};
+	const start = {
+		x: 182,
+		y: 128
+	};
+	const end = {
+		x: 100,
+		y: 128
+	};
+	const route = selfLoopRoute(component, start, end, 0);
+	assert.deepEqual(route[0], start, "Self-loop deve começar no pino de saída");
+	assert.deepEqual(route[route.length - 1], end, "Self-loop deve terminar no pino de entrada");
+	assert.ok(route.some((point) => point.y < component.y), "Self-loop deve subir acima do componente");
+	assert.ok(route.some((point) => point.x < component.x), "Self-loop deve passar à esquerda antes de conectar entrada");
+	assert.match(orthogonalPath(route, []), /^M /, "Rota ortogonal deve gerar path SVG");
+	assert.match(bezierPathFromPoints(route), /Q/, "Rota curva do self-loop deve ter cantos arredondados");
+}
 function testNativeDFlipFlopCapturesOnlyOnRisingEdge() {
 	let circuit = nativeFlipFlopCircuit(false);
 	let result = run(circuit);
@@ -883,6 +1333,9 @@ var tests = [
 	testNotSelfFeedbackIsUnstable,
 	testFeedbackGraphDistinguishesAcyclicCircuit,
 	testStepCircuitCapturesFlipFlopOnRisingEdgeOnly,
+	testRegister4CapturesOnRisingEdgeOnly,
+	testTruthTableRowsForXor,
+	testWireRoutingSelfLoopGoesAroundComponent,
 	testNativeDFlipFlopCapturesOnlyOnRisingEdge
 ];
 for (const test of tests) {

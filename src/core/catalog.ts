@@ -88,6 +88,7 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
   clock: block('clock', 'Clock', [], ['CLK'], 110),
   'd-latch': block('d-latch', 'Latch D', ['D', 'EN'], ['Q'], 130),
   'd-flip-flop': block('d-flip-flop', 'Flip-Flop D', ['D', 'CLK'], ['Q'], 150),
+  'register-4': block('register-4', 'Registrador 4 bits', ['D0', 'D1', 'D2', 'D3', 'CLK'], ['Q0', 'Q1', 'Q2', 'Q3'], 180),
 };
 
 export function getPins(component: LogicComponent): PinDefinition[] {

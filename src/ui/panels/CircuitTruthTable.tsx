@@ -1,5 +1,6 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
-import { evaluateCircuit, isSequentialType } from '../../core/evaluateCircuit';
+import { isSequentialType } from '../../core/evaluateCircuit';
+import { buildCircuitTruthRows, sameBooleanValues } from '../../core/simulation/truthTable';
 import type { CircuitDocument, EvaluationResult, LogicComponent } from '../../core/types';
 
 export function CircuitTruthTable({ circuit, evaluation, unstable, hasFeedback }: { circuit: CircuitDocument; evaluation: EvaluationResult; unstable: boolean; hasFeedback: boolean }) {
@@ -59,34 +60,6 @@ export function CircuitTruthTable({ circuit, evaluation, unstable, hasFeedback }
   );
 }
 
-function buildCircuitTruthRows(circuit: CircuitDocument, inputs: LogicComponent[], outputs: LogicComponent[]) {
-  const rowCount = 2 ** inputs.length;
-  return Array.from({ length: rowCount }, (_, rowIndex) => {
-    const inputValues = inputs.map((_, inputIndex) => {
-      const bitIndex = inputs.length - inputIndex - 1;
-      return Boolean((rowIndex >> bitIndex) & 1);
-    });
-    const inputValueById = new Map(inputs.map((input, index) => [input.id, inputValues[index]]));
-    const testCircuit: CircuitDocument = {
-      ...circuit,
-      components: circuit.components.map((component) =>
-        component.type === 'input'
-          ? { ...component, state: inputValueById.get(component.id) ?? false }
-          : component,
-      ),
-    };
-    const result = evaluateCircuit(testCircuit);
-    return {
-      inputs: inputValues,
-      outputs: outputs.map((output) => Boolean(result[output.id]?.in)),
-    };
-  });
-}
-
-function sameBooleanValues(left: boolean[], right: boolean[]): boolean {
-  return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
 function bit(value: boolean): 0 | 1 {
   return value ? 1 : 0;
 }
@@ -116,6 +89,10 @@ function SequentialStatePanel({ circuit, components, evaluation, unstable, hasFe
           }
           if (component.type === 'd-latch' || component.type === 'd-flip-flop') {
             return <div className="state-row" key={component.id}><span>{label}.Q</span><strong>{bit(Boolean(evaluation[component.id]?.Q))}</strong></div>;
+          }
+          if (component.type === 'register-4') {
+            const q = ['Q3', 'Q2', 'Q1', 'Q0'].map((pin) => bit(Boolean(evaluation[component.id]?.[pin]))).join('');
+            return <div className="state-row" key={component.id}><span>{label}.Q3..Q0</span><strong>{q}</strong></div>;
           }
           return <div className="state-row" key={component.id}><span>{label}.out</span><strong>{bit(Boolean(evaluation[component.id]?.out))}</strong></div>;
         })}
