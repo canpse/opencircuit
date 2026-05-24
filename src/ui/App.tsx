@@ -1,7 +1,8 @@
 import { ChangeEvent, type SetStateAction, useCallback, useMemo, useRef, useState } from 'react';
 import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
 import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
-import { downloadJson, loadCircuit, STARTER_CIRCUIT } from '../state/storage';
+import { downloadJson, STARTER_CIRCUIT } from '../state/storage';
+import { createUntitledDocument, loadWorkspace, type WorkspaceDocument } from '../state/workspaceStorage';
 import { CircuitCanvas, type WireStyle } from './editor/CircuitCanvas';
 import { CIRCUIT_EXAMPLES, CIRCUIT_LESSONS } from '../examples/circuitExamples';
 import { CircuitTruthTable } from './panels/CircuitTruthTable';
@@ -10,7 +11,7 @@ import { circuitHasFeedback } from '../core/simulation/graph';
 import { CommandBar } from './commandbar/CommandBar';
 import { useAutoClock } from './hooks/useAutoClock';
 import { useAutoCloseContextMenu } from './hooks/useAutoCloseContextMenu';
-import { useAutoSaveCircuit } from './hooks/useAutoSaveCircuit';
+import { useAutoSaveWorkspace } from './hooks/useAutoSaveWorkspace';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
 import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
 import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
@@ -27,20 +28,24 @@ const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 
 
 const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
-const INITIAL_DOCUMENT_ID = 'doc-1';
-
-type CircuitFile = {
-  id: string;
-  name: string;
-  circuit: CircuitDocument;
-  exampleId: string | null;
-};
-
 export function App() {
-  const [documents, setDocuments] = useState<CircuitFile[]>(() => [
-    { id: INITIAL_DOCUMENT_ID, name: 'circuito_logico.json', circuit: loadCircuit(), exampleId: null },
-  ]);
-  const [activeDocumentId, setActiveDocumentId] = useState(INITIAL_DOCUMENT_ID);
+  const [workspace, setWorkspace] = useState(() => loadWorkspace());
+  const documents = workspace.documents;
+  const activeDocumentId = workspace.activeDocumentId;
+  const setDocuments = useCallback((action: SetStateAction<WorkspaceDocument[]>) => {
+    setWorkspace((current) => {
+      const nextDocuments = typeof action === 'function' ? action(current.documents) : action;
+      const activeStillExists = nextDocuments.some((document) => document.id === current.activeDocumentId);
+      return {
+        ...current,
+        documents: nextDocuments,
+        activeDocumentId: activeStillExists ? current.activeDocumentId : nextDocuments[0]?.id ?? current.activeDocumentId,
+      };
+    });
+  }, []);
+  const setActiveDocumentId = useCallback((documentId: string) => {
+    setWorkspace((current) => ({ ...current, activeDocumentId: documentId }));
+  }, []);
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
@@ -52,7 +57,7 @@ export function App() {
     setDocuments((currentDocuments) => currentDocuments.map((document) => {
       if (document.id !== activeDocumentId) return document;
       const nextCircuit = typeof action === 'function' ? action(document.circuit) : action;
-      return { ...document, circuit: nextCircuit };
+      return { ...document, circuit: nextCircuit, saved: false };
     }));
   }, [activeDocumentId]);
   const setActiveExampleId = useCallback((exampleId: string | null) => {
@@ -82,7 +87,7 @@ export function App() {
     setCircuit((current) => stepCircuit(current));
   }, []);
 
-  useAutoSaveCircuit(circuit);
+  useAutoSaveWorkspace(workspace);
   useAutoClock({ running: autoClockRunning, intervalMs: autoClockIntervalMs, onTick: autoClockTick });
   useAutoCloseContextMenu(closeContextMenu);
   useReleaseMomentaryButtons(setCircuit);
@@ -418,20 +423,39 @@ export function App() {
   }
 
   function createNewDocument() {
-    const id = `doc-${Date.now()}`;
     const index = documents.length + 1;
+    const document = createUntitledDocument(index);
     setDocuments((currentDocuments) => [
       ...currentDocuments,
-      { id, name: `circuito_${index}.json`, circuit: normalizeCircuitForEditor(cloneCircuit(STARTER_CIRCUIT)), exampleId: null },
+      { ...document, circuit: normalizeCircuitForEditor(cloneCircuit(document.circuit)) },
     ]);
     resetSimulationRuntime();
-    setActiveDocumentId(id);
+    setActiveDocumentId(document.id);
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
     setRightPanelTab('simulation');
-    setMessage(`Novo arquivo criado: circuito_${index}.json.`);
+    setMessage(`Novo arquivo criado: ${document.name}.`);
+  }
+
+  function closeDocument(documentId: string) {
+    if (documents.length === 1) {
+      setMessage('Mantenha pelo menos um arquivo aberto.');
+      return;
+    }
+    const closingIndex = documents.findIndex((document) => document.id === documentId);
+    const fallback = documents[closingIndex + 1] ?? documents[closingIndex - 1] ?? documents[0];
+    setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== documentId));
+    if (documentId === activeDocumentId) {
+      resetSimulationRuntime();
+      setActiveDocumentId(fallback.id);
+      setPendingWire(null);
+      setSelection(EMPTY_SELECTION);
+      setSelectedTool('select');
+      setAutoClockRunning(false);
+    }
+    setMessage('Arquivo fechado.');
   }
 
   function resetCircuit() {
@@ -453,7 +477,7 @@ export function App() {
     resetSimulationRuntime();
     setCircuit(normalizeCircuitForEditor(cloneCircuit(example.circuit)));
     setDocuments((currentDocuments) => currentDocuments.map((document) =>
-      document.id === activeDocumentId ? { ...document, name: `${example.name}.json` } : document,
+      document.id === activeDocumentId && !document.saved ? { ...document, name: `${example.name}.json` } : document,
     ));
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
@@ -480,7 +504,7 @@ export function App() {
         setAutoClockRunning(false);
         setActiveExampleId(null);
         setDocuments((currentDocuments) => currentDocuments.map((document) =>
-          document.id === activeDocumentId ? { ...document, name: file.name || document.name } : document,
+          document.id === activeDocumentId ? { ...document, name: file.name || document.name, saved: true } : document,
         ));
         setMessage('Circuito importado.');
       })
@@ -509,7 +533,13 @@ export function App() {
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
         onOpen={() => fileInputRef.current?.click()}
-        onSave={() => downloadJson(activeDocument.name, circuit)}
+        onSave={() => {
+          const filename = activeDocument.saved ? activeDocument.name : `${activeDocument.name}.json`;
+          downloadJson(filename, circuit);
+          setDocuments((currentDocuments) => currentDocuments.map((document) =>
+            document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
+          ));
+        }}
         onLoadExample={loadExample}
         onUndo={undo}
         onRedo={redo}
@@ -531,14 +561,28 @@ export function App() {
         <div className="center-panel">
           <div className="document-tabs">
             {documents.map((document) => (
-              <button
+              <div
                 key={document.id}
                 className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
-                onClick={() => selectDocument(document.id)}
                 title={document.exampleId ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}` : document.name}
               >
-                {document.name}
-              </button>
+                <button className="document-tab-title" onClick={() => selectDocument(document.id)}>
+                  {!document.saved && <span className="unsaved-dot" aria-label="Arquivo ainda não salvo">●</span>}
+                  {document.name}
+                </button>
+                {documents.length > 1 && (
+                  <button
+                    className="document-tab-close"
+                    aria-label={`Fechar ${document.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      closeDocument(document.id);
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
             ))}
             <button className="document-tab add-tab" onClick={createNewDocument}>+</button>
           </div>

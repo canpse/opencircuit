@@ -373,18 +373,51 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
   background: #f3f7fa;
 }
 .document-tab {
+  display: inline-flex;
+  align-items: center;
   height: 32px;
   min-width: 150px;
   max-width: 230px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   border-radius: 10px 10px 0 0;
   box-shadow: none;
   background: #eaf0f5;
 }
 .document-tab.active { background: #fff; color: var(--brand-strong); }
-.document-tab.add-tab { min-width: 36px; }
+.document-tab.add-tab {
+  justify-content: center;
+  min-width: 36px;
+  padding: 0 10px;
+}
+.document-tab-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 8px 8px 8px 12px;
+  text-align: left;
+  background: transparent;
+  box-shadow: none;
+}
+.document-tab-title:hover,
+.document-tab-close:hover {
+  background: rgba(47, 125, 211, 0.10);
+  box-shadow: none;
+}
+.document-tab-close {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  margin-right: 3px;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+.unsaved-dot {
+  margin-right: 5px;
+  color: var(--line-on);
+  font-size: 10px;
+}
 
 .editor-panel {
   min-height: 0;
