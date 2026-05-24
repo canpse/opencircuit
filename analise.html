@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenCircuit — Análise da base para refatoração</title>
+  <style>
+    :root {
+      --bg: #eef4f7;
+      --panel: #ffffff;
+      --ink: #1c2b34;
+      --muted: #657684;
+      --brand: #2f7dd3;
+      --brand-dark: #165fa8;
+      --line: rgba(91, 113, 128, 0.22);
+      --soft: #f6fafc;
+      --code-bg: #10202c;
+      --code-ink: #dceffb;
+      --ok: #dff7e8;
+      --warn: #fff1db;
+      --danger: #ffe5e5;
+      --note: #fff8cf;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(47, 125, 211, 0.12), transparent 32%),
+        linear-gradient(135deg, #eef4f7, #e3ebf0);
+      line-height: 1.55;
+    }
+    header {
+      padding: 48px 28px 34px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(232,242,249,0.92));
+      border-bottom: 1px solid var(--line);
+    }
+    .hero {
+      max-width: 1220px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 28px;
+      align-items: center;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+    .subtitle {
+      max-width: 850px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    .hero-card, section, nav {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 16px 38px rgba(42, 63, 78, 0.10);
+    }
+    .hero-card {
+      padding: 18px;
+      border-radius: 20px;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .metric {
+      padding: 12px;
+      border-radius: 14px;
+      background: #f7fbfd;
+      border: 1px solid rgba(91, 113, 128, 0.16);
+    }
+    .metric strong { display: block; font-size: 22px; color: var(--brand-dark); }
+    .metric span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+    .layout {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 285px minmax(0, 1fr);
+      gap: 24px;
+    }
+    nav {
+      position: sticky;
+      top: 18px;
+      align-self: start;
+      padding: 16px;
+      border-radius: 20px;
+    }
+    nav h2 {
+      margin: 0 0 12px;
+      color: var(--brand-dark);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    nav a {
+      display: block;
+      padding: 7px 9px;
+      border-radius: 10px;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 750;
+    }
+    nav a:hover { background: rgba(47, 125, 211, .10); color: var(--brand-dark); }
+    main { min-width: 0; }
+    section {
+      margin-bottom: 22px;
+      padding: 24px;
+      border-radius: 24px;
+    }
+    h2 {
+      margin: 0 0 14px;
+      color: var(--brand-dark);
+      font-size: 28px;
+      letter-spacing: -.035em;
+    }
+    h3 { margin: 22px 0 8px; font-size: 19px; }
+    p { margin: 8px 0; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 5px 0; }
+    code {
+      padding: 1px 5px;
+      border-radius: 6px;
+      background: rgba(47,125,211,.10);
+      color: #124f89;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    pre {
+      overflow: auto;
+      padding: 16px;
+      border-radius: 15px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    pre code { padding: 0; color: inherit; background: transparent; }
+    .callout {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border-radius: 15px;
+      border: 1px solid rgba(91,113,128,.18);
+      background: var(--note);
+    }
+    .ok { background: var(--ok); }
+    .warn { background: var(--warn); }
+    .danger { background: var(--danger); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      padding: 14px;
+      border: 1px solid rgba(91,113,128,.16);
+      border-radius: 16px;
+      background: var(--soft);
+    }
+    .card strong { color: var(--brand-dark); }
+    table {
+      width: 100%;
+      margin-top: 12px;
+      border-collapse: collapse;
+      border-radius: 15px;
+      overflow: hidden;
+      font-size: 14px;
+    }
+    th, td { padding: 10px 12px; border: 1px solid var(--line); vertical-align: top; text-align: left; }
+    th { color: var(--brand-dark); background: #edf5fb; }
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      margin: 2px;
+      border-radius: 999px;
+      background: #e7f1fc;
+      color: var(--brand-dark);
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .priority {
+      display: inline-block;
+      min-width: 38px;
+      text-align: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .p1 { background: #ffe0e0; color: #9d1b1b; }
+    .p2 { background: #fff1db; color: #895300; }
+    .p3 { background: #dff7e8; color: #16733a; }
+    footer {
+      max-width: 1220px;
+      margin: 0 auto 30px;
+      padding: 0 28px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 920px) {
+      .hero, .layout { grid-template-columns: 1fr; }
+      nav { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="hero">
+      <div>
+        <h1>Análise da base de código para consolidação</h1>
+        <p class="subtitle">
+          Estado atual do OpenCircuit, pontos fortes, riscos arquiteturais e plano de refatoração para transformar o protótipo avançado em um framework limpo de editor/simulador de lógica digital.
+        </p>
+      </div>
+      <aside class="hero-card">
+        <div class="metric-grid">
+          <div class="metric"><strong>3.814</strong><span>linhas analisadas</span></div>
+          <div class="metric"><strong>6</strong><span>testes core</span></div>
+          <div class="metric"><strong>24+</strong><span>componentes</span></div>
+          <div class="metric"><strong>2</strong><span>modos de fio</span></div>
+        </div>
+      </aside>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav>
+      <h2>Navegação</h2>
+      <a href="#resumo">Resumo executivo</a>
+      <a href="#produto">O produto hoje</a>
+      <a href="#arquivos">Mapa de arquivos</a>
+      <a href="#modelo">Modelo de dados</a>
+      <a href="#simulacao">Simulação</a>
+      <a href="#ui">UI e canvas</a>
+      <a href="#testes">Testes</a>
+      <a href="#problemas">Problemas atuais</a>
+      <a href="#framework">Framework desejado</a>
+      <a href="#plano">Plano de refatoração</a>
+      <a href="#contratos">Contratos a preservar</a>
+      <a href="#checklist">Checklist</a>
+    </nav>
+
+    <main>
+      <section id="resumo">
+        <h2>1. Resumo executivo</h2>
+        <p>
+          A base atual já entrega um editor didático de lógica digital muito competente: portas básicas, blocos combinacionais nativos, tabela verdade, simulação sequencial nativa, simulação com realimentação usando estado anterior dos sinais, exemplos e testes automatizados do core.
+        </p>
+        <div class="callout ok">
+          <strong>Diagnóstico:</strong> o comportamento principal está validado e a experiência visual está boa. O próximo trabalho não deve ser reescrever, mas <strong>extrair módulos estáveis</strong> para consolidar um framework interno.
+        </div>
+        <p>
+          O maior risco hoje é concentração de responsabilidades em poucos arquivos: <code>App.tsx</code> tem cerca de 1457 linhas, <code>CircuitCanvas.tsx</code> cerca de 1083 linhas e <code>evaluateCircuit.ts</code> concentra simulação combinacional, sequencial nativa, realimentação e helpers de estado.
+        </p>
+      </section>
+
+      <section id="produto">
+        <h2>2. O que o projeto é hoje</h2>
+        <div class="grid">
+          <div class="card"><strong>Editor visual SVG</strong><br />Canvas com pan, zoom, seleção, drag, múltipla seleção, menu contextual, edição de nomes, resize de texto e conexões por pinos.</div>
+          <div class="card"><strong>Simulador combinacional</strong><br />Portas, blocos combinacionais nativos e tabela verdade do circuito inteiro para circuitos sem memória/feedback.</div>
+          <div class="card"><strong>Sequencial nativo</strong><br />Clock, Latch D, Flip-Flop D, botão Tick e painel de estado sequencial.</div>
+          <div class="card"><strong>Realimentação emergente</strong><br />Latches feitos com NOR/NAND comuns funcionam porque o simulador usa o último estado dos sinais como ponto de partida.</div>
+          <div class="card"><strong>Didática</strong><br />Exemplos com textos explicativos, arquivos JSON para testes manuais e documentação HTML para próximos devs.</div>
+          <div class="card"><strong>Persistência</strong><br />Autosave em localStorage, import/export JSON e preferência de estilo de fio.</div>
+        </div>
+      </section>
+
+      <section id="arquivos">
+        <h2>3. Mapa dos arquivos principais</h2>
+        <table>
+          <thead><tr><th>Arquivo</th><th>Responsabilidade atual</th><th>Observação de refatoração</th></tr></thead>
+          <tbody>
+            <tr><td><code>src/core/types.ts</code></td><td>Tipos do domínio: componentes, fios, documento, avaliação e simulação.</td><td>Está pequeno e claro. Pode ganhar tipos mais expressivos para runtime.</td></tr>
+            <tr><td><code>src/core/catalog.ts</code></td><td>Catálogo visual/lógico dos componentes: pinos, tamanhos, labels.</td><td>Bom candidato para permanecer como fonte única de metadados.</td></tr>
+            <tr><td><code>src/core/evaluateCircuit.ts</code></td><td>Simulação combinacional, feedback, sequenciais nativos, step/tick e defaults.</td><td>Principal alvo de separação em módulos.</td></tr>
+            <tr><td><code>src/ui/App.tsx</code></td><td>Estado global, exemplos, histórico, tabela verdade, painel sequencial, comandos e integração do canvas.</td><td>Grande demais. Deve virar orquestrador fino.</td></tr>
+            <tr><td><code>src/ui/editor/CircuitCanvas.tsx</code></td><td>Renderização SVG, interações, roteamento de fios, edição no canvas e câmera.</td><td>Separar hooks e renderers reduzirá risco de regressões.</td></tr>
+            <tr><td><code>src/ui/styles.css</code></td><td>Todo o visual da aplicação.</td><td>Aceitável por enquanto; pode ser segmentado por painéis/canvas futuramente.</td></tr>
+            <tr><td><code>tests/core/simulation.test.ts</code></td><td>Testes de simulação com assert nativo e bundle via Vite.</td><td>Excelente base para proteger refatoração.</td></tr>
+            <tr><td><code>examples/sequential-feedback/*.json</code></td><td>Casos manuais de latch/feedback e instabilidade.</td><td>Podem virar fixtures compartilhadas entre testes e UI.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="modelo">
+        <h2>4. Modelo de dados atual</h2>
+        <pre><code>interface CircuitDocument {
+  version: 1;
+  components: LogicComponent[];
+  wires: Wire[];
+}
+
+interface LogicComponent {
+  id: string;
+  type: GateType;
+  x: number;
+  y: number;
+  label?: string;
+  state?: boolean;
+  width?: number;
+  memory?: Record&lt;string, boolean&gt;;
+}</code></pre>
+        <p>
+          O modelo é simples e produtivo. Ele funcionou bem para o MVP. O campo <code>memory</code> está sendo usado por componentes sequenciais nativos, enquanto a memória emergente de realimentação fica no <code>SimulationState.values</code>, mantido no runtime pela UI.
+        </p>
+        <div class="callout warn">
+          <strong>Ponto de decisão:</strong> consolidar a diferença entre <em>estado do documento</em> e <em>estado da simulação</em>. Hoje parte está no documento (<code>component.memory</code>) e parte em runtime (<code>SimulationState</code> em <code>App</code>).
+        </div>
+        <h3>Recomendação</h3>
+        <p>
+          Manter <code>CircuitDocument</code> como estrutura persistente e criar um módulo explícito de runtime. O <code>memory</code> dos componentes pode continuar temporariamente por compatibilidade, mas o framework deve caminhar para:
+        </p>
+        <pre><code>interface SimulationRuntime {
+  values: EvaluationResult;
+  componentMemory: Record&lt;string, Record&lt;string, boolean&gt;&gt;;
+  unstable: boolean;
+  iterations: number;
+}</code></pre>
+      </section>
+
+      <section id="simulacao">
+        <h2>5. Estado da simulação</h2>
+        <p>O core atual tem uma ideia importante e correta:</p>
+        <div class="callout ok">
+          <strong>Portas continuam puras; o simulador lembra sinais.</strong><br />Isso permite que latches feitos com portas comuns mantenham estado sem transformar AND/NOR/NAND conceitualmente em componentes sequenciais.
+        </div>
+        <h3>Como funciona hoje</h3>
+        <ol>
+          <li><code>simulateCircuit(circuit, previousState?)</code> inicializa pinos com valores anteriores quando disponíveis.</li>
+          <li>Inputs, buttons, clock e Q de sequenciais sobrescrevem seus valores fonte.</li>
+          <li>Componentes são avaliados iterativamente.</li>
+          <li>Fios propagam valores.</li>
+          <li>Se nada muda, estabilizou; se exceder <code>MAX_ITERATIONS = 64</code>, marca <code>unstable</code>.</li>
+        </ol>
+        <h3>Riscos técnicos</h3>
+        <ul>
+          <li><code>evaluateCircuit()</code> sem estado anterior ainda existe como wrapper; em circuitos com feedback pode não representar a sessão real.</li>
+          <li><code>settleSequentialCircuit()</code> e <code>stepCircuit()</code> ainda misturam lógica de runtime com alteração de documento.</li>
+          <li><code>inputValue()</code> busca fios com <code>find()</code>; em circuitos grandes, isso vira custo repetido e dificulta raciocínio.</li>
+          <li>A detecção de instabilidade é por limite de iteração, boa para MVP, mas ainda não distingue oscilação real de convergência lenta.</li>
+        </ul>
+        <h3>Separação sugerida</h3>
+        <pre><code>src/core/simulation/
+  signals.ts          // signalKey, read/write, clone, inicialização
+  gates.ts            // evaluatePrimitiveGate, evaluateNativeBlock
+  simulate.ts         // simulateUntilStable
+  sequential.ts       // clock, d-latch, d-flip-flop, stepNativeSequential
+  graph.ts            // feedback/cycle detection
+  truthTable.ts       // geração de tabela verdade</code></pre>
+      </section>
+
+      <section id="ui">
+        <h2>6. UI, App e Canvas</h2>
+        <h3><code>App.tsx</code></h3>
+        <p>Atualmente concentra:</p>
+        <span class="tag">estado global</span><span class="tag">histórico</span><span class="tag">exemplos</span><span class="tag">truth table</span><span class="tag">painel sequencial</span><span class="tag">import/export</span><span class="tag">context menu</span><span class="tag">biblioteca</span>
+        <p>
+          Isso foi adequado para avançar rápido, mas a manutenção ficará difícil conforme adicionarmos registradores, contadores, clock automático e subcircuitos.
+        </p>
+        <h3><code>CircuitCanvas.tsx</code></h3>
+        <p>Concentra:</p>
+        <span class="tag">render SVG</span><span class="tag">camera</span><span class="tag">pan/zoom</span><span class="tag">drag</span><span class="tag">wire preview</span><span class="tag">roteamento</span><span class="tag">self-loop</span><span class="tag">edição label</span><span class="tag">text resize</span>
+        <p>
+          O canvas está funcional e bonito, mas refatorar sem testes visuais/manual checklist pode causar regressões. A estratégia deve ser extrair primeiro funções puras de roteamento e hooks de interação, sem mudar comportamento.
+        </p>
+        <h3>Extrações recomendadas</h3>
+        <pre><code>src/ui/examples/circuitExamples.ts
+src/ui/panels/CircuitTruthTable.tsx
+src/ui/panels/SequentialStatePanel.tsx
+src/ui/library/ComponentLibrary.tsx
+src/ui/commandbar/CommandBar.tsx
+src/ui/editor/useCanvasCamera.ts
+src/ui/editor/useCanvasSelection.ts
+src/ui/editor/useWireRouting.ts
+src/ui/editor/renderers/ComponentView.tsx
+src/ui/editor/renderers/WireView.tsx</code></pre>
+      </section>
+
+      <section id="testes">
+        <h2>7. Testes e validação</h2>
+        <p>Já existe <code>npm test</code>, usando Vite para gerar um bundle Node do teste TypeScript. Os testes atuais cobrem:</p>
+        <ul>
+          <li>XOR combinacional básico;</li>
+          <li>Latch SR com NOR mantendo estado;</li>
+          <li>Latch SR com NAND ativo baixo mantendo estado;</li>
+          <li>Latch D construído com NANDs;</li>
+          <li>NOT realimentado detectado como instável;</li>
+          <li>checagem básica de Flip-Flop D nativo.</li>
+        </ul>
+        <div class="callout ok">
+          <strong>Importante:</strong> esses testes são o cinto de segurança para a refatoração do core. Antes de mover simulação para módulos, rode <code>npm test</code> e mantenha esses casos verdes.
+        </div>
+        <h3>Testes que faltam</h3>
+        <ul>
+          <li><code>stepCircuit()</code> diretamente: borda de subida, borda de descida e múltiplos ticks.</li>
+          <li>Tabela verdade: circuito combinacional com múltiplas entradas/saídas.</li>
+          <li>Feedback detector: ciclos simples, ciclos entre múltiplos componentes e circuitos acíclicos.</li>
+          <li>Import/export/normalização: componentes antigos sem <code>memory</code>.</li>
+          <li>Roteamento puro: self-loop ortogonal e curvo, colisões e jumps.</li>
+        </ul>
+      </section>
+
+      <section id="problemas">
+        <h2>8. Problemas atuais a resolver</h2>
+        <table>
+          <thead><tr><th>Prioridade</th><th>Problema</th><th>Impacto</th><th>Ação sugerida</th></tr></thead>
+          <tbody>
+            <tr><td><span class="priority p1">P1</span></td><td><code>App.tsx</code> muito grande</td><td>Dificulta evolução, revisão e testes.</td><td>Extrair exemplos e painéis primeiro.</td></tr>
+            <tr><td><span class="priority p1">P1</span></td><td>Simulação concentrada em <code>evaluateCircuit.ts</code></td><td>Mistura combinacional, runtime, sequencial e feedback.</td><td>Criar <code>src/core/simulation</code> mantendo API compatível.</td></tr>
+            <tr><td><span class="priority p1">P1</span></td><td>Runtime dividido entre documento e ref da UI</td><td>Difícil resetar, salvar, reproduzir e testar certos estados.</td><td>Formalizar <code>SimulationRuntime</code> e ações de simulação.</td></tr>
+            <tr><td><span class="priority p2">P2</span></td><td>Exemplos hardcoded</td><td><code>App.tsx</code> inchado; difícil reaproveitar em testes.</td><td>Mover para módulo/fixtures.</td></tr>
+            <tr><td><span class="priority p2">P2</span></td><td>Roteamento dentro do canvas</td><td>Difícil testar e evoluir self-loop/obstáculos.</td><td>Extrair funções puras para <code>wireRouting.ts</code>.</td></tr>
+            <tr><td><span class="priority p2">P2</span></td><td>Sem botão reset de simulação</td><td>Com memória de sinais, usuário pode querer limpar estado.</td><td>Adicionar ação <code>resetSimulation()</code>.</td></tr>
+            <tr><td><span class="priority p3">P3</span></td><td>CSS monolítico</td><td>Ainda aceitável, mas crescerá.</td><td>Segmentar depois de estabilizar componentes.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="framework">
+        <h2>9. Framework interno desejado</h2>
+        <p>O objetivo da refatoração deve ser transformar o projeto em camadas claras:</p>
+        <pre><code>Domain Model
+  CircuitDocument, LogicComponent, Wire, PinRef
+
+Catalog
+  component definitions, pins, sizes, labels
+
+Simulation Engine
+  pure gate evaluation, signal runtime, feedback settling, sequential stepping
+
+Editor State
+  history, selection, tools, import/export, simulation runtime bridge
+
+Canvas Renderer
+  SVG rendering, wire routing, interaction hooks
+
+Educational Shell
+  examples, truth table, sequential panel, annotations</code></pre>
+        <h3>API alvo do core</h3>
+        <pre><code>const runtime = createSimulationRuntime(circuit);
+const settled = simulateUntilStable(circuit, runtime);
+const afterInput = applyInputChange(circuit, settled.runtime, inputId, true);
+const afterTick = stepSimulation(circuit, afterInput.runtime);
+const truth = buildTruthTable(circuit);</code></pre>
+        <p>
+          A UI deveria chamar ações de alto nível. Ela não deveria saber detalhes como quando usar estado anterior, quando normalizar memória ou como detectar feedback.
+        </p>
+      </section>
+
+      <section id="plano">
+        <h2>10. Plano de refatoração incremental</h2>
+        <h3>Fase 0 — Congelar comportamento</h3>
+        <ol>
+          <li>Rodar <code>npm test</code> e <code>npm run build</code>.</li>
+          <li>Adicionar testes diretos para <code>stepCircuit()</code>.</li>
+          <li>Adicionar teste para <code>circuitHasFeedback()</code> antes de extrair.</li>
+        </ol>
+
+        <h3>Fase 1 — Extrair exemplos e painéis</h3>
+        <ol>
+          <li>Mover <code>CIRCUIT_EXAMPLES</code> para <code>src/examples/circuitExamples.ts</code>.</li>
+          <li>Mover <code>CircuitTruthTable</code> e helpers para <code>src/ui/panels/CircuitTruthTable.tsx</code>.</li>
+          <li>Mover <code>SequentialStatePanel</code> para <code>src/ui/panels/SequentialStatePanel.tsx</code>.</li>
+        </ol>
+        <p><strong>Risco baixo.</strong> Deve reduzir bastante <code>App.tsx</code> sem alterar o core.</p>
+
+        <h3>Fase 2 — Extrair simulação sem mudar API</h3>
+        <ol>
+          <li>Criar <code>src/core/simulation/signals.ts</code> com read/write/clone/init.</li>
+          <li>Criar <code>src/core/simulation/gates.ts</code> com lógica de componentes puros.</li>
+          <li>Criar <code>src/core/simulation/simulate.ts</code> com <code>simulateCircuit</code>.</li>
+          <li>Manter <code>evaluateCircuit.ts</code> como fachada/export compatível temporária.</li>
+        </ol>
+        <p><strong>Risco médio.</strong> Protegido pelos testes de latch/feedback.</p>
+
+        <h3>Fase 3 — Runtime explícito no App</h3>
+        <ol>
+          <li>Substituir <code>simulationStateRef</code> por hook <code>useSimulationRuntime(circuit)</code>.</li>
+          <li>Adicionar botão <strong>Resetar simulação</strong>.</li>
+          <li>Definir quando runtime é preservado ou reiniciado: importar, carregar exemplo, undo/redo, remover componentes.</li>
+        </ol>
+
+        <h3>Fase 4 — Extrair canvas</h3>
+        <ol>
+          <li>Mover roteamento para <code>src/ui/editor/wireRouting.ts</code>.</li>
+          <li>Mover <code>WireView</code>, <code>ComponentView</code> e <code>PendingWire</code> para renderers.</li>
+          <li>Criar hooks para câmera, seleção e drag.</li>
+        </ol>
+
+        <h3>Fase 5 — Crescimento controlado</h3>
+        <ol>
+          <li>Clock automático com play/pause.</li>
+          <li>Registradores e contadores.</li>
+          <li>Subcircuitos reais, se a arquitetura estiver estável.</li>
+        </ol>
+      </section>
+
+      <section id="contratos">
+        <h2>11. Contratos que a refatoração deve preservar</h2>
+        <ul>
+          <li>JSON versão 1 deve continuar abrindo.</li>
+          <li>Circuitos combinacionais sem feedback devem continuar com tabela verdade.</li>
+          <li>Circuitos com feedback devem preservar estado usando valores anteriores.</li>
+          <li>NOT realimentado deve ser marcado como instável.</li>
+          <li>Latch SR NOR/NAND feito com portas comuns deve manter estado.</li>
+          <li>Latch D nativo e feito com portas devem continuar funcionando.</li>
+          <li>Uma entrada deve aceitar somente um fio; uma saída pode alimentar várias entradas.</li>
+          <li>Self-loop deve ser permitido e visualmente claro.</li>
+          <li>Undo/redo não deve explodir histórico durante drag/resize.</li>
+          <li>Import/export/autosave devem continuar funcionando.</li>
+        </ul>
+      </section>
+
+      <section id="checklist">
+        <h2>12. Checklist prático para cada etapa</h2>
+        <div class="grid">
+          <div class="card">
+            <strong>Antes de editar</strong>
+            <ul>
+              <li>Rodar <code>npm test</code>.</li>
+              <li>Rodar <code>npm run build</code>.</li>
+              <li>Escolher uma refatoração pequena.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <strong>Durante</strong>
+            <ul>
+              <li>Manter APIs antigas como fachadas.</li>
+              <li>Não misturar mudança visual com mudança de core.</li>
+              <li>Evitar reformatar arquivos enormes sem necessidade.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <strong>Depois</strong>
+            <ul>
+              <li>Rodar <code>npm test</code>.</li>
+              <li>Rodar <code>npm run build</code>.</li>
+              <li>Testar manualmente um latch SR e um circuito combinacional.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="callout ok">
+          <strong>Conclusão:</strong> a base está madura para uma refatoração incremental. O core conceitual certo já existe; agora o objetivo é dar nomes, fronteiras e testes suficientes para que o projeto possa crescer como framework.
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    Análise gerada para orientar a consolidação do OpenCircuit. Base observada: React + TypeScript + Vite, simulação combinacional/sequencial, feedback com estado de sinais e testes de core.
+  </footer>
+</body>
+</html>
