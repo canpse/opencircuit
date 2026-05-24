@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, type SetStateAction, useCallback, useMemo, useRef, useState } from 'react';
 import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
 import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
 import { downloadJson, loadCircuit, STARTER_CIRCUIT } from '../state/storage';
@@ -27,14 +27,40 @@ const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 
 
 const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
+const INITIAL_DOCUMENT_ID = 'doc-1';
+
+type CircuitFile = {
+  id: string;
+  name: string;
+  circuit: CircuitDocument;
+  exampleId: string | null;
+};
+
 export function App() {
-  const [circuit, setCircuit] = useState<CircuitDocument>(() => loadCircuit());
+  const [documents, setDocuments] = useState<CircuitFile[]>(() => [
+    { id: INITIAL_DOCUMENT_ID, name: 'circuito_logico.json', circuit: loadCircuit(), exampleId: null },
+  ]);
+  const [activeDocumentId, setActiveDocumentId] = useState(INITIAL_DOCUMENT_ID);
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [rightPanelTab, setRightPanelTab] = useState<'simulation' | 'lesson'>('simulation');
-  const [currentExampleId, setCurrentExampleId] = useState<string | null>(null);
-  const { canUndo, canRedo, remember: rememberCircuit, undo: undoHistory, redo: redoHistory } = useCircuitHistory(circuit, HISTORY_LIMIT);
+  const activeDocument = documents.find((document) => document.id === activeDocumentId) ?? documents[0];
+  const circuit = activeDocument.circuit;
+  const currentExampleId = activeDocument.exampleId;
+  const setCircuit = useCallback((action: SetStateAction<CircuitDocument>) => {
+    setDocuments((currentDocuments) => currentDocuments.map((document) => {
+      if (document.id !== activeDocumentId) return document;
+      const nextCircuit = typeof action === 'function' ? action(document.circuit) : action;
+      return { ...document, circuit: nextCircuit };
+    }));
+  }, [activeDocumentId]);
+  const setActiveExampleId = useCallback((exampleId: string | null) => {
+    setDocuments((currentDocuments) => currentDocuments.map((document) =>
+      document.id === activeDocumentId ? { ...document, exampleId } : document,
+    ));
+  }, [activeDocumentId]);
+  const { canUndo, canRedo, remember: rememberCircuit, undo: undoHistory, redo: redoHistory } = useCircuitHistory(circuit, HISTORY_LIMIT, activeDocumentId);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(null);
   const [message, setMessage] = useState('Pronto para testar lógica.');
@@ -82,7 +108,6 @@ export function App() {
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
-    setCurrentExampleId(null);
     setMessage(nextMessage);
   }
 
@@ -135,7 +160,6 @@ export function App() {
     rememberCircuit();
     setCircuit((current) => ({ ...current, components: [...current.components, component] }));
     setSelection({ componentIds: [id], wireIds: [] });
-    setCurrentExampleId(null);
     setMessage(`${componentDefinitionLabel(type)} adicionado.`);
   }
 
@@ -382,6 +406,34 @@ export function App() {
     setMessage('Componente removido.');
   }
 
+  function selectDocument(documentId: string) {
+    if (documentId === activeDocumentId) return;
+    resetSimulationRuntime();
+    setActiveDocumentId(documentId);
+    setPendingWire(null);
+    setSelection(EMPTY_SELECTION);
+    setSelectedTool('select');
+    setAutoClockRunning(false);
+    setMessage('Arquivo alternado.');
+  }
+
+  function createNewDocument() {
+    const id = `doc-${Date.now()}`;
+    const index = documents.length + 1;
+    setDocuments((currentDocuments) => [
+      ...currentDocuments,
+      { id, name: `circuito_${index}.json`, circuit: normalizeCircuitForEditor(cloneCircuit(STARTER_CIRCUIT)), exampleId: null },
+    ]);
+    resetSimulationRuntime();
+    setActiveDocumentId(id);
+    setPendingWire(null);
+    setSelection(EMPTY_SELECTION);
+    setSelectedTool('select');
+    setAutoClockRunning(false);
+    setRightPanelTab('simulation');
+    setMessage(`Novo arquivo criado: circuito_${index}.json.`);
+  }
+
   function resetCircuit() {
     rememberCircuit();
     resetSimulationRuntime();
@@ -390,7 +442,7 @@ export function App() {
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
-    setCurrentExampleId(null);
+    setActiveExampleId(null);
     setMessage('Circuito de exemplo restaurado.');
   }
 
@@ -400,11 +452,14 @@ export function App() {
     rememberCircuit();
     resetSimulationRuntime();
     setCircuit(normalizeCircuitForEditor(cloneCircuit(example.circuit)));
+    setDocuments((currentDocuments) => currentDocuments.map((document) =>
+      document.id === activeDocumentId ? { ...document, name: `${example.name}.json` } : document,
+    ));
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
-    setCurrentExampleId(example.id);
+    setActiveExampleId(example.id);
     setRightPanelTab('lesson');
     setMessage(`Exemplo carregado: ${example.name}.`);
   }
@@ -423,7 +478,10 @@ export function App() {
         setCircuit(normalizeCircuitForEditor(parsed));
         setSelection(EMPTY_SELECTION);
         setAutoClockRunning(false);
-        setCurrentExampleId(null);
+        setActiveExampleId(null);
+        setDocuments((currentDocuments) => currentDocuments.map((document) =>
+          document.id === activeDocumentId ? { ...document, name: file.name || document.name } : document,
+        ));
         setMessage('Circuito importado.');
       })
       .catch(() => setMessage('Não foi possível importar esse JSON.'));
@@ -436,7 +494,7 @@ export function App() {
         <div className="brand-block">
           <span className="app-icon">OC</span>
           <strong>OpenCircuit</strong>
-          <span className="project-name">Projeto: circuito_logico.json</span>
+          <span className="project-name">Projeto: {activeDocument.name}</span>
         </div>
 
       </header>
@@ -451,7 +509,7 @@ export function App() {
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
         onOpen={() => fileInputRef.current?.click()}
-        onSave={() => downloadJson('circuito-logico.json', circuit)}
+        onSave={() => downloadJson(activeDocument.name, circuit)}
         onLoadExample={loadExample}
         onUndo={undo}
         onRedo={redo}
@@ -472,8 +530,17 @@ export function App() {
 
         <div className="center-panel">
           <div className="document-tabs">
-            <button className="document-tab active">circuito_logico.json</button>
-            <button className="document-tab add-tab">+</button>
+            {documents.map((document) => (
+              <button
+                key={document.id}
+                className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
+                onClick={() => selectDocument(document.id)}
+                title={document.exampleId ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}` : document.name}
+              >
+                {document.name}
+              </button>
+            ))}
+            <button className="document-tab add-tab" onClick={createNewDocument}>+</button>
           </div>
           <div className="editor-panel">
             <CircuitCanvas

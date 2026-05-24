@@ -367,12 +367,18 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
   align-items: end;
   gap: 2px;
   padding-left: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
   border-bottom: 1px solid rgba(91, 113, 128, 0.2);
   background: #f3f7fa;
 }
 .document-tab {
   height: 32px;
   min-width: 150px;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 10px 10px 0 0;
   box-shadow: none;
   background: #eaf0f5;

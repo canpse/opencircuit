@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export type HistoryState<T> = { past: T[]; future: T[] };
 
-export function useCircuitHistory<T>(current: T, limit = 100) {
+export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string) {
   const [history, setHistory] = useState<HistoryState<T>>({ past: [], future: [] });
+
+  useEffect(() => {
+    setHistory({ past: [], future: [] });
+  }, [resetKey]);
 
   function remember(snapshot: T = current) {
     setHistory((state) => ({
