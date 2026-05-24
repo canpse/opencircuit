@@ -1,6 +1,6 @@
 import type { CircuitDocument } from '../core/types';
 
-export type CircuitExample = { id: string; name: string; circuit: CircuitDocument };
+export type CircuitExample = { id: string; name: string; description?: string; circuit: CircuitDocument };
 export type CircuitLesson = { id: string; title: string; description: string; exampleIds: string[]; examples: CircuitExample[] };
 
 export const CIRCUIT_EXAMPLES: CircuitExample[] = [
@@ -637,9 +637,13 @@ function lesson(id: string, title: string, description: string, exampleIds: stri
   const examples = exampleIds.map((exampleId) => {
     const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
     if (!example) throw new Error(`Exemplo não encontrado: ${exampleId}`);
-    return example;
+    return { ...example, description: example.description ?? extractExampleDescription(example.circuit) };
   });
   return { id, title, description, exampleIds, examples };
+}
+
+function extractExampleDescription(circuit: CircuitDocument): string {
+  return circuit.components.find((component) => component.type === 'text')?.label ?? '';
 }
 
 export const CIRCUIT_LESSONS: CircuitLesson[] = [
