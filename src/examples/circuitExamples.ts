@@ -35,6 +35,21 @@ export type CircuitLesson = { id: string; title: string; description: string; ex
 
 const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
   {
+    id: 'signal-led-basic',
+    name: 'Sinal, fio e LED',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A', type: 'input', x: 90, y: 140, label: 'A', state: false },
+        { id: 'OUT', type: 'led', x: 320, y: 140, label: 'OUT' },
+        { id: 'TXT1', type: 'text', x: 80, y: 250, width: 520, label: 'Primeiro contato: um switch gera um sinal 0 ou 1, o fio transporta esse sinal e o LED mostra o resultado. Ligue e desligue A para ver o mesmo valor chegar em OUT.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
     id: 'xor',
     name: 'XOR básico',
     circuit: {
@@ -698,8 +713,106 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
     experiments: ['Teste todas as combinações de entrada.', 'Renomeie sinais importantes para reforçar o significado do circuito.'],
   };
 
-  if (['and-basic', 'or-basic', 'not-basic', 'xor', 'nand-not'].includes(example.id)) {
-    return { ...common, moduleId: 'fundamentals', familyIds: ['gates', 'truth-table'], trackIds: ['boolean'], difficulty: 1, level: 'concept', prerequisites: [], concepts: ['sinal binário', 'porta lógica', 'tabela verdade'], next: ['half-adder', 'mux-2-1'], challenge: 'Monte uma porta equivalente usando apenas NANDs.' };
+  if (example.id === 'signal-led-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: [],
+      concepts: ['sinal binário', 'switch', 'fio', 'LED', 'nível lógico 0/1'],
+      next: ['not-basic', 'and-basic'],
+      observe: ['Clique no switch A.', 'Observe que o LED OUT copia exatamente o valor de A.', 'Veja a linha atual destacada na tabela verdade.'],
+      experiments: ['Renomeie A para Entrada e OUT para Saída.', 'Apague o fio e reconecte a saída de A ao LED.', 'Exporte o circuito e importe novamente.'],
+      challenge: 'Adicione um segundo LED ligado ao mesmo switch e confirme que uma saída pode alimentar várias entradas.',
+    };
+  }
+
+  if (example.id === 'not-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['signal-led-basic'],
+      concepts: ['inversão', 'complemento lógico', 'entrada e saída'],
+      next: ['and-basic', 'or-basic', 'nand-not'],
+      observe: ['Compare A e OUT: eles devem estar sempre opostos.', 'Use a tabela verdade para confirmar os dois casos possíveis.'],
+      experiments: ['Ligue A e observe OUT apagar.', 'Desligue A e observe OUT acender.', 'Tente prever OUT antes de clicar no switch.'],
+      challenge: 'Monte outro inversor usando uma porta NAND com as duas entradas ligadas ao mesmo sinal.',
+    };
+  }
+
+  if (example.id === 'and-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['signal-led-basic'],
+      concepts: ['conjunção lógica', 'condição simultânea', 'tabela verdade de 2 entradas'],
+      next: ['or-basic', 'xor', 'half-adder'],
+      observe: ['OUT só acende quando A e B estão ligados ao mesmo tempo.', 'Compare as quatro combinações da tabela verdade.'],
+      experiments: ['Teste 00, 01, 10 e 11 em ordem.', 'Use AND como uma condição: “A e B precisam ser verdadeiros”.'],
+      challenge: 'Explique uma situação real que precise de duas condições simultâneas, como chave de segurança E botão pressionado.',
+    };
+  }
+
+  if (example.id === 'or-basic') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['signal-led-basic'],
+      concepts: ['disjunção lógica', 'condição alternativa', 'tabela verdade de 2 entradas'],
+      next: ['and-basic', 'xor', 'mux-2-1'],
+      observe: ['OUT acende se A ou B estiver ligado.', 'A única forma de OUT apagar é A=0 e B=0.'],
+      experiments: ['Teste as quatro combinações e diga em voz alta quando a saída deveria ligar.', 'Compare mentalmente OR com AND.'],
+      challenge: 'Modifique o circuito para que dois switches diferentes possam acender dois LEDs ao mesmo tempo.',
+    };
+  }
+
+  if (example.id === 'xor') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean', 'arithmetic'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['and-basic', 'or-basic', 'not-basic'],
+      concepts: ['diferença entre bits', 'paridade simples', 'base da soma binária'],
+      next: ['half-adder', 'odd-parity-3'],
+      observe: ['OUT acende quando A e B são diferentes.', 'OUT apaga quando A e B são iguais.'],
+      experiments: ['Compare XOR com OR quando A=B=1.', 'Tente prever a saída antes de cada clique.'],
+      challenge: 'Explique por que XOR parece uma soma de 1 bit sem carry.',
+    };
+  }
+
+  if (example.id === 'nand-not') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'concept',
+      prerequisites: ['and-basic', 'not-basic'],
+      concepts: ['porta universal', 'equivalência lógica', 'reutilização de portas'],
+      next: ['sr-latch-nand-active-low', 'gated-d-latch-from-nand'],
+      observe: ['A alimenta as duas entradas da NAND.', 'Quando as duas entradas são iguais, NAND se comporta como NOT.'],
+      experiments: ['Compare este circuito com o NOT básico.', 'Desconecte uma entrada da NAND e veja por que a equivalência deixa de fazer sentido.'],
+      challenge: 'Pesquise mentalmente: se NAND pode virar NOT, como construir AND usando NAND + NOT?',
+    };
   }
   if (['half-adder', 'full-adder', 'half-subtractor', 'full-subtractor', 'comparator-1-bit'].includes(example.id)) {
     return { ...common, moduleId: 'combinational', familyIds: ['adders', 'truth-table'], trackIds: ['arithmetic', 'architecture'], difficulty: example.id === 'full-adder' || example.id === 'full-subtractor' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'xor'], concepts: ['composição', 'carry/borrow', 'comparação'], next: ['register-4-basic'], challenge: 'Preveja a saída antes de alternar cada entrada.' };
@@ -738,7 +851,7 @@ function extractExampleDescription(circuit: CircuitDocument): string {
 }
 
 export const CIRCUIT_LESSONS: CircuitLesson[] = [
-  lesson('first-steps', 'Aula 1 — Primeiros circuitos', 'Portas básicas, switches, LEDs e leitura da tabela verdade.', ['and-basic', 'or-basic', 'not-basic', 'xor', 'nand-not']),
+  lesson('first-steps', 'Aula 1 — Sinais e portas básicas', 'Começa do zero: o que é um sinal 0/1, como fios transportam sinais, como LEDs observam saídas e como NOT, AND, OR, XOR e NAND transformam entradas.', ['signal-led-basic', 'not-basic', 'and-basic', 'or-basic', 'xor', 'nand-not']),
   lesson('truth-tables', 'Aula 2 — Tabela verdade e aritmética', 'Circuitos combinacionais clássicos observados pela tabela verdade.', ['half-adder', 'full-adder', 'comparator-1-bit', 'half-subtractor', 'full-subtractor']),
   lesson('combinational-blocks', 'Aula 3 — Seleção e codificação', 'Multiplexadores, decodificadores, encoders e detectores combinacionais.', ['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3']),
   lesson('memory-latches', 'Aula 4 — Memória e latches', 'Primeiros circuitos que mantêm estado, tanto nativos quanto por realimentação.', ['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand']),
