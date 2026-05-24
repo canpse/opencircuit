@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "components": [
+    { "id": "S", "type": "input", "x": 60, "y": 90, "label": "S", "state": false },
+    { "id": "R", "type": "input", "x": 60, "y": 250, "label": "R", "state": false },
+    { "id": "NQ", "type": "nor", "x": 280, "y": 90, "label": "NOR Q" },
+    { "id": "NQB", "type": "nor", "x": 280, "y": 250, "label": "NOR !Q" },
+    { "id": "Q", "type": "led", "x": 520, "y": 99, "label": "Q" },
+    { "id": "QB", "type": "led", "x": 520, "y": 259, "label": "!Q" },
+    { "id": "TXT1", "type": "text", "x": 60, "y": 370, "width": 680, "label": "Teste SR NOR ativo em nível alto. Passos: 1) S=1,R=0 deve SETAR Q. 2) Volte S=0,R=0: Q deve continuar 1. 3) S=0,R=1 deve RESETAR Q. 4) Volte R=0: Q deve continuar 0. Evite S=R=1: é estado proibido." }
+  ],
+  "wires": [
+    { "id": "W1", "from": { "componentId": "R", "pinId": "out" }, "to": { "componentId": "NQ", "pinId": "a" } },
+    { "id": "W2", "from": { "componentId": "S", "pinId": "out" }, "to": { "componentId": "NQB", "pinId": "a" } },
+    { "id": "W3", "from": { "componentId": "NQ", "pinId": "out" }, "to": { "componentId": "Q", "pinId": "in" } },
+    { "id": "W4", "from": { "componentId": "NQB", "pinId": "out" }, "to": { "componentId": "QB", "pinId": "in" } },
+    { "id": "W5", "from": { "componentId": "NQ", "pinId": "out" }, "to": { "componentId": "NQB", "pinId": "b" } },
+    { "id": "W6", "from": { "componentId": "NQB", "pinId": "out" }, "to": { "componentId": "NQ", "pinId": "b" } }
+  ]
+}

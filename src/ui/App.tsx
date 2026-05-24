@@ -1,7 +1,7 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { COMPONENT_DEFINITIONS } from '../core/catalog';
-import { evaluateCircuit } from '../core/evaluateCircuit';
-import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
+import { evaluateCircuit, isSequentialType, settleSequentialCircuit, simulateCircuit, stepCircuit, withSequentialDefaults } from '../core/evaluateCircuit';
+import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, SimulationState, Wire } from '../core/types';
 import { downloadJson, loadCircuit, saveCircuit, STARTER_CIRCUIT } from '../state/storage';
 import andGateAsset from '../assets/components/and_gate.png';
 import inputSwitchOffAsset from '../assets/components/input_switch_off.png';
@@ -49,6 +49,7 @@ const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
     title: 'Blocos Combinacionais',
     tools: ['half-adder', 'full-adder', 'mux-2-1', 'mux-4-1', 'decoder-2-4', 'comparator-1-bit', 'encoder-4-2', 'odd-parity-3', 'majority-3', 'half-subtractor', 'full-subtractor'],
   },
+  { title: 'Sequenciais', tools: ['clock', 'd-latch', 'd-flip-flop'] },
   { title: 'Anotações', tools: ['text'] },
 ];
 
@@ -87,6 +88,68 @@ const CIRCUIT_EXAMPLES: Array<{ id: string; name: string; circuit: CircuitDocume
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'a' } },
         { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'N1', pinId: 'b' } },
         { id: 'W3', from: { componentId: 'N1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'd-latch-basic',
+    name: 'Latch D básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D', type: 'input', x: 70, y: 110, label: 'D', state: false },
+        { id: 'EN', type: 'input', x: 70, y: 230, label: 'EN', state: false },
+        { id: 'L1', type: 'd-latch', x: 280, y: 130, label: 'Latch D', memory: { q: false } },
+        { id: 'Q', type: 'led', x: 500, y: 151, label: 'Q' },
+        { id: 'TXT1', type: 'text', x: 70, y: 340, width: 610, label: 'Latch D guarda 1 bit. Com EN=1, Q acompanha D. Com EN=0, Q mantém o último valor salvo. Use os inputs e observe o painel de estado sequencial.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'L1', pinId: 'D' } },
+        { id: 'W2', from: { componentId: 'EN', pinId: 'out' }, to: { componentId: 'L1', pinId: 'EN' } },
+        { id: 'W3', from: { componentId: 'L1', pinId: 'Q' }, to: { componentId: 'Q', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'd-flip-flop-basic',
+    name: 'Flip-Flop D básico',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'D', type: 'input', x: 70, y: 130, label: 'D', state: false },
+        { id: 'CLK', type: 'clock', x: 70, y: 250, label: 'Clock', state: false },
+        { id: 'FF1', type: 'd-flip-flop', x: 300, y: 150, label: 'Flip-Flop D', memory: { q: false, previousClk: false } },
+        { id: 'Q', type: 'led', x: 560, y: 171, label: 'Q' },
+        { id: 'TXT1', type: 'text', x: 70, y: 360, width: 650, label: 'Flip-Flop D guarda D somente na borda de subida do clock. Clique em Tick: quando o Clock alterna de 0 para 1, Q recebe D; nas outras etapas, Q mantém o valor.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'FF1', pinId: 'D' } },
+        { id: 'W2', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'FF1', pinId: 'CLK' } },
+        { id: 'W3', from: { componentId: 'FF1', pinId: 'Q' }, to: { componentId: 'Q', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'sr-latch-nor-experiment',
+    name: 'Experimento: latch SR com NOR',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'S', type: 'input', x: 70, y: 90, label: 'S', state: false },
+        { id: 'R', type: 'input', x: 70, y: 250, label: 'R', state: false },
+        { id: 'GQ', type: 'nor', x: 280, y: 90, label: 'NOR Q' },
+        { id: 'GQB', type: 'nor', x: 280, y: 250, label: 'NOR !Q' },
+        { id: 'Q', type: 'led', x: 500, y: 99, label: 'Q' },
+        { id: 'QB', type: 'led', x: 500, y: 259, label: '!Q' },
+        { id: 'TXT1', type: 'text', x: 70, y: 370, width: 620, label: 'Latch SR feito com duas portas NOR cruzadas. Em hardware real, S=1 seta Q, R=1 reseta Q e S=R=0 mantém o estado. Neste simulador combinacional atual, o feedback aparece, mas o estado mantido ainda não é confiável: este exemplo mostra por que precisamos de uma etapa sequencial com memória.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'R', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'S', pinId: 'out' }, to: { componentId: 'GQB', pinId: 'a' } },
+        { id: 'W3', from: { componentId: 'GQ', pinId: 'out' }, to: { componentId: 'Q', pinId: 'in' } },
+        { id: 'W4', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'QB', pinId: 'in' } },
+        { id: 'W5', from: { componentId: 'GQ', pinId: 'out' }, to: { componentId: 'GQB', pinId: 'b' } },
+        { id: 'W6', from: { componentId: 'GQB', pinId: 'out' }, to: { componentId: 'GQ', pinId: 'b' } },
       ],
     },
   },
@@ -490,8 +553,16 @@ export function App() {
   const [truthPanelWidth, setTruthPanelWidth] = useState(320);
   const [resizingTruthPanel, setResizingTruthPanel] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const simulationStateRef = useRef<SimulationState | undefined>(undefined);
 
-  const evaluation = useMemo(() => evaluateCircuit(circuit), [circuit]);
+  const simulationResult = useMemo(() => {
+    const result = simulateCircuit(circuit, simulationStateRef.current);
+    simulationStateRef.current = result.state;
+    return result;
+  }, [circuit]);
+  const evaluation = simulationResult.values;
+  const hasSequentialComponents = circuit.components.some((component) => isSequentialType(component.type));
+  const hasFeedback = useMemo(() => circuitHasFeedback(circuit), [circuit]);
 
   useEffect(() => {
     localStorage.setItem(WIRE_STYLE_STORAGE_KEY, wireStyle);
@@ -635,7 +706,8 @@ export function App() {
   }
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
-    setCircuit(nextCircuit);
+    simulationStateRef.current = undefined;
+    setCircuit(normalizeCircuitForEditor(nextCircuit));
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
@@ -695,14 +767,14 @@ export function App() {
   function addComponent(type: GateType, point: Point) {
     const snapped = snap(point);
     const id = nextId(type, circuit.components);
-    const component: LogicComponent = {
+    const component: LogicComponent = withSequentialDefaults({
       id,
       type,
       x: snapped.x,
       y: snapped.y,
       label: defaultLabel(type, id),
       state: type === 'input' || type === 'button' ? false : undefined,
-    };
+    });
     rememberCircuit();
     setCircuit((current) => ({ ...current, components: [...current.components, component] }));
     setSelection({ componentIds: [id], wireIds: [] });
@@ -734,7 +806,7 @@ export function App() {
 
   function toggleInput(componentId: string) {
     rememberCircuit();
-    setCircuit((current) => ({
+    setCircuit((current) => settleSequentialCircuit({
       ...current,
       components: current.components.map((component) =>
         component.id === componentId && component.type === 'input'
@@ -755,6 +827,16 @@ export function App() {
     }));
   }
 
+  function tickSequentialCircuit() {
+    if (!circuit.components.some((component) => isSequentialType(component.type))) {
+      setMessage('Adicione Clock, Latch D ou Flip-Flop D para usar Tick.');
+      return;
+    }
+    rememberCircuit();
+    setCircuit((current) => stepCircuit(current));
+    setMessage('Tick: tempo sequencial avançado.');
+  }
+
   function onPinClick(pin: PinRef, kind: 'input' | 'output') {
     if (kind === 'output') {
       setPendingWire(pin);
@@ -765,12 +847,6 @@ export function App() {
 
     if (!pendingWire) {
       setMessage('Comece o fio clicando em uma saída.');
-      return;
-    }
-
-    if (pendingWire.componentId === pin.componentId) {
-      setMessage('Não conectei: origem e destino são o mesmo componente.');
-      setPendingWire(null);
       return;
     }
 
@@ -922,6 +998,7 @@ export function App() {
 
   function resetCircuit() {
     rememberCircuit();
+    simulationStateRef.current = undefined;
     setCircuit(STARTER_CIRCUIT);
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
@@ -933,7 +1010,8 @@ export function App() {
     const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
     if (!example) return;
     rememberCircuit();
-    setCircuit(cloneCircuit(example.circuit));
+    simulationStateRef.current = undefined;
+    setCircuit(normalizeCircuitForEditor(cloneCircuit(example.circuit)));
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
@@ -950,7 +1028,8 @@ export function App() {
           throw new Error('Formato inválido');
         }
         rememberCircuit();
-        setCircuit(parsed);
+        simulationStateRef.current = undefined;
+        setCircuit(normalizeCircuitForEditor(parsed));
         setSelection(EMPTY_SELECTION);
         setMessage('Circuito importado.');
       })
@@ -992,6 +1071,7 @@ export function App() {
         <span className="command-separator" />
         <button onClick={() => setSelectedTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
         <button onClick={() => setSelectedTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
+        <button onClick={tickSequentialCircuit}>Tick</button>
         <label className="wire-style-control">
           Fios
           <select value={wireStyle} onChange={(event) => setWireStyle(event.target.value as WireStyle)}>
@@ -1078,8 +1158,8 @@ export function App() {
         />
 
         <aside className="properties-panel truth-panel">
-          <div className="panel-header">Tabela Verdade</div>
-          <CircuitTruthTable circuit={circuit} />
+          <div className="panel-header">{hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}</div>
+          <CircuitTruthTable circuit={circuit} evaluation={evaluation} unstable={simulationResult.unstable} hasFeedback={hasFeedback} />
         </aside>
       </section>
 
@@ -1100,7 +1180,12 @@ export function App() {
   );
 }
 
-function CircuitTruthTable({ circuit }: { circuit: CircuitDocument }) {
+function CircuitTruthTable({ circuit, evaluation, unstable, hasFeedback }: { circuit: CircuitDocument; evaluation: ReturnType<typeof evaluateCircuit>; unstable: boolean; hasFeedback: boolean }) {
+  const sequentialComponents = circuit.components.filter((component) => isSequentialType(component.type));
+  if (sequentialComponents.length > 0 || hasFeedback) {
+    return <SequentialStatePanel circuit={circuit} components={sequentialComponents} evaluation={evaluation} unstable={unstable} hasFeedback={hasFeedback} />;
+  }
+
   const inputs = circuit.components.filter((component) => component.type === 'input');
   const outputs = circuit.components.filter((component) => component.type === 'led');
   const maxInputs = 6;
@@ -1147,6 +1232,35 @@ function CircuitTruthTable({ circuit }: { circuit: CircuitDocument }) {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function SequentialStatePanel({ circuit, components, evaluation, unstable, hasFeedback }: { circuit: CircuitDocument; components: LogicComponent[]; evaluation: ReturnType<typeof evaluateCircuit>; unstable: boolean; hasFeedback: boolean }) {
+  const observedComponents = components.length > 0
+    ? components
+    : circuit.components.filter((component) => ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'].includes(component.type));
+  return (
+    <div className="properties-card sequential-state-card">
+      <span className="property-subtitle">{hasFeedback ? 'Realimentação / memória' : 'Circuito sequencial'}</span>
+      <p className="muted-card">
+        {hasFeedback
+          ? 'Este circuito tem caminho de realimentação. O simulador usa o último estado estável dos sinais como ponto de partida, permitindo latches feitos com portas comuns.'
+          : <>Este circuito tem memória. Use <strong>Tick</strong> para avançar o tempo e observe os estados internos.</>}
+      </p>
+      {unstable && <p className="simulation-warning">O circuito não estabilizou. Pode haver oscilação ou realimentação inválida.</p>}
+      <div className="sequential-state-list">
+        {observedComponents.map((component) => {
+          const label = component.label ?? COMPONENT_DEFINITIONS[component.type].label;
+          if (component.type === 'clock') {
+            return <div className="state-row" key={component.id}><span>{label}.CLK</span><strong>{bit(Boolean(evaluation[component.id]?.CLK))}</strong></div>;
+          }
+          if (component.type === 'd-latch' || component.type === 'd-flip-flop') {
+            return <div className="state-row" key={component.id}><span>{label}.Q</span><strong>{bit(Boolean(evaluation[component.id]?.Q))}</strong></div>;
+          }
+          return <div className="state-row" key={component.id}><span>{label}.out</span><strong>{bit(Boolean(evaluation[component.id]?.out))}</strong></div>;
+        })}
       </div>
     </div>
   );
@@ -1241,12 +1355,19 @@ function loadWireStyle(): WireStyle {
 function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
   return {
     version: circuit.version,
-    components: circuit.components.map((component) => ({ ...component })),
+    components: circuit.components.map((component) => ({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
     wires: circuit.wires.map((wire) => ({
       id: wire.id,
       from: { ...wire.from },
       to: { ...wire.to },
     })),
+  };
+}
+
+function normalizeCircuitForEditor(circuit: CircuitDocument): CircuitDocument {
+  return {
+    ...cloneCircuit(circuit),
+    components: circuit.components.map((component) => withSequentialDefaults({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
   };
 }
 
@@ -1259,6 +1380,34 @@ function snap(point: Point): Point {
 }
 
 const LOGIC_COMPONENT_TOOLS: GateType[] = TOOL_GROUPS.flatMap((group) => group.tools);
+
+function circuitHasFeedback(circuit: CircuitDocument): boolean {
+  const componentIds = new Set(circuit.components.map((component) => component.id));
+  const edges = new Map<string, string[]>();
+  for (const id of componentIds) edges.set(id, []);
+  for (const wire of circuit.wires) {
+    if (componentIds.has(wire.from.componentId) && componentIds.has(wire.to.componentId)) {
+      edges.get(wire.from.componentId)?.push(wire.to.componentId);
+    }
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+
+  function visit(id: string): boolean {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    for (const next of edges.get(id) ?? []) {
+      if (visit(next)) return true;
+    }
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  }
+
+  return Array.from(componentIds).some(visit);
+}
 
 function nextId(type: GateType, components: LogicComponent[]): string {
   const prefixByType: Record<GateType, string> = {
@@ -1284,6 +1433,9 @@ function nextId(type: GateType, components: LogicComponent[]): string {
     'majority-3': 'MJ',
     'half-subtractor': 'HSub',
     'full-subtractor': 'FSub',
+    clock: 'CLK',
+    'd-latch': 'DL',
+    'd-flip-flop': 'DFF',
   };
   const prefix = prefixByType[type];
   let index = components.length + 1;

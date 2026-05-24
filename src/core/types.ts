@@ -1,7 +1,8 @@
 export type GateType =
   | 'input' | 'button' | 'led' | 'and' | 'nand' | 'or' | 'nor' | 'xor' | 'xnor' | 'not' | 'text'
   | 'half-adder' | 'full-adder' | 'mux-2-1' | 'mux-4-1' | 'decoder-2-4' | 'comparator-1-bit'
-  | 'encoder-4-2' | 'odd-parity-3' | 'majority-3' | 'half-subtractor' | 'full-subtractor';
+  | 'encoder-4-2' | 'odd-parity-3' | 'majority-3' | 'half-subtractor' | 'full-subtractor'
+  | 'clock' | 'd-latch' | 'd-flip-flop';
 export type LogicValue = boolean;
 export type PinKind = 'input' | 'output';
 
@@ -18,6 +19,7 @@ export interface LogicComponent {
   label?: string;
   state?: boolean;
   width?: number;
+  memory?: Record<string, boolean>;
 }
 
 export interface PinRef {
@@ -53,3 +55,16 @@ export interface ComponentDefinition {
 }
 
 export type EvaluationResult = Record<string, Record<string, LogicValue>>;
+
+export interface SimulationState {
+  values: EvaluationResult;
+  unstable: boolean;
+  iterations: number;
+}
+
+export interface SimulationResult {
+  values: EvaluationResult;
+  state: SimulationState;
+  unstable: boolean;
+  iterations: number;
+}

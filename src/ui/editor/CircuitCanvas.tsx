@@ -520,9 +520,9 @@ function WireView({ wire, route, wireStyle, componentById, evaluation, selected,
   if (!from || !to) return null;
   const start = getPinPosition(from, wire.from.pinId);
   const end = getPinPosition(to, wire.to.pinId);
-  const points = route?.points ?? [start, end];
+  const points = route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
   const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
-  const d = wireStyle === 'orthogonal' ? orthogonalPath(points, route?.jumps ?? []) : bezierPath(start, end);
+  const d = wireStyle === 'orthogonal' ? orthogonalPath(points, route?.jumps ?? []) : bezierPathFromPoints(points);
 
   return (
     <path
@@ -860,13 +860,31 @@ function routeCircuitWires(wires: Wire[], componentById: Map<string, LogicCompon
     const start = getPinPosition(from, wire.from.pinId);
     const end = getPinPosition(to, wire.to.pinId);
     const ignore = new Set([from.id, to.id]);
-    return { wireId: wire.id, points: routeBetweenPoints(start, end, components, ignore, index), jumps: [] };
+    const points = from.id === to.id ? selfLoopRoute(from, start, end, index) : routeBetweenPoints(start, end, components, ignore, index);
+    return { wireId: wire.id, points, jumps: [] };
   });
 
   return routes.map((route, index) => ({
     ...route,
     jumps: findWireJumps(route, routes.filter((_, otherIndex) => otherIndex !== index)),
   }));
+}
+
+function selfLoopRoute(component: LogicComponent, start: Point, end: Point, index: number): Point[] {
+  const bounds = componentBounds(component);
+  const lane = 34 + (index % 4) * 14;
+  const firstX = Math.max(start.x, bounds.x + bounds.width) + lane;
+  const topY = bounds.y - lane;
+  const leftX = bounds.x - lane;
+
+  return compactRoute([
+    start,
+    { x: firstX, y: start.y },
+    { x: firstX, y: topY },
+    { x: leftX, y: topY },
+    { x: leftX, y: end.y },
+    end,
+  ]);
 }
 
 function routeBetweenPoints(start: Point, end: Point, components: LogicComponent[], ignoreComponentIds: Set<string>, index: number): Point[] {
@@ -949,6 +967,41 @@ function findWireJumps(route: WireRoute, otherRoutes: WireRoute[]): Point[] {
     }
   }
   return jumps;
+}
+
+function bezierPathFromPoints(points: Point[]): string {
+  if (points.length <= 2) return bezierPath(points[0], points[1]);
+  return roundedPolylinePath(points, 18);
+}
+
+function roundedPolylinePath(points: Point[], radius: number): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  const commands = [`M ${points[0].x} ${points[0].y}`];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const before = pointToward(current, previous, radius);
+    const after = pointToward(current, next, radius);
+    commands.push(`L ${before.x} ${before.y}`);
+    commands.push(`Q ${current.x} ${current.y} ${after.x} ${after.y}`);
+  }
+  const last = points[points.length - 1];
+  commands.push(`L ${last.x} ${last.y}`);
+  return commands.join(' ');
+}
+
+function pointToward(from: Point, to: Point, distance: number): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.max(1, Math.abs(dx) + Math.abs(dy));
+  const amount = Math.min(distance, length / 2);
+  return {
+    x: from.x + Math.sign(dx) * amount,
+    y: from.y + Math.sign(dy) * amount,
+  };
 }
 
 function bezierPath(start: Point, end: Point): string {
