@@ -471,7 +471,13 @@ export function App() {
   }
 
   function saveActiveDocument() {
-    const filename = activeDocument.saved ? activeDocument.name : `${activeDocument.name}.json`;
+    const suggestedName = activeDocument.name.endsWith('.json') ? activeDocument.name : `${activeDocument.name}.json`;
+    const chosenName = window.prompt('Nome do arquivo para salvar:', suggestedName);
+    if (!chosenName) {
+      setMessage('Salvamento cancelado.');
+      return;
+    }
+    const filename = chosenName.endsWith('.json') ? chosenName : `${chosenName}.json`;
     downloadJson(filename, circuit);
     setDocuments((currentDocuments) => currentDocuments.map((document) =>
       document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
@@ -597,7 +603,6 @@ export function App() {
                 title={document.exampleId ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}` : document.name}
               >
                 <button className="document-tab-title" onClick={() => selectDocument(document.id)}>
-                  {!document.saved && <span className="unsaved-dot" aria-label="Arquivo ainda não salvo">●</span>}
                   {document.name}
                 </button>
                 <button
