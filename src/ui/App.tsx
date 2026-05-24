@@ -103,6 +103,7 @@ export function App() {
     onMessage: setMessage,
     onUndo: undo,
     onRedo: redo,
+    onSave: saveActiveDocument,
     onRemoveSelection: removeSelection,
   });
 
@@ -469,6 +470,15 @@ export function App() {
     setMessage('Arquivo fechado.');
   }
 
+  function saveActiveDocument() {
+    const filename = activeDocument.saved ? activeDocument.name : `${activeDocument.name}.json`;
+    downloadJson(filename, circuit);
+    setDocuments((currentDocuments) => currentDocuments.map((document) =>
+      document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
+    ));
+    setMessage(`Arquivo salvo: ${filename}.`);
+  }
+
   function resetCircuit() {
     rememberCircuit();
     resetSimulationRuntime();
@@ -559,13 +569,7 @@ export function App() {
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
         onOpen={() => fileInputRef.current?.click()}
-        onSave={() => {
-          const filename = activeDocument.saved ? activeDocument.name : `${activeDocument.name}.json`;
-          downloadJson(filename, circuit);
-          setDocuments((currentDocuments) => currentDocuments.map((document) =>
-            document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
-          ));
-        }}
+        onSave={saveActiveDocument}
         onLoadExample={loadExample}
         onUndo={undo}
         onRedo={redo}

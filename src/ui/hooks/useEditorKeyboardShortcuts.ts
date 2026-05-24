@@ -15,6 +15,7 @@ interface Options {
   onMessage: (message: string) => void;
   onUndo: () => void;
   onRedo: () => void;
+  onSave: () => void;
   onRemoveSelection: () => void;
 }
 
@@ -29,6 +30,7 @@ export function useEditorKeyboardShortcuts({
   onMessage,
   onUndo,
   onRedo,
+  onSave,
   onRemoveSelection,
 }: Options) {
   useEffect(() => {
@@ -71,6 +73,7 @@ export function useEditorKeyboardShortcuts({
       const command = event.ctrlKey || event.metaKey;
       const isUndo = command && key === 'z' && !event.shiftKey;
       const isRedo = command && ((key === 'z' && event.shiftKey) || key === 'y');
+      const isSave = command && key === 's';
 
       if (isUndo) {
         event.preventDefault();
@@ -81,6 +84,12 @@ export function useEditorKeyboardShortcuts({
       if (isRedo) {
         event.preventDefault();
         onRedo();
+        return;
+      }
+
+      if (isSave) {
+        event.preventDefault();
+        onSave();
         return;
       }
 
@@ -95,7 +104,7 @@ export function useEditorKeyboardShortcuts({
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [contextMenu, hasSelection, onCancelContextMenu, onCancelPendingWire, onMessage, onRedo, onRemoveSelection, onSelectTool, onUndo, pendingWire, selection]);
+  }, [contextMenu, hasSelection, onCancelContextMenu, onCancelPendingWire, onMessage, onRedo, onRemoveSelection, onSave, onSelectTool, onUndo, pendingWire, selection]);
 }
 
 function isEditingText(target: EventTarget | null): boolean {
