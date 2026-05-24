@@ -484,19 +484,25 @@ export function App() {
   function loadExample(exampleId: string) {
     const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
     if (!example) return;
-    rememberCircuit();
+    const id = `doc-${Date.now()}`;
+    setDocuments((currentDocuments) => [
+      ...currentDocuments,
+      {
+        id,
+        name: `${example.name}.json`,
+        circuit: normalizeCircuitForEditor(cloneCircuit(example.circuit)),
+        exampleId: example.id,
+        saved: false,
+      },
+    ]);
     resetSimulationRuntime();
-    setCircuit(normalizeCircuitForEditor(cloneCircuit(example.circuit)));
-    setDocuments((currentDocuments) => currentDocuments.map((document) =>
-      document.id === activeDocumentId && !document.saved ? { ...document, name: `${example.name}.json` } : document,
-    ));
+    setActiveDocumentId(id);
     setPendingWire(null);
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
-    setActiveExampleId(example.id);
     setRightPanelTab('lesson');
-    setMessage(`Exemplo carregado: ${example.name}.`);
+    setMessage(`Exemplo aberto em nova aba: ${example.name}.`);
   }
 
   function importJson(event: ChangeEvent<HTMLInputElement>) {
@@ -508,16 +514,25 @@ export function App() {
         if (parsed.version !== 1 || !Array.isArray(parsed.components) || !Array.isArray(parsed.wires)) {
           throw new Error('Formato inválido');
         }
-        rememberCircuit();
+        const id = `doc-${Date.now()}`;
+        setDocuments((currentDocuments) => [
+          ...currentDocuments,
+          {
+            id,
+            name: file.name || `importado_${currentDocuments.length + 1}.json`,
+            circuit: normalizeCircuitForEditor(parsed),
+            exampleId: null,
+            saved: true,
+          },
+        ]);
         resetSimulationRuntime();
-        setCircuit(normalizeCircuitForEditor(parsed));
+        setActiveDocumentId(id);
+        setPendingWire(null);
         setSelection(EMPTY_SELECTION);
+        setSelectedTool('select');
         setAutoClockRunning(false);
-        setActiveExampleId(null);
-        setDocuments((currentDocuments) => currentDocuments.map((document) =>
-          document.id === activeDocumentId ? { ...document, name: file.name || document.name, saved: true } : document,
-        ));
-        setMessage('Circuito importado.');
+        setRightPanelTab('simulation');
+        setMessage('Circuito importado em nova aba.');
       })
       .catch(() => setMessage('Não foi possível importar esse JSON.'));
     event.target.value = '';
