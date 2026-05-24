@@ -5,6 +5,7 @@ import { downloadJson, loadCircuit, STARTER_CIRCUIT } from '../state/storage';
 import { CircuitCanvas, type WireStyle } from './editor/CircuitCanvas';
 import { CIRCUIT_EXAMPLES, CIRCUIT_LESSONS } from '../examples/circuitExamples';
 import { CircuitTruthTable } from './panels/CircuitTruthTable';
+import { LessonPanel } from './panels/LessonPanel';
 import { circuitHasFeedback } from '../core/simulation/graph';
 import { CommandBar } from './commandbar/CommandBar';
 import { useAutoClock } from './hooks/useAutoClock';
@@ -31,6 +32,8 @@ export function App() {
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
+  const [rightPanelTab, setRightPanelTab] = useState<'simulation' | 'lesson'>('simulation');
+  const [currentExampleId, setCurrentExampleId] = useState<string | null>(null);
   const { canUndo, canRedo, remember: rememberCircuit, undo: undoHistory, redo: redoHistory } = useCircuitHistory(circuit, HISTORY_LIMIT);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(null);
@@ -43,6 +46,10 @@ export function App() {
   const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);
   const hasSequentialComponents = circuit.components.some((component) => isSequentialType(component.type));
   const hasFeedback = useMemo(() => circuitHasFeedback(circuit), [circuit]);
+  const currentExample = useMemo(
+    () => CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null,
+    [currentExampleId],
+  );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const autoClockTick = useCallback(() => {
@@ -75,6 +82,7 @@ export function App() {
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
+    setCurrentExampleId(null);
     setMessage(nextMessage);
   }
 
@@ -127,6 +135,7 @@ export function App() {
     rememberCircuit();
     setCircuit((current) => ({ ...current, components: [...current.components, component] }));
     setSelection({ componentIds: [id], wireIds: [] });
+    setCurrentExampleId(null);
     setMessage(`${componentDefinitionLabel(type)} adicionado.`);
   }
 
@@ -381,6 +390,7 @@ export function App() {
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
+    setCurrentExampleId(null);
     setMessage('Circuito de exemplo restaurado.');
   }
 
@@ -394,6 +404,8 @@ export function App() {
     setSelection(EMPTY_SELECTION);
     setSelectedTool('select');
     setAutoClockRunning(false);
+    setCurrentExampleId(example.id);
+    setRightPanelTab('lesson');
     setMessage(`Exemplo carregado: ${example.name}.`);
   }
 
@@ -411,6 +423,7 @@ export function App() {
         setCircuit(normalizeCircuitForEditor(parsed));
         setSelection(EMPTY_SELECTION);
         setAutoClockRunning(false);
+        setCurrentExampleId(null);
         setMessage('Circuito importado.');
       })
       .catch(() => setMessage('Não foi possível importar esse JSON.'));
@@ -507,8 +520,25 @@ export function App() {
         />
 
         <aside className="properties-panel truth-panel">
-          <div className="panel-header">{hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}</div>
-          <CircuitTruthTable circuit={circuit} evaluation={evaluation} unstable={simulationResult.unstable} hasFeedback={hasFeedback} />
+          <div className="panel-header right-panel-header">
+            <button
+              className={rightPanelTab === 'simulation' ? 'active' : ''}
+              onClick={() => setRightPanelTab('simulation')}
+            >
+              {hasSequentialComponents || hasFeedback ? 'Estado' : 'Tabela'}
+            </button>
+            <button
+              className={rightPanelTab === 'lesson' ? 'active' : ''}
+              onClick={() => setRightPanelTab('lesson')}
+            >
+              Lição
+            </button>
+          </div>
+          {rightPanelTab === 'simulation' ? (
+            <CircuitTruthTable circuit={circuit} evaluation={evaluation} unstable={simulationResult.unstable} hasFeedback={hasFeedback} />
+          ) : (
+            <LessonPanel example={currentExample} examples={CIRCUIT_EXAMPLES} onLoadExample={loadExample} />
+          )}
         </aside>
       </section>
 

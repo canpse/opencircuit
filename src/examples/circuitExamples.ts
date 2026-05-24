@@ -1,9 +1,39 @@
 import type { CircuitDocument } from '../core/types';
 
-export type CircuitExample = { id: string; name: string; description?: string; circuit: CircuitDocument };
+export type CircuitDifficulty = 1 | 2 | 3 | 4 | 5;
+export type CircuitLevel = 'concept' | 'composition' | 'system';
+export type CircuitExampleMode = 'demo' | 'guided' | 'incomplete' | 'challenge' | 'test';
+
+export type CurriculumModule = { id: string; title: string; description: string };
+export type CurriculumTrack = { id: string; title: string; description: string };
+export type CurriculumFamily = { id: string; title: string; description: string };
+
+export type CircuitExample = {
+  id: string;
+  name: string;
+  description: string;
+  moduleId: string;
+  familyIds: string[];
+  trackIds: string[];
+  difficulty: CircuitDifficulty;
+  level: CircuitLevel;
+  prerequisites: string[];
+  concepts: string[];
+  next: string[];
+  extensions: string[];
+  modes: CircuitExampleMode[];
+  observe: string[];
+  experiments: string[];
+  challenge?: string;
+  circuit: CircuitDocument;
+};
+
+type RawCircuitExample = { id: string; name: string; description?: string; circuit: CircuitDocument };
+type ExampleMetadata = Omit<CircuitExample, 'id' | 'name' | 'circuit'>;
+
 export type CircuitLesson = { id: string; title: string; description: string; exampleIds: string[]; examples: CircuitExample[] };
 
-export const CIRCUIT_EXAMPLES: CircuitExample[] = [
+const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
   {
     id: 'xor',
     name: 'XOR básico',
@@ -633,11 +663,72 @@ export const CIRCUIT_EXAMPLES: CircuitExample[] = [
   },
 ];
 
+export const CURRICULUM_MODULES: CurriculumModule[] = [
+  { id: 'fundamentals', title: 'Fundamentos', description: 'Sinais, entradas, saídas, fios, portas e tabelas-verdade.' },
+  { id: 'combinational', title: 'Lógica combinacional', description: 'Circuitos cuja saída depende somente das entradas atuais.' },
+  { id: 'time-and-state', title: 'Tempo e estado', description: 'Clock, realimentação, latches, flip-flops e registradores.' },
+  { id: 'systems', title: 'Sistemas digitais', description: 'Composição de blocos para criar circuitos maiores.' },
+];
+
+export const CURRICULUM_TRACKS: CurriculumTrack[] = [
+  { id: 'boolean', title: 'Lógica booleana', description: 'Portas, expressões e equivalências.' },
+  { id: 'selection', title: 'Seleção e codificação', description: 'MUX, DEMUX, encoders e decoders.' },
+  { id: 'arithmetic', title: 'Aritmética', description: 'Somadores, subtratores e composição numérica.' },
+  { id: 'sequential', title: 'Tempo e memória', description: 'Estado, clock, latches, flip-flops e registradores.' },
+  { id: 'architecture', title: 'Arquitetura', description: 'Blocos que aparecem em datapaths e CPUs didáticas.' },
+];
+
+export const CURRICULUM_FAMILIES: CurriculumFamily[] = [
+  { id: 'gates', title: 'Portas', description: 'Portas lógicas fundamentais e universais.' },
+  { id: 'truth-table', title: 'Tabela verdade', description: 'Observação exaustiva de entradas e saídas.' },
+  { id: 'mux-decoder', title: 'Seleção e decodificação', description: 'Circuitos que selecionam, distribuem ou codificam sinais.' },
+  { id: 'adders', title: 'Aritmética', description: 'Soma, subtração, comparação e composição de bits.' },
+  { id: 'latches', title: 'Latches', description: 'Memória sensível a nível e realimentação.' },
+  { id: 'flip-flops', title: 'Flip-flops', description: 'Memória acionada por borda de clock.' },
+  { id: 'registers', title: 'Registradores', description: 'Armazenamento de palavras binárias.' },
+];
+
+function metadataFor(example: RawCircuitExample): ExampleMetadata {
+  const description = example.description ?? extractExampleDescription(example.circuit);
+  const common = {
+    description,
+    extensions: [],
+    modes: ['demo'] as CircuitExampleMode[],
+    observe: ['Altere as entradas e observe as saídas no circuito.', 'Compare o comportamento com a descrição dentro do canvas.'],
+    experiments: ['Teste todas as combinações de entrada.', 'Renomeie sinais importantes para reforçar o significado do circuito.'],
+  };
+
+  if (['and-basic', 'or-basic', 'not-basic', 'xor', 'nand-not'].includes(example.id)) {
+    return { ...common, moduleId: 'fundamentals', familyIds: ['gates', 'truth-table'], trackIds: ['boolean'], difficulty: 1, level: 'concept', prerequisites: [], concepts: ['sinal binário', 'porta lógica', 'tabela verdade'], next: ['half-adder', 'mux-2-1'], challenge: 'Monte uma porta equivalente usando apenas NANDs.' };
+  }
+  if (['half-adder', 'full-adder', 'half-subtractor', 'full-subtractor', 'comparator-1-bit'].includes(example.id)) {
+    return { ...common, moduleId: 'combinational', familyIds: ['adders', 'truth-table'], trackIds: ['arithmetic', 'architecture'], difficulty: example.id === 'full-adder' || example.id === 'full-subtractor' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'xor'], concepts: ['composição', 'carry/borrow', 'comparação'], next: ['register-4-basic'], challenge: 'Preveja a saída antes de alternar cada entrada.' };
+  }
+  if (['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3'].includes(example.id)) {
+    return { ...common, moduleId: 'combinational', familyIds: ['mux-decoder'], trackIds: ['selection', 'architecture'], difficulty: example.id === 'mux-4-1' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'not-basic'], concepts: ['seleção', 'codificação', 'roteamento de sinais'], next: ['register-4-basic'], challenge: 'Explique qual entrada controla cada caminho até a saída.' };
+  }
+  if (['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand'].includes(example.id)) {
+    return { ...common, moduleId: 'time-and-state', familyIds: ['latches'], trackIds: ['sequential'], difficulty: example.id === 'gated-d-latch-from-nand' ? 3 : 2, level: 'concept', prerequisites: ['not-basic', 'nand-not'], concepts: ['estado anterior', 'realimentação', 'memória de 1 bit'], next: ['d-flip-flop-basic'], observe: ['Mude as entradas de controle.', 'Volte para a condição de repouso.', 'Observe que Q pode manter o valor anterior.'], experiments: ['Sete o latch, volte para repouso e confirme que Q permanece.', 'Resete o latch e confirme a mudança de estado.'], challenge: 'Compare o latch nativo com o latch construído usando portas comuns.' };
+  }
+  if (example.id === 'd-flip-flop-basic') {
+    return { ...common, moduleId: 'time-and-state', familyIds: ['flip-flops'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'concept', prerequisites: ['d-latch-basic'], concepts: ['clock', 'borda de subida', 'estado atual'], next: ['register-4-basic'], observe: ['Altere D antes do Tick.', 'Pressione Tick e observe se houve borda de subida.', 'Compare D e Q antes/depois do clock.'], experiments: ['Altere D na borda de descida e veja que Q não captura.', 'Use o clock automático em 1 Hz.'], challenge: 'Explique por que Q não muda imediatamente quando D muda.' };
+  }
+  if (example.id === 'register-4-basic') {
+    return { ...common, moduleId: 'time-and-state', familyIds: ['registers'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'composition', prerequisites: ['d-flip-flop-basic'], concepts: ['palavra binária', 'carga paralela', 'fronteira temporal'], next: [], observe: ['Ajuste D0–D3 antes do clock.', 'Dê Tick até uma borda de subida.', 'Observe Q0–Q3 copiando a palavra de entrada.'], experiments: ['Mude D0–D3 sem dar clock e confira que Q mantém.', 'Rode o clock automático e capture várias palavras.'], challenge: 'Adicione um enable usando multiplexadores antes das entradas D.' };
+  }
+  return { ...common, moduleId: 'systems', familyIds: [], trackIds: [], difficulty: 2, level: 'concept', prerequisites: [], concepts: [], next: [] };
+}
+
+export const CIRCUIT_EXAMPLES: CircuitExample[] = RAW_CIRCUIT_EXAMPLES.map((example) => ({
+  ...example,
+  ...metadataFor(example),
+}));
+
 function lesson(id: string, title: string, description: string, exampleIds: string[]): CircuitLesson {
   const examples = exampleIds.map((exampleId) => {
     const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
     if (!example) throw new Error(`Exemplo não encontrado: ${exampleId}`);
-    return { ...example, description: example.description ?? extractExampleDescription(example.circuit) };
+    return example;
   });
   return { id, title, description, exampleIds, examples };
 }
