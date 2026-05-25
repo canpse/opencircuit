@@ -3,6 +3,7 @@ import { getPinPosition } from '../../core/catalog';
 import type { EvaluationResult, LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import {
   bezierPath,
+  bezierPathAvoidingComponents,
   bezierPathFromPoints,
   orthogonalPath,
   routeBetweenPoints,
@@ -11,10 +12,11 @@ import {
 } from './wireRouting';
 import type { WireStyle } from './CircuitCanvas';
 
-export function WireView({ wire, route, wireStyle, componentById, evaluation, selected, onSelect, onContextMenu, onRemove }: {
+export function WireView({ wire, route, wireStyle, components, componentById, evaluation, selected, onSelect, onContextMenu, onRemove }: {
   wire: Wire;
   route: WireRoute | undefined;
   wireStyle: WireStyle;
+  components: LogicComponent[];
   componentById: Map<string, LogicComponent>;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -29,7 +31,11 @@ export function WireView({ wire, route, wireStyle, componentById, evaluation, se
   const end = getPinPosition(to, wire.to.pinId);
   const points = route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
   const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
-  const d = wireStyle === 'orthogonal' ? orthogonalPath(points, route?.jumps ?? []) : bezierPathFromPoints(points);
+  const d = wireStyle === 'orthogonal'
+    ? orthogonalPath(points, route?.jumps ?? [])
+    : from.id === to.id
+      ? bezierPathFromPoints(points)
+      : bezierPathAvoidingComponents(start, end, components, new Set([from.id, to.id]), 0);
 
   return (
     <path
