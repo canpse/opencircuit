@@ -79,8 +79,8 @@ export function CircuitCanvas(props: Props) {
     [props.circuit.components],
   );
   const wireRoutes = useMemo(
-    () => routeCircuitWires(props.circuit.wires, componentById, props.circuit.components),
-    [props.circuit.wires, componentById, props.circuit.components],
+    () => props.wireStyle === 'orthogonal' ? routeCircuitWires(props.circuit.wires, componentById, props.circuit.components) : [],
+    [props.wireStyle, props.circuit.wires, componentById, props.circuit.components],
   );
   const routeByWireId = useMemo(
     () => new Map(wireRoutes.map((route) => [route.wireId, route])),
