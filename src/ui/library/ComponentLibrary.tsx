@@ -1,6 +1,7 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import type { GateType } from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
+import clockSourceAsset from '../../assets/components/clock_source.png';
 import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
 import ledOffAsset from '../../assets/components/led_off.png';
 import nandGateAsset from '../../assets/components/nand_gate.png';
@@ -24,6 +25,7 @@ const COMPONENT_TOOL_ASSETS: Partial<Record<GateType, string>> = {
   xor: xorGateAsset,
   xnor: xnorGateAsset,
   not: notGateAsset,
+  clock: clockSourceAsset,
 };
 
 export const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [

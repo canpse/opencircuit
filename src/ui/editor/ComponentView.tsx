@@ -10,6 +10,7 @@ import nandGateAsset from '../../assets/components/nand_gate.png';
 import norGateAsset from '../../assets/components/nor_gate.png';
 import notGateAsset from '../../assets/components/not_gate.png';
 import orGateAsset from '../../assets/components/or_gate.png';
+import clockSourceAsset from '../../assets/components/clock_source.png';
 import outputPortAsset from '../../assets/components/output_port.png';
 import xnorGateAsset from '../../assets/components/xnor_gate.png';
 import xorGateAsset from '../../assets/components/xor_gate.png';
@@ -48,6 +49,7 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
   const outputValue = Boolean(evaluation[component.id]?.out);
   const ledValue = Boolean(evaluation[component.id]?.in);
   const buttonPressed = component.type === 'button' && Boolean(component.state);
+  const clockValue = component.type === 'clock' && Boolean(evaluation[component.id]?.CLK);
   const gateAsset = GATE_ASSETS[component.type];
   const isCombinationalBlock = !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
 
@@ -101,6 +103,17 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
           height="42"
           preserveAspectRatio="xMidYMid meet"
           onClick={(event) => { event.stopPropagation(); onToggleInput(); }}
+        />
+      )}
+      {component.type === 'clock' && (
+        <image
+          className={`component-asset clock-asset ${clockValue ? 'on' : ''}`}
+          href={clockSourceAsset}
+          x="18"
+          y="8"
+          width={definition.width - 36}
+          height={definition.height - 16}
+          preserveAspectRatio="xMidYMid meet"
         />
       )}
       {component.type === 'button' && (
