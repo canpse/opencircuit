@@ -800,11 +800,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
     modes: ['demo'] as CircuitExampleMode[],
     observe: ['Altere as entradas e observe as saídas no circuito.', 'Compare o comportamento com a descrição dentro do canvas.'],
     experiments: ['Teste todas as combinações de entrada.', 'Renomeie sinais importantes para reforçar o significado do circuito.'],
-    exercises: [
-      'Recrie este circuito em uma aba vazia, sem copiar fio por fio, e compare o resultado.',
-      'Antes de alternar cada entrada, preveja mentalmente o que deve acontecer com a saída.',
-      'Modifique nomes de entradas e saídas para transformar o circuito em uma pequena história ou situação real.',
-    ],
+    exercises: [],
   };
 
   if (example.id === 'signal-led-basic') {
@@ -824,6 +820,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['OUT 1 e OUT 2 sempre mostram o mesmo valor de A.', 'A saída A pode alimentar dois LEDs ao mesmo tempo.', 'Veja a linha atual destacada na tabela verdade.'],
       experiments: ['Renomeie A para Entrada e os LEDs para Saída 1 e Saída 2.', 'Apague um dos fios e reconecte a saída de A ao LED.', 'Adicione um terceiro LED observando o mesmo sinal.'],
       challenge: 'Desconecte um dos LEDs e explique por que ele deixa de acompanhar A enquanto o outro continua funcionando.',
+      exercises: [
+        'Semáforo de aviso: crie um switch chamado Energia e dois LEDs chamados Painel e Sirene. Os dois devem acompanhar Energia ao mesmo tempo.',
+        'Sinal compartilhado: crie um switch chamado Sensor e três LEDs chamados A, B e C. Todos devem acender juntos quando Sensor=1.',
+        'Teste de fio faltando: monte dois LEDs, mas conecte apenas um deles ao switch. Explique por que só um responde.',
+      ],
     };
   }
 
@@ -844,6 +845,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['Compare A e OUT: eles devem estar sempre opostos.', 'Use a tabela verdade para confirmar os dois casos possíveis.'],
       experiments: ['Ligue A e observe OUT apagar.', 'Desligue A e observe OUT acender.', 'Tente prever OUT antes de clicar no switch.'],
       challenge: 'Monte outro inversor usando uma porta NAND com as duas entradas ligadas ao mesmo sinal.',
+      exercises: [
+        'Luz de porta aberta: crie uma entrada Porta fechada e um LED Aviso. O aviso deve acender quando a porta NÃO estiver fechada.',
+        'Modo silencioso: crie uma entrada Som ligado e uma saída Mudo. Mudo deve ser 1 quando Som ligado for 0.',
+        'Sensor invertido: crie uma entrada Escuro e um LED Claro. O LED deve acender quando não estiver escuro.',
+      ],
     };
   }
 
@@ -864,6 +870,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['OUT só acende quando A e B estão ligados ao mesmo tempo.', 'Compare as quatro combinações da tabela verdade.'],
       experiments: ['Teste 00, 01, 10 e 11 em ordem.', 'Use AND como uma condição: “A e B precisam ser verdadeiros”.'],
       challenge: 'Explique uma situação real que precise de duas condições simultâneas, como chave de segurança E botão pressionado.',
+      exercises: [
+        'Cofre de duas chaves: a saída Abrir só deve ligar quando Chave A=1 E Chave B=1.',
+        'Máquina segura: a saída Motor só deve ligar quando Proteção fechada=1 E Botão pressionado=1.',
+        'Login simples: a saída Acesso só deve ligar quando Senha correta=1 E Cartão presente=1.',
+      ],
     };
   }
 
@@ -884,6 +895,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['OUT acende se A ou B estiver ligado.', 'A única forma de OUT apagar é A=0 e B=0.'],
       experiments: ['Teste as quatro combinações e diga em voz alta quando a saída deveria ligar.', 'Compare mentalmente OR com AND.'],
       challenge: 'Modifique o circuito para que dois switches diferentes possam acender dois LEDs ao mesmo tempo.',
+      exercises: [
+        'Campainha dupla: a saída Campainha deve ligar se Botão frente=1 OU Botão fundos=1.',
+        'Alarme de janela: a saída Alarme deve ligar se Janela A aberta=1 OU Janela B aberta=1.',
+        'Pedido de ajuda: a saída Chamar professor deve ligar se Aluno A chamou=1 OU Aluno B chamou=1.',
+      ],
     };
   }
 
@@ -904,6 +920,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['OUT acende quando A e B são diferentes.', 'OUT apaga quando A e B são iguais.'],
       experiments: ['Compare XOR com OR quando A=B=1.', 'Tente prever a saída antes de cada clique.'],
       challenge: 'Explique por que XOR parece uma soma de 1 bit sem carry.',
+      exercises: [
+        'Interruptor paralelo: a lâmpada deve acender quando Interruptor A e Interruptor B estiverem em posições diferentes.',
+        'Detector de discordância: a saída Erro deve ligar quando Sensor A e Sensor B forem diferentes.',
+        'Voto divergente: a saída Divergência deve ligar quando dois jurados escolherem respostas diferentes.',
+      ],
     };
   }
 
@@ -924,6 +945,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['Compare com AND: a saída é invertida.', 'OUT só apaga no caso A=1 e B=1.'],
       experiments: ['Teste as quatro linhas da tabela verdade.', 'Compare a linha A=1,B=1 com as outras três.'],
       challenge: 'Explique por que NAND pode ser vista como uma AND seguida de uma inversão.',
+      exercises: [
+        'Alarme anti-cofre: a saída Bloqueado deve desligar apenas quando Chave A=1 E Chave B=1.',
+        'Falha de dupla confirmação: a saída Falha deve ficar ligada exceto quando Operador A e Operador B confirmarem juntos.',
+        'Construa uma AND usando uma NAND seguida de uma inversão.',
+      ],
     };
   }
 
@@ -944,6 +970,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['Compare com OR: a saída é invertida.', 'OUT só liga quando A=0 e B=0.'],
       experiments: ['Teste A=0,B=0 primeiro.', 'Depois ligue qualquer entrada e observe OUT desligar.'],
       challenge: 'Explique por que NOR pode ser vista como uma OR seguida de uma inversão.',
+      exercises: [
+        'Sistema parado: a saída Parado deve ligar apenas quando Pedido A=0 E Pedido B=0.',
+        'Sala vazia: a saída Luz apagada deve ligar apenas quando Movimento A=0 E Movimento B=0.',
+        'Construa uma OR usando uma NOR seguida de uma inversão.',
+      ],
     };
   }
 
@@ -964,6 +995,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['OUT liga quando A e B são iguais.', 'OUT apaga quando A e B são diferentes.'],
       experiments: ['Compare com o XOR básico.', 'Teste 00 e 11: ambos devem ligar OUT.'],
       challenge: 'Explique por que XNOR pode ser usada como teste de igualdade entre dois bits.',
+      exercises: [
+        'Senha de 1 bit: a saída Correto deve ligar quando Entrada e Senha salva forem iguais.',
+        'Sensores concordam: a saída OK deve ligar quando Sensor A e Sensor B tiverem o mesmo valor.',
+        'Comparador simples: crie duas entradas A e B e um LED Igual que acenda para 00 e 11.',
+      ],
     };
   }
 
@@ -984,6 +1020,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['A alimenta as duas entradas da NAND.', 'Quando as duas entradas são iguais, NAND se comporta como NOT.'],
       experiments: ['Compare este circuito com o NOT básico.', 'Desconecte uma entrada da NAND e veja por que a equivalência deixa de fazer sentido.'],
       challenge: 'Pesquise mentalmente: se NAND pode virar NOT, como construir AND usando NAND + NOT?',
+      exercises: [
+        'Construa NOT usando NAND e compare com a porta NOT nativa usando dois LEDs.',
+        'Construa AND usando apenas NANDs: primeiro faça NAND(A,B), depois inverta esse resultado com outra NAND.',
+        'Construa um circuito que acenda quando A=0 usando somente NANDs.',
+      ],
     };
   }
   if (example.id === 'microwave-safety-challenge') {
@@ -1015,19 +1056,19 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
   }
 
   if (['half-adder', 'full-adder', 'half-subtractor', 'full-subtractor', 'comparator-1-bit'].includes(example.id)) {
-    return { ...common, moduleId: 'combinational', familyIds: ['adders', 'truth-table'], trackIds: ['arithmetic', 'architecture'], difficulty: example.id === 'full-adder' || example.id === 'full-subtractor' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'xor'], concepts: ['composição', 'carry/borrow', 'comparação'], next: ['register-4-basic'], challenge: 'Preveja a saída antes de alternar cada entrada.' };
+    return { ...common, moduleId: 'combinational', familyIds: ['adders', 'truth-table'], trackIds: ['arithmetic', 'architecture'], difficulty: example.id === 'full-adder' || example.id === 'full-subtractor' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'xor'], concepts: ['composição', 'carry/borrow', 'comparação'], next: ['register-4-basic'], challenge: 'Preveja a saída antes de alternar cada entrada.', exercises: ['Calcule manualmente a saída para 3 combinações antes de testar no simulador.', 'Crie uma tabela no papel com entradas e saídas esperadas e compare com o circuito.', 'Modifique uma entrada por vez e explique qual parte do resultado mudou.'] };
   }
   if (['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3'].includes(example.id)) {
-    return { ...common, moduleId: 'combinational', familyIds: ['mux-decoder'], trackIds: ['selection', 'architecture'], difficulty: example.id === 'mux-4-1' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'not-basic'], concepts: ['seleção', 'codificação', 'roteamento de sinais'], next: ['register-4-basic'], challenge: 'Explique qual entrada controla cada caminho até a saída.' };
+    return { ...common, moduleId: 'combinational', familyIds: ['mux-decoder'], trackIds: ['selection', 'architecture'], difficulty: example.id === 'mux-4-1' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'not-basic'], concepts: ['seleção', 'codificação', 'roteamento de sinais'], next: ['register-4-basic'], challenge: 'Explique qual entrada controla cada caminho até a saída.', exercises: ['Escolha uma combinação de seleção e preveja qual entrada aparecerá na saída.', 'Crie uma situação real em que um seletor escolha entre dois sinais.', 'Teste uma entrada de dados por vez mantendo as demais desligadas.'] };
   }
   if (['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand'].includes(example.id)) {
-    return { ...common, moduleId: 'time-and-state', familyIds: ['latches'], trackIds: ['sequential'], difficulty: example.id === 'gated-d-latch-from-nand' ? 3 : 2, level: 'concept', prerequisites: ['not-basic', 'nand-not'], concepts: ['estado anterior', 'realimentação', 'memória de 1 bit'], next: ['d-flip-flop-basic'], observe: ['Mude as entradas de controle.', 'Volte para a condição de repouso.', 'Observe que Q pode manter o valor anterior.'], experiments: ['Sete o latch, volte para repouso e confirme que Q permanece.', 'Resete o latch e confirme a mudança de estado.'], challenge: 'Compare o latch nativo com o latch construído usando portas comuns.' };
+    return { ...common, moduleId: 'time-and-state', familyIds: ['latches'], trackIds: ['sequential'], difficulty: example.id === 'gated-d-latch-from-nand' ? 3 : 2, level: 'concept', prerequisites: ['not-basic', 'nand-not'], concepts: ['estado anterior', 'realimentação', 'memória de 1 bit'], next: ['d-flip-flop-basic'], observe: ['Mude as entradas de controle.', 'Volte para a condição de repouso.', 'Observe que Q pode manter o valor anterior.'], experiments: ['Sete o latch, volte para repouso e confirme que Q permanece.', 'Resete o latch e confirme a mudança de estado.'], challenge: 'Compare o latch nativo com o latch construído usando portas comuns.', exercises: ['Faça uma sequência SET, repouso, RESET, repouso e anote Q em cada etapa.', 'Mude uma entrada por vez e explique por que o latch mantém ou altera o estado.', 'Tente encontrar uma condição proibida ou instável e explique por que ela deve ser evitada.'] };
   }
   if (example.id === 'd-flip-flop-basic') {
-    return { ...common, moduleId: 'time-and-state', familyIds: ['flip-flops'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'concept', prerequisites: ['d-latch-basic'], concepts: ['clock', 'borda de subida', 'estado atual'], next: ['register-4-basic'], observe: ['Altere D antes do Tick.', 'Pressione Tick e observe se houve borda de subida.', 'Compare D e Q antes/depois do clock.'], experiments: ['Altere D na borda de descida e veja que Q não captura.', 'Use o clock automático em 1 Hz.'], challenge: 'Explique por que Q não muda imediatamente quando D muda.' };
+    return { ...common, moduleId: 'time-and-state', familyIds: ['flip-flops'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'concept', prerequisites: ['d-latch-basic'], concepts: ['clock', 'borda de subida', 'estado atual'], next: ['register-4-basic'], observe: ['Altere D antes do Tick.', 'Pressione Tick e observe se houve borda de subida.', 'Compare D e Q antes/depois do clock.'], experiments: ['Altere D na borda de descida e veja que Q não captura.', 'Use o clock automático em 1 Hz.'], challenge: 'Explique por que Q não muda imediatamente quando D muda.', exercises: ['Coloque D=1 antes da borda de subida e confirme que Q captura 1.', 'Mude D logo depois da captura e confirme que Q mantém até a próxima subida.', 'Faça uma tabela de ciclos com CLK, D e Q.'] };
   }
   if (example.id === 'register-4-basic') {
-    return { ...common, moduleId: 'time-and-state', familyIds: ['registers'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'composition', prerequisites: ['d-flip-flop-basic'], concepts: ['palavra binária', 'carga paralela', 'fronteira temporal'], next: [], observe: ['Ajuste D0–D3 antes do clock.', 'Dê Tick até uma borda de subida.', 'Observe Q0–Q3 copiando a palavra de entrada.'], experiments: ['Mude D0–D3 sem dar clock e confira que Q mantém.', 'Rode o clock automático e capture várias palavras.'], challenge: 'Adicione um enable usando multiplexadores antes das entradas D.' };
+    return { ...common, moduleId: 'time-and-state', familyIds: ['registers'], trackIds: ['sequential', 'architecture'], difficulty: 2, level: 'composition', prerequisites: ['d-flip-flop-basic'], concepts: ['palavra binária', 'carga paralela', 'fronteira temporal'], next: [], observe: ['Ajuste D0–D3 antes do clock.', 'Dê Tick até uma borda de subida.', 'Observe Q0–Q3 copiando a palavra de entrada.'], experiments: ['Mude D0–D3 sem dar clock e confira que Q mantém.', 'Rode o clock automático e capture várias palavras.'], challenge: 'Adicione um enable usando multiplexadores antes das entradas D.', exercises: ['Capture a palavra 1010 e confirme os LEDs Q3..Q0.', 'Mude as entradas para 0101 sem clock e confirme que Q não muda.', 'Capture três palavras diferentes e anote o valor salvo após cada borda de subida.'] };
   }
   return { ...common, moduleId: 'systems', familyIds: [], trackIds: [], difficulty: 2, level: 'concept', prerequisites: [], concepts: [], next: [] };
 }
