@@ -3418,3 +3418,59 @@ Cuidados antes de editar:
 
 Próximo passo pequeno: remover controles visuais primeiro, rodar build, e testar: adicionar componente, conectar por pino, desfazer/refazer, salvar/abrir.
 
+### Driver / before_edit / 2026-05-25T17:27:49.018Z
+Files: src/examples/circuitExamples.ts
+
+Refinar Aula 1: atualizar primeiro exemplo para 1 input alimentando 2 LEDs, atualizar metadados incluindo entrada solta vale 0 e novo desafio; revisar 'next' dos exemplos da aula 1; adicionar exercício narrativo final de lógica de micro-ondas com portas simples. Validar testes/build.
+
+### Navigator / 2026-05-25T17:27:49.018Z
+
+Bom escopo. Eu faria só em `src/examples/circuitExamples.ts`, sem tocar no core.
+
+Cuidados práticos:
+
+1. **Primeiro exemplo `signal-led-basic`**
+   - Adicionar segundo LED, ex. `OUT2`, ligado ao mesmo `A`.
+   - Manter fan-out explícito:
+     ```ts
+     A.out -> OUT.in
+     A.out -> OUT2.in
+     ```
+   - Atualizar texto do `TXT1` para ensinar:
+     - um sinal pode alimentar mais de uma saída;
+     - fio transporta valor, não “gasta” sinal.
+
+2. **Metadados**
+   - Incluir ideia importante: **entrada de porta desconectada vale 0**.
+   - Cuidado para não confundir “Input solto” com “pino de porta solto”. Melhor frase:
+     > Pinos de entrada não conectados são interpretados como 0.
+   - Atualizar `challenge` antigo, porque ele já pedia adicionar segundo LED. Novo desafio pode ser:
+     > Desconecte um LED e explique por que ele apaga.
+
+3. **`next` da Aula 1**
+   - Para os exemplos fundamentais, garantir progressão simples:
+     - `signal-led-basic` → `not-basic`, `and-basic`
+     - `not-basic` → `and-basic`, `or-basic`, `nand-not`
+     - `and-basic` → `or-basic`, `xor`
+     - `or-basic` → `xor`, `nand-basic`, `nor-basic`
+   - Evitar pular cedo para somadores se a aula 1 é fundamentos.
+
+4. **Exercício final “micro-ondas”**
+   - Melhor como novo exemplo narrativo no final do bloco de fundamentos/combinacional.
+   - Componentes sugeridos:
+     - Inputs: `PortaFechada`, `TimerAtivo`, `Start`
+     - lógica: `AND(PortaFechada, TimerAtivo)` depois AND com `Start`
+     - LED: `Motor`
+   - Conceito: motor só liga se porta fechada **E** timer ativo **E** start pressionado.
+   - Usar só AND/NOT se quiser representar “porta aberta” invertida, mas prefiro input já positivo `PortaFechada` para Aula 1.
+
+5. **Risco**
+   - Esse arquivo é grande; ao adicionar exemplo, lembrar de metadados em `metadataFor`.
+   - Se existir agrupamento/lesson derivado automaticamente por `moduleId`, `familyIds`, `trackIds`, basta metadata correta.
+
+Critério de aceite:
+- Primeiro exemplo abre com 1 input → 2 LEDs.
+- Textos ensinam fan-out e pino desconectado = 0.
+- Aula 1 termina com exercício narrativo do micro-ondas.
+- `npm run build` passa.
+

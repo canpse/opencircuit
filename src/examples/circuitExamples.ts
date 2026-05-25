@@ -44,11 +44,13 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
       version: 1,
       components: [
         { id: 'A', type: 'input', x: 90, y: 140, label: 'A', state: false },
-        { id: 'OUT', type: 'led', x: 320, y: 140, label: 'OUT' },
-        { id: 'TXT1', type: 'text', x: 80, y: 250, width: 520, label: 'Primeiro contato: um switch gera um sinal 0 ou 1, o fio transporta esse sinal e o LED mostra o resultado. Ligue e desligue A para ver o mesmo valor chegar em OUT.' },
+        { id: 'OUT1', type: 'led', x: 320, y: 105, label: 'OUT 1' },
+        { id: 'OUT2', type: 'led', x: 320, y: 185, label: 'OUT 2' },
+        { id: 'TXT1', type: 'text', x: 80, y: 280, width: 620, label: 'Primeiro contato: um switch gera um sinal 0 ou 1, e o fio transporta esse sinal. A mesma saída A alimenta dois LEDs ao mesmo tempo: OUT 1 e OUT 2 mostram o mesmo valor.' },
       ],
       wires: [
-        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+        { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'OUT1', pinId: 'in' } },
+        { id: 'W2', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'OUT2', pinId: 'in' } },
       ],
     },
   },
@@ -198,6 +200,29 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
         { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
         { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
         { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      ],
+    },
+  },
+  {
+    id: 'microwave-safety-challenge',
+    name: 'Desafio: micro-ondas seguro',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'PORTA', type: 'input', x: 70, y: 80, label: 'Porta fechada', state: false },
+        { id: 'START', type: 'input', x: 70, y: 180, label: 'Start', state: false },
+        { id: 'TIMER', type: 'input', x: 70, y: 300, label: 'Tempo > 0', state: false },
+        { id: 'G1', type: 'and', x: 310, y: 125, label: 'Segurança' },
+        { id: 'G2', type: 'and', x: 500, y: 200, label: 'Motor' },
+        { id: 'MOTOR', type: 'led', x: 720, y: 209, label: 'Motor' },
+        { id: 'TXT1', type: 'text', x: 70, y: 410, width: 760, label: 'Joãozinho está montando a lógica de segurança de um micro-ondas. O motor só pode ligar se a porta estiver fechada, se o botão Start estiver pressionado e se ainda houver tempo no timer. Teste todas as condições antes de confiar no circuito.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'PORTA', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
+        { id: 'W2', from: { componentId: 'START', pinId: 'out' }, to: { componentId: 'G1', pinId: 'b' } },
+        { id: 'W3', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'G2', pinId: 'a' } },
+        { id: 'W4', from: { componentId: 'TIMER', pinId: 'out' }, to: { componentId: 'G2', pinId: 'b' } },
+        { id: 'W5', from: { componentId: 'G2', pinId: 'out' }, to: { componentId: 'MOTOR', pinId: 'in' } },
       ],
     },
   },
@@ -786,13 +811,13 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: [],
       concepts: ['sinal binário', 'switch', 'fio', 'LED', 'nível lógico 0/1'],
-      goal: 'Entender que um switch gera um sinal 0 ou 1, que um fio transporta esse sinal e que um LED permite observar o valor.',
-      steps: ['Clique no switch A.', 'Observe o LED OUT acender.', 'Clique novamente em A e observe OUT apagar.', 'Veja a linha destacada na tabela verdade mudar junto com o switch.'],
-      ideas: ['Um sinal digital tem apenas dois valores: 0/desligado ou 1/ligado.', 'Um fio não cria lógica: ele apenas transporta o valor de um ponto para outro.', 'O LED é uma forma visual de observar um sinal.'],
+      goal: 'Entender que um switch gera um sinal 0 ou 1, que fios transportam esse sinal e que o mesmo sinal pode alimentar mais de um destino.',
+      steps: ['Clique no switch A.', 'Observe OUT 1 e OUT 2 acenderem juntos.', 'Clique novamente em A e veja os dois LEDs apagarem juntos.', 'Veja a linha destacada na tabela verdade mudar junto com o switch.'],
+      ideas: ['Um sinal digital tem apenas dois valores: 0/desligado ou 1/ligado.', 'Um fio não cria lógica: ele apenas transporta o valor de um ponto para outro.', 'Uma saída pode alimentar várias entradas; isso será importante para clock, reset e sinais compartilhados.', 'Pinos de entrada não conectados são interpretados como 0 neste simulador.'],
       next: ['not-basic', 'and-basic'],
-      observe: ['Clique no switch A.', 'Observe que o LED OUT copia exatamente o valor de A.', 'Veja a linha atual destacada na tabela verdade.'],
-      experiments: ['Renomeie A para Entrada e OUT para Saída.', 'Apague o fio e reconecte a saída de A ao LED.', 'Exporte o circuito e importe novamente.'],
-      challenge: 'Adicione um segundo LED ligado ao mesmo switch e confirme que uma saída pode alimentar várias entradas.',
+      observe: ['OUT 1 e OUT 2 sempre mostram o mesmo valor de A.', 'A saída A pode alimentar dois LEDs ao mesmo tempo.', 'Veja a linha atual destacada na tabela verdade.'],
+      experiments: ['Renomeie A para Entrada e os LEDs para Saída 1 e Saída 2.', 'Apague um dos fios e reconecte a saída de A ao LED.', 'Adicione um terceiro LED observando o mesmo sinal.'],
+      challenge: 'Desconecte um dos LEDs e explique por que ele deixa de acompanhar A enquanto o outro continua funcionando.',
     };
   }
 
@@ -809,7 +834,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender a ideia de inversão: a saída de uma porta NOT é sempre o contrário da entrada.',
       steps: ['Comece com A desligado e observe OUT ligado.', 'Ligue A e veja OUT apagar.', 'Alterne A algumas vezes e confira que os dois sinais nunca ficam iguais.'],
       ideas: ['NOT transforma 0 em 1 e 1 em 0.', 'A tabela verdade de uma entrada tem apenas duas linhas.', 'Inversão é uma das operações mais usadas para construir circuitos maiores.'],
-      next: ['and-basic', 'or-basic', 'nand-not'],
+      next: ['and-basic', 'or-basic', 'nand-basic'],
       observe: ['Compare A e OUT: eles devem estar sempre opostos.', 'Use a tabela verdade para confirmar os dois casos possíveis.'],
       experiments: ['Ligue A e observe OUT apagar.', 'Desligue A e observe OUT acender.', 'Tente prever OUT antes de clicar no switch.'],
       challenge: 'Monte outro inversor usando uma porta NAND com as duas entradas ligadas ao mesmo sinal.',
@@ -829,7 +854,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que AND representa uma condição simultânea: A e B precisam estar ligados para a saída ligar.',
       steps: ['Teste A=0 e B=0.', 'Ligue apenas A.', 'Desligue A e ligue apenas B.', 'Ligue A e B ao mesmo tempo e observe quando OUT acende.'],
       ideas: ['AND só produz 1 quando todas as entradas são 1.', 'Duas entradas geram quatro combinações na tabela verdade.', 'AND é útil para representar “isto E aquilo”.'],
-      next: ['or-basic', 'xor', 'half-adder'],
+      next: ['or-basic', 'xor', 'nand-basic'],
       observe: ['OUT só acende quando A e B estão ligados ao mesmo tempo.', 'Compare as quatro combinações da tabela verdade.'],
       experiments: ['Teste 00, 01, 10 e 11 em ordem.', 'Use AND como uma condição: “A e B precisam ser verdadeiros”.'],
       challenge: 'Explique uma situação real que precise de duas condições simultâneas, como chave de segurança E botão pressionado.',
@@ -849,7 +874,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que OR representa uma condição alternativa: A ou B já é suficiente para ligar a saída.',
       steps: ['Comece com A=0 e B=0 e veja OUT apagado.', 'Ligue apenas A.', 'Desligue A e ligue apenas B.', 'Ligue A e B juntos e compare com AND.'],
       ideas: ['OR produz 1 quando pelo menos uma entrada é 1.', 'A única linha desligada é quando todas as entradas são 0.', 'OR é útil para representar “isto OU aquilo”.'],
-      next: ['and-basic', 'xor', 'mux-2-1'],
+      next: ['xor', 'nor-basic'],
       observe: ['OUT acende se A ou B estiver ligado.', 'A única forma de OUT apagar é A=0 e B=0.'],
       experiments: ['Teste as quatro combinações e diga em voz alta quando a saída deveria ligar.', 'Compare mentalmente OR com AND.'],
       challenge: 'Modifique o circuito para que dois switches diferentes possam acender dois LEDs ao mesmo tempo.',
@@ -869,7 +894,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que XOR detecta diferença: a saída liga quando as duas entradas têm valores diferentes.',
       steps: ['Teste 0 e 0.', 'Teste 1 e 0.', 'Teste 0 e 1.', 'Teste 1 e 1 e compare com OR.'],
       ideas: ['XOR liga quando existe exatamente uma entrada ligada.', 'XOR apaga quando as entradas são iguais.', 'XOR aparece em somadores porque parece uma soma de bits sem o carry.'],
-      next: ['half-adder', 'odd-parity-3'],
+      next: ['xnor-basic', 'microwave-safety-challenge', 'half-adder'],
       observe: ['OUT acende quando A e B são diferentes.', 'OUT apaga quando A e B são iguais.'],
       experiments: ['Compare XOR com OR quando A=B=1.', 'Tente prever a saída antes de cada clique.'],
       challenge: 'Explique por que XOR parece uma soma de 1 bit sem carry.',
@@ -889,7 +914,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que NAND é uma AND invertida: ela só desliga no caso em que AND ligaria.',
       steps: ['Teste as quatro combinações de A e B.', 'Compare especialmente o caso A=1 e B=1.', 'Volte ao exemplo AND básico e compare as tabelas.'],
       ideas: ['NAND significa NOT AND.', 'Ela é o contrário exato da AND.', 'NAND é uma porta universal: com ela é possível construir outras portas.'],
-      next: ['nand-not', 'sr-latch-nand-active-low'],
+      next: ['nand-not', 'nor-basic'],
       observe: ['Compare com AND: a saída é invertida.', 'OUT só apaga no caso A=1 e B=1.'],
       experiments: ['Teste as quatro linhas da tabela verdade.', 'Compare a linha A=1,B=1 com as outras três.'],
       challenge: 'Explique por que NAND pode ser vista como uma AND seguida de uma inversão.',
@@ -909,7 +934,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que NOR é uma OR invertida: ela só liga quando nenhuma entrada está ligada.',
       steps: ['Comece com A=0 e B=0 e observe OUT ligado.', 'Ligue A ou B e veja OUT apagar.', 'Compare com o exemplo OR básico.'],
       ideas: ['NOR significa NOT OR.', 'Ela é o contrário exato da OR.', 'NOR também é uma porta universal e será útil para latches.'],
-      next: ['sr-latch-nor-experiment'],
+      next: ['xnor-basic', 'sr-latch-nor-experiment'],
       observe: ['Compare com OR: a saída é invertida.', 'OUT só liga quando A=0 e B=0.'],
       experiments: ['Teste A=0,B=0 primeiro.', 'Depois ligue qualquer entrada e observe OUT desligar.'],
       challenge: 'Explique por que NOR pode ser vista como uma OR seguida de uma inversão.',
@@ -929,7 +954,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que XNOR detecta igualdade: a saída liga quando as duas entradas têm o mesmo valor.',
       steps: ['Teste A=0 e B=0.', 'Teste os dois casos em que A e B são diferentes.', 'Teste A=1 e B=1.', 'Compare com o XOR básico.'],
       ideas: ['XNOR é o contrário da XOR.', 'Ela liga para 00 e 11.', 'XNOR pode ser usada como um pequeno teste de igualdade entre dois bits.'],
-      next: ['comparator-1-bit'],
+      next: ['microwave-safety-challenge', 'comparator-1-bit'],
       observe: ['OUT liga quando A e B são iguais.', 'OUT apaga quando A e B são diferentes.'],
       experiments: ['Compare com o XOR básico.', 'Teste 00 e 11: ambos devem ligar OUT.'],
       challenge: 'Explique por que XNOR pode ser usada como teste de igualdade entre dois bits.',
@@ -949,12 +974,32 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       goal: 'Entender que uma mesma porta pode ser reaproveitada de outro jeito: NAND pode funcionar como NOT.',
       steps: ['Alterne A e observe OUT.', 'Compare com o exemplo NOT básico.', 'Perceba que A está ligado nas duas entradas da NAND.'],
       ideas: ['Quando as duas entradas da NAND recebem o mesmo sinal, o resultado é o inverso desse sinal.', 'Circuitos diferentes podem ter a mesma tabela verdade.', 'Essa é a primeira ideia de equivalência entre circuitos.'],
-      next: ['sr-latch-nand-active-low', 'gated-d-latch-from-nand'],
+      next: ['microwave-safety-challenge', 'sr-latch-nand-active-low'],
       observe: ['A alimenta as duas entradas da NAND.', 'Quando as duas entradas são iguais, NAND se comporta como NOT.'],
       experiments: ['Compare este circuito com o NOT básico.', 'Desconecte uma entrada da NAND e veja por que a equivalência deixa de fazer sentido.'],
       challenge: 'Pesquise mentalmente: se NAND pode virar NOT, como construir AND usando NAND + NOT?',
     };
   }
+  if (example.id === 'microwave-safety-challenge') {
+    return {
+      ...common,
+      moduleId: 'fundamentals',
+      familyIds: ['gates', 'truth-table'],
+      trackIds: ['boolean'],
+      difficulty: 1,
+      level: 'composition',
+      prerequisites: ['and-basic', 'or-basic'],
+      concepts: ['condição de segurança', 'composição de portas', 'teste de casos'],
+      goal: 'Aplicar portas básicas em uma situação narrativa: o motor do micro-ondas só pode ligar quando todas as condições de segurança forem verdadeiras.',
+      steps: ['Teste com a porta aberta: o motor deve ficar desligado.', 'Feche a porta, mas deixe Start desligado.', 'Ligue Start, mas deixe o timer zerado.', 'Por fim, ligue Porta fechada, Start e Tempo > 0 ao mesmo tempo.'],
+      ideas: ['Problemas reais podem virar frases lógicas.', '“Só liga se A, B e C forem verdadeiros” é uma composição de ANDs.', 'A tabela verdade ajuda a testar se nenhuma condição perigosa liga o motor por engano.'],
+      next: ['half-adder', 'mux-2-1'],
+      observe: ['O LED Motor só deve acender quando as três entradas estão ligadas.', 'Cada AND combina duas condições por vez.', 'A tabela verdade mostra todos os casos possíveis.'],
+      experiments: ['Tente encontrar algum caso perigoso em que o motor ligue com a porta aberta.', 'Renomeie as portas AND para mostrar quais condições elas combinam.', 'Explique o circuito em voz alta como uma frase: Motor liga se...'],
+      challenge: 'Adicione um LED chamado “Seguro” que acenda quando Porta fechada e Tempo > 0 estiverem verdadeiros, mesmo antes de pressionar Start.',
+    };
+  }
+
   if (['half-adder', 'full-adder', 'half-subtractor', 'full-subtractor', 'comparator-1-bit'].includes(example.id)) {
     return { ...common, moduleId: 'combinational', familyIds: ['adders', 'truth-table'], trackIds: ['arithmetic', 'architecture'], difficulty: example.id === 'full-adder' || example.id === 'full-subtractor' ? 3 : 2, level: 'composition', prerequisites: ['and-basic', 'or-basic', 'xor'], concepts: ['composição', 'carry/borrow', 'comparação'], next: ['register-4-basic'], challenge: 'Preveja a saída antes de alternar cada entrada.' };
   }
@@ -992,7 +1037,7 @@ function extractExampleDescription(circuit: CircuitDocument): string {
 }
 
 export const CIRCUIT_LESSONS: CircuitLesson[] = [
-  lesson('first-steps', 'Aula 1 — Sinais e portas básicas', 'Começa do zero: o que é um sinal 0/1, como fios transportam sinais, como LEDs observam saídas e como NOT, AND, OR, XOR, NAND, NOR e XNOR transformam entradas.', ['signal-led-basic', 'not-basic', 'and-basic', 'or-basic', 'xor', 'nand-basic', 'nor-basic', 'xnor-basic', 'nand-not']),
+  lesson('first-steps', 'Aula 1 — Sinais e portas básicas', 'Começa do zero: o que é um sinal 0/1, como fios transportam sinais, como LEDs observam saídas e como NOT, AND, OR, XOR, NAND, NOR e XNOR transformam entradas.', ['signal-led-basic', 'not-basic', 'and-basic', 'or-basic', 'xor', 'nand-basic', 'nor-basic', 'xnor-basic', 'nand-not', 'microwave-safety-challenge']),
   lesson('truth-tables', 'Aula 2 — Tabela verdade e aritmética', 'Circuitos combinacionais clássicos observados pela tabela verdade.', ['half-adder', 'full-adder', 'comparator-1-bit', 'half-subtractor', 'full-subtractor']),
   lesson('combinational-blocks', 'Aula 3 — Seleção e codificação', 'Multiplexadores, decodificadores, encoders e detectores combinacionais.', ['mux-2-1', 'mux-4-1', 'decoder-2-4', 'demux-1-2', 'encoder-4-2', 'odd-parity-3', 'majority-3']),
   lesson('memory-latches', 'Aula 4 — Memória e latches', 'Primeiros circuitos que mantêm estado, tanto nativos quanto por realimentação.', ['d-latch-basic', 'sr-latch-nor-experiment', 'sr-latch-nand-active-low', 'gated-d-latch-from-nand']),
