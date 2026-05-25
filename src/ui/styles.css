@@ -506,7 +506,8 @@ button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
   font-size: 11px;
   font-weight: 900;
 }
-.lesson-section-card ul {
+.lesson-section-card ul,
+.lesson-section-card ol {
   margin: 0;
   padding-left: 18px;
 }

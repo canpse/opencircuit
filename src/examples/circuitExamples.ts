@@ -19,6 +19,9 @@ export type CircuitExample = {
   level: CircuitLevel;
   prerequisites: string[];
   concepts: string[];
+  goal: string;
+  steps: string[];
+  ideas: string[];
   next: string[];
   extensions: string[];
   modes: CircuitExampleMode[];
@@ -764,6 +767,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
   const description = example.description ?? extractExampleDescription(example.circuit);
   const common = {
     description,
+    goal: description,
+    steps: ['Altere as entradas do circuito.', 'Observe a saída no LED.', 'Compare com a tabela verdade ou painel de estado.'],
+    ideas: [] as string[],
     extensions: [],
     modes: ['demo'] as CircuitExampleMode[],
     observe: ['Altere as entradas e observe as saídas no circuito.', 'Compare o comportamento com a descrição dentro do canvas.'],
@@ -780,6 +786,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: [],
       concepts: ['sinal binário', 'switch', 'fio', 'LED', 'nível lógico 0/1'],
+      goal: 'Entender que um switch gera um sinal 0 ou 1, que um fio transporta esse sinal e que um LED permite observar o valor.',
+      steps: ['Clique no switch A.', 'Observe o LED OUT acender.', 'Clique novamente em A e observe OUT apagar.', 'Veja a linha destacada na tabela verdade mudar junto com o switch.'],
+      ideas: ['Um sinal digital tem apenas dois valores: 0/desligado ou 1/ligado.', 'Um fio não cria lógica: ele apenas transporta o valor de um ponto para outro.', 'O LED é uma forma visual de observar um sinal.'],
       next: ['not-basic', 'and-basic'],
       observe: ['Clique no switch A.', 'Observe que o LED OUT copia exatamente o valor de A.', 'Veja a linha atual destacada na tabela verdade.'],
       experiments: ['Renomeie A para Entrada e OUT para Saída.', 'Apague o fio e reconecte a saída de A ao LED.', 'Exporte o circuito e importe novamente.'],
@@ -797,6 +806,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['signal-led-basic'],
       concepts: ['inversão', 'complemento lógico', 'entrada e saída'],
+      goal: 'Entender a ideia de inversão: a saída de uma porta NOT é sempre o contrário da entrada.',
+      steps: ['Comece com A desligado e observe OUT ligado.', 'Ligue A e veja OUT apagar.', 'Alterne A algumas vezes e confira que os dois sinais nunca ficam iguais.'],
+      ideas: ['NOT transforma 0 em 1 e 1 em 0.', 'A tabela verdade de uma entrada tem apenas duas linhas.', 'Inversão é uma das operações mais usadas para construir circuitos maiores.'],
       next: ['and-basic', 'or-basic', 'nand-not'],
       observe: ['Compare A e OUT: eles devem estar sempre opostos.', 'Use a tabela verdade para confirmar os dois casos possíveis.'],
       experiments: ['Ligue A e observe OUT apagar.', 'Desligue A e observe OUT acender.', 'Tente prever OUT antes de clicar no switch.'],
@@ -814,6 +826,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['signal-led-basic'],
       concepts: ['conjunção lógica', 'condição simultânea', 'tabela verdade de 2 entradas'],
+      goal: 'Entender que AND representa uma condição simultânea: A e B precisam estar ligados para a saída ligar.',
+      steps: ['Teste A=0 e B=0.', 'Ligue apenas A.', 'Desligue A e ligue apenas B.', 'Ligue A e B ao mesmo tempo e observe quando OUT acende.'],
+      ideas: ['AND só produz 1 quando todas as entradas são 1.', 'Duas entradas geram quatro combinações na tabela verdade.', 'AND é útil para representar “isto E aquilo”.'],
       next: ['or-basic', 'xor', 'half-adder'],
       observe: ['OUT só acende quando A e B estão ligados ao mesmo tempo.', 'Compare as quatro combinações da tabela verdade.'],
       experiments: ['Teste 00, 01, 10 e 11 em ordem.', 'Use AND como uma condição: “A e B precisam ser verdadeiros”.'],
@@ -831,6 +846,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['signal-led-basic'],
       concepts: ['disjunção lógica', 'condição alternativa', 'tabela verdade de 2 entradas'],
+      goal: 'Entender que OR representa uma condição alternativa: A ou B já é suficiente para ligar a saída.',
+      steps: ['Comece com A=0 e B=0 e veja OUT apagado.', 'Ligue apenas A.', 'Desligue A e ligue apenas B.', 'Ligue A e B juntos e compare com AND.'],
+      ideas: ['OR produz 1 quando pelo menos uma entrada é 1.', 'A única linha desligada é quando todas as entradas são 0.', 'OR é útil para representar “isto OU aquilo”.'],
       next: ['and-basic', 'xor', 'mux-2-1'],
       observe: ['OUT acende se A ou B estiver ligado.', 'A única forma de OUT apagar é A=0 e B=0.'],
       experiments: ['Teste as quatro combinações e diga em voz alta quando a saída deveria ligar.', 'Compare mentalmente OR com AND.'],
@@ -848,6 +866,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['and-basic', 'or-basic', 'not-basic'],
       concepts: ['diferença entre bits', 'paridade simples', 'base da soma binária'],
+      goal: 'Entender que XOR detecta diferença: a saída liga quando as duas entradas têm valores diferentes.',
+      steps: ['Teste 0 e 0.', 'Teste 1 e 0.', 'Teste 0 e 1.', 'Teste 1 e 1 e compare com OR.'],
+      ideas: ['XOR liga quando existe exatamente uma entrada ligada.', 'XOR apaga quando as entradas são iguais.', 'XOR aparece em somadores porque parece uma soma de bits sem o carry.'],
       next: ['half-adder', 'odd-parity-3'],
       observe: ['OUT acende quando A e B são diferentes.', 'OUT apaga quando A e B são iguais.'],
       experiments: ['Compare XOR com OR quando A=B=1.', 'Tente prever a saída antes de cada clique.'],
@@ -865,6 +886,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['and-basic', 'not-basic'],
       concepts: ['porta negada', 'NAND = NOT(AND)', 'porta universal'],
+      goal: 'Entender que NAND é uma AND invertida: ela só desliga no caso em que AND ligaria.',
+      steps: ['Teste as quatro combinações de A e B.', 'Compare especialmente o caso A=1 e B=1.', 'Volte ao exemplo AND básico e compare as tabelas.'],
+      ideas: ['NAND significa NOT AND.', 'Ela é o contrário exato da AND.', 'NAND é uma porta universal: com ela é possível construir outras portas.'],
       next: ['nand-not', 'sr-latch-nand-active-low'],
       observe: ['Compare com AND: a saída é invertida.', 'OUT só apaga no caso A=1 e B=1.'],
       experiments: ['Teste as quatro linhas da tabela verdade.', 'Compare a linha A=1,B=1 com as outras três.'],
@@ -882,6 +906,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['or-basic', 'not-basic'],
       concepts: ['porta negada', 'NOR = NOT(OR)', 'porta universal'],
+      goal: 'Entender que NOR é uma OR invertida: ela só liga quando nenhuma entrada está ligada.',
+      steps: ['Comece com A=0 e B=0 e observe OUT ligado.', 'Ligue A ou B e veja OUT apagar.', 'Compare com o exemplo OR básico.'],
+      ideas: ['NOR significa NOT OR.', 'Ela é o contrário exato da OR.', 'NOR também é uma porta universal e será útil para latches.'],
       next: ['sr-latch-nor-experiment'],
       observe: ['Compare com OR: a saída é invertida.', 'OUT só liga quando A=0 e B=0.'],
       experiments: ['Teste A=0,B=0 primeiro.', 'Depois ligue qualquer entrada e observe OUT desligar.'],
@@ -899,6 +926,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['xor'],
       concepts: ['igualdade entre bits', 'XNOR = NOT(XOR)', 'comparação simples'],
+      goal: 'Entender que XNOR detecta igualdade: a saída liga quando as duas entradas têm o mesmo valor.',
+      steps: ['Teste A=0 e B=0.', 'Teste os dois casos em que A e B são diferentes.', 'Teste A=1 e B=1.', 'Compare com o XOR básico.'],
+      ideas: ['XNOR é o contrário da XOR.', 'Ela liga para 00 e 11.', 'XNOR pode ser usada como um pequeno teste de igualdade entre dois bits.'],
       next: ['comparator-1-bit'],
       observe: ['OUT liga quando A e B são iguais.', 'OUT apaga quando A e B são diferentes.'],
       experiments: ['Compare com o XOR básico.', 'Teste 00 e 11: ambos devem ligar OUT.'],
@@ -916,6 +946,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'concept',
       prerequisites: ['nand-basic'],
       concepts: ['porta universal', 'equivalência lógica', 'reutilização de portas'],
+      goal: 'Entender que uma mesma porta pode ser reaproveitada de outro jeito: NAND pode funcionar como NOT.',
+      steps: ['Alterne A e observe OUT.', 'Compare com o exemplo NOT básico.', 'Perceba que A está ligado nas duas entradas da NAND.'],
+      ideas: ['Quando as duas entradas da NAND recebem o mesmo sinal, o resultado é o inverso desse sinal.', 'Circuitos diferentes podem ter a mesma tabela verdade.', 'Essa é a primeira ideia de equivalência entre circuitos.'],
       next: ['sr-latch-nand-active-low', 'gated-d-latch-from-nand'],
       observe: ['A alimenta as duas entradas da NAND.', 'Quando as duas entradas são iguais, NAND se comporta como NOT.'],
       experiments: ['Compare este circuito com o NOT básico.', 'Desconecte uma entrada da NAND e veja por que a equivalência deixa de fazer sentido.'],
