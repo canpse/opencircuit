@@ -92,7 +92,7 @@ export function routeBetweenPoints(start: Point, end: Point, components: LogicCo
   const offset = ((index % 5) - 2) * 10;
   const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
   const needsPinStub = end.x <= start.x;
-  const stub = needsPinStub ? Math.max(28, Math.min(48, distance / 4)) : 0;
+  const stub = needsPinStub ? Math.max(28, Math.min(48, distance / 4)) : 14;
   const routeStart = { x: start.x + stub, y: start.y };
   const routeEnd = { x: end.x - stub, y: end.y };
   const midX = Math.round((routeStart.x + routeEnd.x) / 2) + offset;
@@ -227,7 +227,7 @@ export function bezierPath(start: Point, end: Point): string {
 export function bezierPathWithPinStubs(start: Point, end: Point): string {
   const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
   const needsPinStub = end.x <= start.x;
-  const stub = needsPinStub ? Math.max(28, Math.min(48, distance / 4)) : 0;
+  const stub = needsPinStub ? Math.max(28, Math.min(48, distance / 4)) : 14;
   const startStub = { x: start.x + stub, y: start.y };
   const endStub = { x: end.x - stub, y: end.y };
   const middleX = Math.round((startStub.x + endStub.x) / 2);
