@@ -435,6 +435,35 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
     },
   },
   {
+    id: 'adder-2-bit',
+    name: 'Somador de 2 bits',
+    circuit: {
+      version: 1,
+      components: [
+        { id: 'A0', type: 'input', x: 60, y: 70, label: 'A0', state: false },
+        { id: 'B0', type: 'input', x: 60, y: 150, label: 'B0', state: false },
+        { id: 'A1', type: 'input', x: 60, y: 280, label: 'A1', state: false },
+        { id: 'B1', type: 'input', x: 60, y: 360, label: 'B1', state: false },
+        { id: 'HA0', type: 'half-adder', x: 300, y: 80, label: 'Bit 0' },
+        { id: 'FA1', type: 'full-adder', x: 300, y: 270, label: 'Bit 1' },
+        { id: 'S0', type: 'led', x: 560, y: 105, label: 'S0' },
+        { id: 'S1', type: 'led', x: 560, y: 283, label: 'S1' },
+        { id: 'Cout', type: 'led', x: 560, y: 331, label: 'Cout' },
+        { id: 'TXT1', type: 'text', x: 60, y: 480, width: 720, label: 'Somador de 2 bits. A0/B0 são o bit menos significativo e usam um meio somador. O carry gerado no bit 0 entra como Cin no somador completo do bit 1. Resultado: Cout S1 S0.' },
+      ],
+      wires: [
+        { id: 'W1', from: { componentId: 'A0', pinId: 'out' }, to: { componentId: 'HA0', pinId: 'A' } },
+        { id: 'W2', from: { componentId: 'B0', pinId: 'out' }, to: { componentId: 'HA0', pinId: 'B' } },
+        { id: 'W3', from: { componentId: 'HA0', pinId: 'SUM' }, to: { componentId: 'S0', pinId: 'in' } },
+        { id: 'W4', from: { componentId: 'A1', pinId: 'out' }, to: { componentId: 'FA1', pinId: 'A' } },
+        { id: 'W5', from: { componentId: 'B1', pinId: 'out' }, to: { componentId: 'FA1', pinId: 'B' } },
+        { id: 'W6', from: { componentId: 'HA0', pinId: 'CARRY' }, to: { componentId: 'FA1', pinId: 'Cin' } },
+        { id: 'W7', from: { componentId: 'FA1', pinId: 'SUM' }, to: { componentId: 'S1', pinId: 'in' } },
+        { id: 'W8', from: { componentId: 'FA1', pinId: 'Cout' }, to: { componentId: 'Cout', pinId: 'in' } },
+      ],
+    },
+  },
+  {
     id: 'mux-2-1',
     name: 'Multiplexador 2:1',
     circuit: {
