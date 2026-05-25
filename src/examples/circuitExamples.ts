@@ -800,7 +800,11 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
     modes: ['demo'] as CircuitExampleMode[],
     observe: ['Altere as entradas e observe as saídas no circuito.', 'Compare o comportamento com a descrição dentro do canvas.'],
     experiments: ['Teste todas as combinações de entrada.', 'Renomeie sinais importantes para reforçar o significado do circuito.'],
-    exercises: [],
+    exercises: [
+      'Recrie este circuito em uma aba vazia, sem copiar fio por fio, e compare o resultado.',
+      'Antes de alternar cada entrada, preveja mentalmente o que deve acontecer com a saída.',
+      'Modifique nomes de entradas e saídas para transformar o circuito em uma pequena história ou situação real.',
+    ],
   };
 
   if (example.id === 'signal-led-basic') {
