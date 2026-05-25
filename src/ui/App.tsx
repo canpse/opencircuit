@@ -85,7 +85,7 @@ export function App() {
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const autoClockTick = useCallback(() => {
     setCircuit((current) => stepCircuit(current));
-  }, []);
+  }, [setCircuit]);
 
   useAutoSaveWorkspace(workspace);
   useAutoClock({ running: autoClockRunning, intervalMs: autoClockIntervalMs, onTick: autoClockTick });
