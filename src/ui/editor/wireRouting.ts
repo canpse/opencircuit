@@ -97,7 +97,6 @@ export function routeBetweenPoints(start: Point, end: Point, components: LogicCo
   const midX = Math.round((routeStart.x + routeEnd.x) / 2) + offset;
   const margin = 34 + Math.abs(offset);
   const obstacles = components
-    .filter((component) => !ignoreComponentIds.has(component.id))
     .map((component) => inflateRect(componentBounds(component), 14));
   const allBounds = components.map(componentBounds);
   const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
@@ -110,7 +109,7 @@ export function routeBetweenPoints(start: Point, end: Point, components: LogicCo
     compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: maxY }, { x: routeEnd.x - margin, y: maxY }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
   ];
   return candidates
-    .map((points) => ({ points, collisions: countRouteCollisions(points, obstacles), length: routeLength(points) }))
+    .map((points) => ({ points, collisions: countRouteCollisionsBetweenStubs(points, obstacles), length: routeLength(points) }))
     .sort((a, b) => a.collisions - b.collisions || a.length - b.length)[0].points;
 }
 
@@ -127,6 +126,15 @@ function inflateRect(rect: RectBounds, amount: number): RectBounds {
 
 function countRouteCollisions(points: Point[], obstacles: RectBounds[]): number {
   return routeSegments(points).reduce(
+    (count, segment) => count + obstacles.filter((rect) => segmentIntersectsRect(segment.a, segment.b, rect)).length,
+    0,
+  );
+}
+
+function countRouteCollisionsBetweenStubs(points: Point[], obstacles: RectBounds[]): number {
+  const segments = routeSegments(points);
+  const middleSegments = segments.slice(1, -1);
+  return middleSegments.reduce(
     (count, segment) => count + obstacles.filter((rect) => segmentIntersectsRect(segment.a, segment.b, rect)).length,
     0,
   );
