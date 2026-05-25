@@ -34,6 +34,8 @@ export function LessonPanel({ example, examples, onLoadExample }: { example: Cir
         </div>
       )}
 
+      <LessonSection title="Lista de exercícios" items={example.exercises} empty="Sem exercícios extras para esta lição." ordered />
+
       <LessonSection title="Continue com" items={example.next} empty="Você chegou ao fim desta trilha por enquanto." examples={examples} onItemClick={onLoadExample} />
 
       <div className="properties-card lesson-meta-card">

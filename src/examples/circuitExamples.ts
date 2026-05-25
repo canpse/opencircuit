@@ -28,6 +28,7 @@ export type CircuitExample = {
   observe: string[];
   experiments: string[];
   challenge?: string;
+  exercises: string[];
   circuit: CircuitDocument;
 };
 
@@ -799,6 +800,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
     modes: ['demo'] as CircuitExampleMode[],
     observe: ['Altere as entradas e observe as saídas no circuito.', 'Compare o comportamento com a descrição dentro do canvas.'],
     experiments: ['Teste todas as combinações de entrada.', 'Renomeie sinais importantes para reforçar o significado do circuito.'],
+    exercises: [],
   };
 
   if (example.id === 'signal-led-basic') {
@@ -997,6 +999,14 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       observe: ['O LED Motor só deve acender quando as três entradas estão ligadas.', 'Cada AND combina duas condições por vez.', 'A tabela verdade mostra todos os casos possíveis.'],
       experiments: ['Tente encontrar algum caso perigoso em que o motor ligue com a porta aberta.', 'Renomeie as portas AND para mostrar quais condições elas combinam.', 'Explique o circuito em voz alta como uma frase: Motor liga se...'],
       challenge: 'Adicione um LED chamado “Seguro” que acenda quando Porta fechada e Tempo > 0 estiverem verdadeiros, mesmo antes de pressionar Start.',
+      exercises: [
+        'Alarme de geladeira: crie um circuito em que o alarme ligue se a porta estiver aberta E a luz da cozinha estiver apagada.',
+        'Luz automática do corredor: crie um circuito em que a luz acenda se houver movimento OU se o botão manual for pressionado.',
+        'Cinto de segurança: crie um circuito em que o aviso ligue se o motorista estiver sentado E o cinto NÃO estiver preso.',
+        'Cofre de duas chaves: crie um circuito em que o cofre abra apenas se Chave A E Chave B estiverem ligadas ao mesmo tempo.',
+        'Interruptor paralelo: crie um circuito em que a lâmpada acenda quando os interruptores A e B estiverem em posições diferentes.',
+        'Indicador de igualdade: crie um circuito em que o painel acenda quando Sensor A e Sensor B tiverem o mesmo valor.',
+      ],
     };
   }
 
