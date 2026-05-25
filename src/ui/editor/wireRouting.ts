@@ -90,7 +90,11 @@ export function selfLoopRoute(component: LogicComponent, start: Point, end: Poin
 
 export function routeBetweenPoints(start: Point, end: Point, components: LogicComponent[], ignoreComponentIds: Set<string>, index: number): Point[] {
   const offset = ((index % 5) - 2) * 10;
-  const midX = Math.round((start.x + end.x) / 2) + offset;
+  const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
+  const stub = Math.max(28, Math.min(48, distance / 4));
+  const routeStart = { x: start.x + stub, y: start.y };
+  const routeEnd = { x: end.x - stub, y: end.y };
+  const midX = Math.round((routeStart.x + routeEnd.x) / 2) + offset;
   const margin = 34 + Math.abs(offset);
   const obstacles = components
     .filter((component) => !ignoreComponentIds.has(component.id))
@@ -99,11 +103,11 @@ export function routeBetweenPoints(start: Point, end: Point, components: LogicCo
   const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
   const maxY = Math.max(start.y, end.y, ...allBounds.map((rect) => rect.y + rect.height)) + margin;
   const candidates: Point[][] = [
-    compactRoute([start, { x: midX, y: start.y }, { x: midX, y: end.y }, end]),
-    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: end.y }, end]),
-    compactRoute([start, { x: end.x - margin, y: start.y }, { x: end.x - margin, y: end.y }, end]),
-    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: minY }, { x: end.x - margin, y: minY }, { x: end.x - margin, y: end.y }, end]),
-    compactRoute([start, { x: start.x + margin, y: start.y }, { x: start.x + margin, y: maxY }, { x: end.x - margin, y: maxY }, { x: end.x - margin, y: end.y }, end]),
+    compactRoute([start, routeStart, { x: midX, y: routeStart.y }, { x: midX, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeEnd.x - margin, y: routeStart.y }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: minY }, { x: routeEnd.x - margin, y: minY }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: maxY }, { x: routeEnd.x - margin, y: maxY }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
   ];
   return candidates
     .map((points) => ({ points, collisions: countRouteCollisions(points, obstacles), length: routeLength(points) }))
