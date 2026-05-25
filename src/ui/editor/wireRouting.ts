@@ -175,44 +175,6 @@ export function bezierPathFromPoints(points: Point[]): string {
   return roundedPolylinePath(points, 18);
 }
 
-export function bezierPathAvoidingComponents(
-  start: Point,
-  end: Point,
-  components: LogicComponent[],
-  ignoreComponentIds: Set<string>,
-  index: number,
-): string {
-  const obstacles = components
-    .filter((component) => !ignoreComponentIds.has(component.id) && component.type !== 'text')
-    .map((component) => inflateRect(componentBounds(component), 18));
-
-  if (countSmoothPathCollisions([start, end], obstacles) === 0) return bezierPath(start, end);
-
-  const blockingBounds = unionRects(obstacles.filter((rect) => smoothPathIntersectsRect([start, end], rect)));
-  if (!blockingBounds) return bezierPath(start, end);
-
-  const offset = ((index % 5) - 2) * 12;
-  const margin = 42 + Math.abs(offset);
-  const direction = end.x >= start.x ? 1 : -1;
-  const lead = Math.max(42, Math.min(90, Math.abs(end.x - start.x) / 3));
-  const topLane = blockingBounds.y - margin;
-  const bottomLane = blockingBounds.y + blockingBounds.height + margin;
-  const leftLane = blockingBounds.x - margin;
-  const rightLane = blockingBounds.x + blockingBounds.width + margin;
-
-  const candidates: Point[][] = [
-    compactRoute([start, { x: start.x + direction * lead, y: start.y }, { x: start.x + direction * lead, y: topLane + offset }, { x: end.x - direction * lead, y: topLane + offset }, { x: end.x - direction * lead, y: end.y }, end]),
-    compactRoute([start, { x: start.x + direction * lead, y: start.y }, { x: start.x + direction * lead, y: bottomLane + offset }, { x: end.x - direction * lead, y: bottomLane + offset }, { x: end.x - direction * lead, y: end.y }, end]),
-    compactRoute([start, { x: leftLane + offset, y: start.y }, { x: leftLane + offset, y: end.y }, end]),
-    compactRoute([start, { x: rightLane + offset, y: start.y }, { x: rightLane + offset, y: end.y }, end]),
-  ];
-
-  const best = candidates
-    .map((points) => ({ points, collisions: countSmoothPathCollisions(points, obstacles), length: routeLength(points) }))
-    .sort((a, b) => a.collisions - b.collisions || a.length - b.length)[0].points;
-  return smoothPathFromPoints(best);
-}
-
 function roundedPolylinePath(points: Point[], radius: number): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
@@ -230,69 +192,6 @@ function roundedPolylinePath(points: Point[], radius: number): string {
   const last = points[points.length - 1];
   commands.push(`L ${last.x} ${last.y}`);
   return commands.join(' ');
-}
-
-function smoothPathFromPoints(points: Point[]): string {
-  if (points.length <= 2) return bezierPath(points[0], points[1]);
-  const commands = [`M ${points[0].x} ${points[0].y}`];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const previous = points[index - 1] ?? points[index];
-    const current = points[index];
-    const next = points[index + 1];
-    const afterNext = points[index + 2] ?? next;
-    const cp1 = { x: current.x + (next.x - previous.x) / 6, y: current.y + (next.y - previous.y) / 6 };
-    const cp2 = { x: next.x - (afterNext.x - current.x) / 6, y: next.y - (afterNext.y - current.y) / 6 };
-    commands.push(`C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${next.x} ${next.y}`);
-  }
-  return commands.join(' ');
-}
-
-function countSmoothPathCollisions(points: Point[], obstacles: RectBounds[]): number {
-  return obstacles.filter((rect) => smoothPathIntersectsRect(points, rect)).length;
-}
-
-function smoothPathIntersectsRect(points: Point[], rect: RectBounds): boolean {
-  return sampleSmoothPath(points, 18).some((point) => containsPoint(rect, point));
-}
-
-function sampleSmoothPath(points: Point[], samplesPerSegment: number): Point[] {
-  if (points.length <= 2) return sampleCubic(points[0], bezierControls(points[0], points[1]).c1, bezierControls(points[0], points[1]).c2, points[1], samplesPerSegment);
-  const samples: Point[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const previous = points[index - 1] ?? points[index];
-    const current = points[index];
-    const next = points[index + 1];
-    const afterNext = points[index + 2] ?? next;
-    const cp1 = { x: current.x + (next.x - previous.x) / 6, y: current.y + (next.y - previous.y) / 6 };
-    const cp2 = { x: next.x - (afterNext.x - current.x) / 6, y: next.y - (afterNext.y - current.y) / 6 };
-    samples.push(...sampleCubic(current, cp1, cp2, next, samplesPerSegment));
-  }
-  return samples;
-}
-
-function bezierControls(start: Point, end: Point): { c1: Point; c2: Point } {
-  const midX = Math.round((start.x + end.x) / 2);
-  return { c1: { x: midX, y: start.y }, c2: { x: midX, y: end.y } };
-}
-
-function sampleCubic(start: Point, c1: Point, c2: Point, end: Point, count: number): Point[] {
-  return Array.from({ length: count + 1 }, (_, index) => {
-    const t = index / count;
-    const mt = 1 - t;
-    return {
-      x: mt ** 3 * start.x + 3 * mt ** 2 * t * c1.x + 3 * mt * t ** 2 * c2.x + t ** 3 * end.x,
-      y: mt ** 3 * start.y + 3 * mt ** 2 * t * c1.y + 3 * mt * t ** 2 * c2.y + t ** 3 * end.y,
-    };
-  });
-}
-
-function unionRects(rects: RectBounds[]): RectBounds | null {
-  if (rects.length === 0) return null;
-  const minX = Math.min(...rects.map((rect) => rect.x));
-  const minY = Math.min(...rects.map((rect) => rect.y));
-  const maxX = Math.max(...rects.map((rect) => rect.x + rect.width));
-  const maxY = Math.max(...rects.map((rect) => rect.y + rect.height));
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 function pointToward(from: Point, to: Point, distance: number): Point {

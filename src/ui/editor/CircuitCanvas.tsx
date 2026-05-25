@@ -287,7 +287,6 @@ export function CircuitCanvas(props: Props) {
             wire={wire}
             route={routeByWireId.get(wire.id)}
             wireStyle={props.wireStyle}
-            components={props.circuit.components}
             componentById={componentById}
             evaluation={props.evaluation}
             selected={props.selection.wireIds.includes(wire.id)}
