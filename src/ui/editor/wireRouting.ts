@@ -210,6 +210,20 @@ export function bezierPath(start: Point, end: Point): string {
   return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
 }
 
+export function bezierPathWithPinStubs(start: Point, end: Point): string {
+  const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
+  const stub = Math.max(28, Math.min(48, distance / 4));
+  const startStub = { x: start.x + stub, y: start.y };
+  const endStub = { x: end.x - stub, y: end.y };
+  const middleX = Math.round((startStub.x + endStub.x) / 2);
+  return [
+    `M ${start.x} ${start.y}`,
+    `C ${start.x + stub * 0.55} ${start.y}, ${startStub.x - stub * 0.25} ${startStub.y}, ${startStub.x} ${startStub.y}`,
+    `C ${middleX} ${startStub.y}, ${middleX} ${endStub.y}, ${endStub.x} ${endStub.y}`,
+    `C ${endStub.x + stub * 0.25} ${endStub.y}, ${end.x - stub * 0.55} ${end.y}, ${end.x} ${end.y}`,
+  ].join(' ');
+}
+
 export function orthogonalPath(points: Point[], jumps: Point[]): string {
   if (points.length === 0) return '';
   const commands = [`M ${points[0].x} ${points[0].y}`];

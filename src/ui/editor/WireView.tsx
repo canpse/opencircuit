@@ -4,6 +4,7 @@ import type { EvaluationResult, LogicComponent, PinRef, Point, Wire } from '../.
 import {
   bezierPath,
   bezierPathFromPoints,
+  bezierPathWithPinStubs,
   orthogonalPath,
   routeBetweenPoints,
   selfLoopRoute,
@@ -29,7 +30,11 @@ export function WireView({ wire, route, wireStyle, componentById, evaluation, se
   const end = getPinPosition(to, wire.to.pinId);
   const points = route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
   const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
-  const d = wireStyle === 'orthogonal' ? orthogonalPath(points, route?.jumps ?? []) : bezierPathFromPoints(points);
+  const d = wireStyle === 'orthogonal'
+    ? orthogonalPath(points, route?.jumps ?? [])
+    : from.id === to.id
+      ? bezierPathFromPoints(points)
+      : bezierPathWithPinStubs(start, end);
 
   return (
     <path
