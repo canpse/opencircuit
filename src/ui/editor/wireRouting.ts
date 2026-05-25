@@ -102,11 +102,12 @@ export function routeBetweenPoints(start: Point, end: Point, components: LogicCo
   const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
   const maxY = Math.max(start.y, end.y, ...allBounds.map((rect) => rect.y + rect.height)) + margin;
   const candidates: Point[][] = [
-    compactRoute([start, routeStart, { x: midX, y: routeStart.y }, { x: midX, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x, y: routeEnd.y }, routeEnd, end]),
     compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: routeEnd.y }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x, y: minY }, { x: routeEnd.x, y: minY }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: routeStart.x, y: maxY }, { x: routeEnd.x, y: maxY }, routeEnd, end]),
+    compactRoute([start, routeStart, { x: midX, y: routeStart.y }, { x: midX, y: routeEnd.y }, routeEnd, end]),
     compactRoute([start, routeStart, { x: routeEnd.x - margin, y: routeStart.y }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
-    compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: minY }, { x: routeEnd.x - margin, y: minY }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
-    compactRoute([start, routeStart, { x: routeStart.x + margin, y: routeStart.y }, { x: routeStart.x + margin, y: maxY }, { x: routeEnd.x - margin, y: maxY }, { x: routeEnd.x - margin, y: routeEnd.y }, routeEnd, end]),
   ];
   return candidates
     .map((points) => ({ points, collisions: countRouteCollisionsBetweenStubs(points, obstacles), length: routeLength(points) }))
