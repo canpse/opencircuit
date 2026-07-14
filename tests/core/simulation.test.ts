@@ -1,3 +1,4 @@
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -278,23 +279,14 @@ function testNativeDFlipFlopCapturesOnlyOnRisingEdge() {
   assert.equal(pin(result.state, 'FF', 'Q'), false, 'Avaliação pura não deve capturar D sem step sequencial');
 }
 
-const tests = [
-  testCombinationalStillWorks,
-  testNorSrLatchKeepsState,
-  testNandSrLatchActiveLowKeepsState,
-  testGatedDLatchFromNand,
-  testNotSelfFeedbackIsUnstable,
-  testFeedbackGraphDistinguishesAcyclicCircuit,
-  testStepCircuitCapturesFlipFlopOnRisingEdgeOnly,
-  testRegister4CapturesOnRisingEdgeOnly,
-  testTruthTableRowsForXor,
-  testWireRoutingSelfLoopGoesAroundComponent,
-  testNativeDFlipFlopCapturesOnlyOnRisingEdge,
-];
-
-for (const test of tests) {
-  test();
-  console.log(`✓ ${test.name}`);
-}
-
-console.log(`\n${tests.length} testes de simulação passaram.`);
+test('CombinationalStillWorks', testCombinationalStillWorks);
+test('NorSrLatchKeepsState', testNorSrLatchKeepsState);
+test('NandSrLatchActiveLowKeepsState', testNandSrLatchActiveLowKeepsState);
+test('GatedDLatchFromNand', testGatedDLatchFromNand);
+test('NotSelfFeedbackIsUnstable', testNotSelfFeedbackIsUnstable);
+test('FeedbackGraphDistinguishesAcyclicCircuit', testFeedbackGraphDistinguishesAcyclicCircuit);
+test('StepCircuitCapturesFlipFlopOnRisingEdgeOnly', testStepCircuitCapturesFlipFlopOnRisingEdgeOnly);
+test('Register4CapturesOnRisingEdgeOnly', testRegister4CapturesOnRisingEdgeOnly);
+test('TruthTableRowsForXor', testTruthTableRowsForXor);
+test('WireRoutingSelfLoopGoesAroundComponent', testWireRoutingSelfLoopGoesAroundComponent);
+test('NativeDFlipFlopCapturesOnlyOnRisingEdge', testNativeDFlipFlopCapturesOnlyOnRisingEdge);
