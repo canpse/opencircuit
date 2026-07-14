@@ -20,10 +20,11 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
   }
 
   function undo(): T | null {
-    let previous: T | null = null;
+    const previous = history.past[history.past.length - 1];
+    if (!previous) return null;
+
     updateHistory((draft) => {
-      if (draft.past.length === 0) return;
-      previous = draft.past.pop() as T;
+      draft.past.pop();
       draft.future.unshift(current as any);
       if (draft.future.length > limit) draft.future.pop();
     });
@@ -31,10 +32,11 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
   }
 
   function redo(): T | null {
-    let next: T | null = null;
+    const next = history.future[0];
+    if (!next) return null;
+
     updateHistory((draft) => {
-      if (draft.future.length === 0) return;
-      next = draft.future.shift() as T;
+      draft.future.shift();
       draft.past.push(current as any);
       if (draft.past.length > limit) draft.past.shift();
     });
