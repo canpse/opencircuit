@@ -9,7 +9,10 @@ const DEFAULT_CAMERA: Camera = { x: 0, y: 0, width: 1200, height: 720 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 
-export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>, svgPoint: (event: { clientX: number; clientY: number }) => Point) {
+export function useCanvasCamera(
+  svgRef: RefObject<SVGSVGElement | null>,
+  svgPoint: (event: { clientX: number; clientY: number }) => Point,
+) {
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [panning, setPanning] = useState<Panning>(null);
   const zoomPercent = Math.round((DEFAULT_CAMERA.width / camera.width) * 100);
@@ -17,7 +20,11 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>, svgPoin
   useEffect(() => {
     function isEditingText(target: EventTarget | null): boolean {
       const element = target as HTMLElement | null;
-      return element?.tagName === 'INPUT' || element?.tagName === 'TEXTAREA' || Boolean(element?.isContentEditable);
+      return (
+        element?.tagName === 'INPUT' ||
+        element?.tagName === 'TEXTAREA' ||
+        Boolean(element?.isContentEditable)
+      );
     }
 
     function onKeyDown(event: KeyboardEvent) {
@@ -53,10 +60,12 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>, svgPoin
   }
 
   function zoomAtCenter(factor: number) {
-    setCamera((current) => zoomCamera(current, factor, {
-      x: current.x + current.width / 2,
-      y: current.y + current.height / 2,
-    }));
+    setCamera((current) =>
+      zoomCamera(current, factor, {
+        x: current.x + current.width / 2,
+        y: current.y + current.height / 2,
+      }),
+    );
   }
 
   function onWheelZoom(event: WheelEvent<SVGSVGElement>) {

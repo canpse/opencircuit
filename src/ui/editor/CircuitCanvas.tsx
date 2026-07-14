@@ -7,13 +7,19 @@ import {
   routeCircuitWires,
   textComponentWidth,
   wireInRect,
-  wrapText,
   type RectBounds,
 } from './wireRouting';
 import { PendingWire, WireView } from './WireView';
 import { useCanvasCamera } from './useCanvasCamera';
 import { useLabelEditing } from './useLabelEditing';
-import type { CircuitDocument, EvaluationResult, GateType, LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import type {
+  CircuitDocument,
+  EvaluationResult,
+  GateType,
+  LogicComponent,
+  PinRef,
+  Point,
+} from '../../core/types';
 
 export type WireStyle = 'orthogonal' | 'bezier';
 
@@ -68,7 +74,17 @@ export function CircuitCanvas(props: Props) {
   const [dragging, setDragging] = useState<Dragging>(null);
   const [mousePoint, setMousePoint] = useState<Point | null>(null);
   const [marquee, setMarquee] = useState<Marquee>(null);
-  const { camera, panning, zoomPercent, resetCamera, zoomAtCenter, onWheelZoom, startPan, updatePan, setPanning } = useCanvasCamera(svgRef, svgPoint);
+  const {
+    camera,
+    panning,
+    zoomPercent,
+    resetCamera,
+    zoomAtCenter,
+    onWheelZoom,
+    startPan,
+    updatePan,
+    setPanning,
+  } = useCanvasCamera(svgRef, svgPoint);
   const [resizingText, setResizingText] = useState<ResizingText>(null);
   const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
 
@@ -79,7 +95,10 @@ export function CircuitCanvas(props: Props) {
     [props.circuit.components],
   );
   const wireRoutes = useMemo(
-    () => props.wireStyle === 'orthogonal' ? routeCircuitWires(props.circuit.wires, componentById, props.circuit.components) : [],
+    () =>
+      props.wireStyle === 'orthogonal'
+        ? routeCircuitWires(props.circuit.wires, componentById, props.circuit.components)
+        : [],
     [props.wireStyle, props.circuit.wires, componentById, props.circuit.components],
   );
   const routeByWireId = useMemo(
@@ -93,16 +112,12 @@ export function CircuitCanvas(props: Props) {
     startRename,
     commitRename,
     onLabelEditorKeyDown,
-  } = useLabelEditing(
-    componentById,
-    props.onSelectComponent,
-    props.onRenameComponent,
-    () => {
-      setDragging(null);
-      setMarquee(null);
-    },
-  );
+  } = useLabelEditing(componentById, props.onSelectComponent, props.onRenameComponent, () => {
+    setDragging(null);
+    setMarquee(null);
+  });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!props.renameRequest) return;
     const component = componentById.get(props.renameRequest.componentId);
@@ -158,7 +173,11 @@ export function CircuitCanvas(props: Props) {
 
     props.onClearSelection();
 
-    if (props.selectedTool !== 'select' && props.selectedTool !== 'wire' && props.selectedTool !== 'pan') {
+    if (
+      props.selectedTool !== 'select' &&
+      props.selectedTool !== 'wire' &&
+      props.selectedTool !== 'pan'
+    ) {
       props.onCanvasAdd(props.selectedTool, svgPoint(event));
     }
   }
@@ -195,207 +214,248 @@ export function CircuitCanvas(props: Props) {
         onWheel={onWheelZoom}
         onClick={onCanvasClick}
         onMouseDownCapture={onPanMouseDownCapture}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        if (!isBackgroundEvent(event)) return;
-        props.onOpenCanvasMenu(event.clientX, event.clientY, svgPoint(event));
-      }}
-      onMouseDown={onCanvasMouseDown}
-      onMouseMove={(event) => {
-        const point = svgPoint(event);
-        setMousePoint(point);
-        if (panning) {
-          updatePan(event);
-          return;
-        }
-        if (marquee) {
-          setMarquee({ ...marquee, end: point });
-          return;
-        }
-        if (resizingText) {
-          if (!resizingText.recorded) {
-            props.onBeginMoveComponent();
-            setResizingText({ ...resizingText, recorded: true });
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (!isBackgroundEvent(event)) return;
+          props.onOpenCanvasMenu(event.clientX, event.clientY, svgPoint(event));
+        }}
+        onMouseDown={onCanvasMouseDown}
+        onMouseMove={(event) => {
+          const point = svgPoint(event);
+          setMousePoint(point);
+          if (panning) {
+            updatePan(event);
+            return;
           }
-          props.onResizeTextComponent(resizingText.componentId, Math.max(90, resizingText.startWidth + point.x - resizingText.startMouse.x));
-          return;
-        }
-        if (!dragging) return;
-        if (!dragging.recorded) {
-          props.onBeginMoveComponent();
-          setDragging({ ...dragging, recorded: true });
-        }
-        props.onMoveComponents(
-          dragging.componentIds.map((componentId) => ({
-            componentId,
-            point: {
-              x: dragging.origins[componentId].x + point.x - dragging.startMouse.x,
-              y: dragging.origins[componentId].y + point.y - dragging.startMouse.y,
-            },
-          })),
-        );
-      }}
-      onMouseUp={() => {
-        if (dragConnecting) {
-          props.onCancelPendingWire();
-          setDragConnecting(null);
-        }
-        finishMarquee(marquee);
-        setDragging(null);
-        setResizingText(null);
-        setPanning(null);
-      }}
-      onMouseLeave={() => {
-        if (dragConnecting) {
-          props.onCancelPendingWire();
-          setDragConnecting(null);
-        }
-        finishMarquee(marquee);
-        setDragging(null);
-        setResizingText(null);
-        setPanning(null);
-        setMousePoint(null);
-      }}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={(event) => {
-        event.preventDefault();
-        const type = event.dataTransfer.getData('application/opencircuit-gate') as GateType;
-        if (type && COMPONENT_DEFINITIONS[type]) {
-          props.onCanvasAdd(type, svgPoint(event));
-          props.onSelectTool('select');
-        }
-      }}
-    >
-      <defs>
-        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(47, 79, 79, 0.12)" strokeWidth="1" />
-        </pattern>
-        <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#51606b" floodOpacity="0.18" />
-        </filter>
-        <linearGradient id="gateFace" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#e7edf2" />
-        </linearGradient>
-      </defs>
-      <rect className="canvas-bg" x={camera.x} y={camera.y} width={camera.width} height={camera.height} fill="url(#grid)" />
-
-      <g className="wires">
-        {props.circuit.wires.map((wire) => (
-          <WireView
-            key={wire.id}
-            wire={wire}
-            route={routeByWireId.get(wire.id)}
-            wireStyle={props.wireStyle}
-            componentById={componentById}
-            evaluation={props.evaluation}
-            selected={props.selection.wireIds.includes(wire.id)}
-            onSelect={() => props.onSelectWire(wire.id)}
-            onContextMenu={(event) => props.onOpenWireMenu(event.clientX, event.clientY, wire.id)}
-            onRemove={() => props.onRemoveWire(wire.id)}
-          />
-        ))}
-      </g>
-
-      {props.pendingWire && !dragging && (
-        <PendingWire
-          pendingWire={props.pendingWire}
-          componentById={componentById}
-          components={props.circuit.components}
-          wireStyle={props.wireStyle}
-          mousePoint={mousePoint}
-        />
-      )}
-
-      {marquee && <MarqueeRect marquee={marquee} />}
-
-      <g className="components">
-        {props.circuit.components.map((component) => (
-          <ComponentView
-            key={component.id}
-            component={component}
-            evaluation={props.evaluation}
-            selected={props.selection.componentIds.includes(component.id)}
-            onMouseDown={(event) => {
-              const point = svgPoint(event);
-              const componentIds = props.selection.componentIds.includes(component.id)
-                ? props.selection.componentIds
-                : [component.id];
-              if (!props.selection.componentIds.includes(component.id)) {
-                props.onSelectComponent(component.id);
-              }
-              const origins = Object.fromEntries(
-                componentIds
-                  .map((componentId) => componentById.get(componentId))
-                  .filter((selectedComponent): selectedComponent is LogicComponent => Boolean(selectedComponent))
-                  .map((selectedComponent) => [selectedComponent.id, { x: selectedComponent.x, y: selectedComponent.y }]),
-              );
-              setDragging({ componentIds: Object.keys(origins), startMouse: point, origins, recorded: false });
-            }}
-            onContextMenu={(event) => props.onOpenComponentMenu(event.clientX, event.clientY, component.id)}
-            onToggleInput={() => props.onToggleInput(component.id)}
-            onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
-            onRemove={() => props.onRemoveComponent(component.id)}
-            onRenameStart={() => startRename(component)}
-            onResizeStart={(event) => {
-              event.stopPropagation();
-              const point = svgPoint(event);
-              props.onSelectComponent(component.id);
-              setDragging(null);
-              setResizingText({ componentId: component.id, startMouse: point, startWidth: textComponentWidth(component), recorded: false });
-            }}
-            onPinMouseDown={(pin, kind) => {
-              if (kind !== 'output') return;
-              props.onPinClick(pin, kind);
-              setDragConnecting(pin);
-            }}
-            onPinMouseUp={(pin, kind) => {
-              if (!dragConnecting || kind !== 'input') return;
-              props.onPinClick(pin, kind);
-              setDragConnecting(null);
-              suppressNextPinClick.current = true;
-            }}
-            onPinClick={(pin, kind) => {
-              if (suppressNextPinClick.current) {
-                suppressNextPinClick.current = false;
-                return;
-              }
-              props.onPinClick(pin, kind);
-            }}
-          />
-        ))}
-      </g>
-
-      {editingLabel && (() => {
-        const component = componentById.get(editingLabel.componentId);
-        if (!component) return null;
-        const definition = COMPONENT_DEFINITIONS[component.type];
-        return (
-          <foreignObject
-            className="label-editor-object"
-            x={component.x}
-            y={component.y + componentBounds(component).height + 4}
-            width={component.type === 'text' ? textComponentWidth(component) : definition.width}
-            height="38"
-          >
-            <input
-              ref={labelInputRef}
-              className="label-editor-input"
-              value={editingLabel.value}
-              onChange={(event) => setEditingLabel({ ...editingLabel, value: event.target.value })}
-              onKeyDown={onLabelEditorKeyDown}
-              onBlur={commitRename}
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={(event) => event.stopPropagation()}
+          if (marquee) {
+            setMarquee({ ...marquee, end: point });
+            return;
+          }
+          if (resizingText) {
+            if (!resizingText.recorded) {
+              props.onBeginMoveComponent();
+              setResizingText({ ...resizingText, recorded: true });
+            }
+            props.onResizeTextComponent(
+              resizingText.componentId,
+              Math.max(90, resizingText.startWidth + point.x - resizingText.startMouse.x),
+            );
+            return;
+          }
+          if (!dragging) return;
+          if (!dragging.recorded) {
+            props.onBeginMoveComponent();
+            setDragging({ ...dragging, recorded: true });
+          }
+          props.onMoveComponents(
+            dragging.componentIds.map((componentId) => ({
+              componentId,
+              point: {
+                x: dragging.origins[componentId].x + point.x - dragging.startMouse.x,
+                y: dragging.origins[componentId].y + point.y - dragging.startMouse.y,
+              },
+            })),
+          );
+        }}
+        onMouseUp={() => {
+          if (dragConnecting) {
+            props.onCancelPendingWire();
+            setDragConnecting(null);
+          }
+          finishMarquee(marquee);
+          setDragging(null);
+          setResizingText(null);
+          setPanning(null);
+        }}
+        onMouseLeave={() => {
+          if (dragConnecting) {
+            props.onCancelPendingWire();
+            setDragConnecting(null);
+          }
+          finishMarquee(marquee);
+          setDragging(null);
+          setResizingText(null);
+          setPanning(null);
+          setMousePoint(null);
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          const type = event.dataTransfer.getData('application/opencircuit-gate') as GateType;
+          if (type && COMPONENT_DEFINITIONS[type]) {
+            props.onCanvasAdd(type, svgPoint(event));
+            props.onSelectTool('select');
+          }
+        }}
+      >
+        <defs>
+          <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path
+              d="M 20 0 L 0 0 0 20"
+              fill="none"
+              stroke="rgba(47, 79, 79, 0.12)"
+              strokeWidth="1"
             />
-          </foreignObject>
-        );
-      })()}
+          </pattern>
+          <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#51606b" floodOpacity="0.18" />
+          </filter>
+          <linearGradient id="gateFace" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stopColor="#ffffff" />
+            <stop offset="1" stopColor="#e7edf2" />
+          </linearGradient>
+        </defs>
+        <rect
+          className="canvas-bg"
+          x={camera.x}
+          y={camera.y}
+          width={camera.width}
+          height={camera.height}
+          fill="url(#grid)"
+        />
+
+        <g className="wires">
+          {props.circuit.wires.map((wire) => (
+            <WireView
+              key={wire.id}
+              wire={wire}
+              route={routeByWireId.get(wire.id)}
+              wireStyle={props.wireStyle}
+              componentById={componentById}
+              evaluation={props.evaluation}
+              selected={props.selection.wireIds.includes(wire.id)}
+              onSelect={() => props.onSelectWire(wire.id)}
+              onContextMenu={(event) => props.onOpenWireMenu(event.clientX, event.clientY, wire.id)}
+              onRemove={() => props.onRemoveWire(wire.id)}
+            />
+          ))}
+        </g>
+
+        {props.pendingWire && !dragging && (
+          <PendingWire
+            pendingWire={props.pendingWire}
+            componentById={componentById}
+            components={props.circuit.components}
+            wireStyle={props.wireStyle}
+            mousePoint={mousePoint}
+          />
+        )}
+
+        {marquee && <MarqueeRect marquee={marquee} />}
+
+        <g className="components">
+          {props.circuit.components.map((component) => (
+            <ComponentView
+              key={component.id}
+              component={component}
+              evaluation={props.evaluation}
+              selected={props.selection.componentIds.includes(component.id)}
+              onMouseDown={(event) => {
+                const point = svgPoint(event);
+                const componentIds = props.selection.componentIds.includes(component.id)
+                  ? props.selection.componentIds
+                  : [component.id];
+                if (!props.selection.componentIds.includes(component.id)) {
+                  props.onSelectComponent(component.id);
+                }
+                const origins = Object.fromEntries(
+                  componentIds
+                    .map((componentId) => componentById.get(componentId))
+                    .filter((selectedComponent): selectedComponent is LogicComponent =>
+                      Boolean(selectedComponent),
+                    )
+                    .map((selectedComponent) => [
+                      selectedComponent.id,
+                      { x: selectedComponent.x, y: selectedComponent.y },
+                    ]),
+                );
+                setDragging({
+                  componentIds: Object.keys(origins),
+                  startMouse: point,
+                  origins,
+                  recorded: false,
+                });
+              }}
+              onContextMenu={(event) =>
+                props.onOpenComponentMenu(event.clientX, event.clientY, component.id)
+              }
+              onToggleInput={() => props.onToggleInput(component.id)}
+              onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
+              onRemove={() => props.onRemoveComponent(component.id)}
+              onRenameStart={() => startRename(component)}
+              onResizeStart={(event) => {
+                event.stopPropagation();
+                const point = svgPoint(event);
+                props.onSelectComponent(component.id);
+                setDragging(null);
+                setResizingText({
+                  componentId: component.id,
+                  startMouse: point,
+                  startWidth: textComponentWidth(component),
+                  recorded: false,
+                });
+              }}
+              onPinMouseDown={(pin, kind) => {
+                if (kind !== 'output') return;
+                props.onPinClick(pin, kind);
+                setDragConnecting(pin);
+              }}
+              onPinMouseUp={(pin, kind) => {
+                if (!dragConnecting || kind !== 'input') return;
+                props.onPinClick(pin, kind);
+                setDragConnecting(null);
+                suppressNextPinClick.current = true;
+              }}
+              onPinClick={(pin, kind) => {
+                if (suppressNextPinClick.current) {
+                  suppressNextPinClick.current = false;
+                  return;
+                }
+                props.onPinClick(pin, kind);
+              }}
+            />
+          ))}
+        </g>
+
+        {editingLabel &&
+          (() => {
+            const component = componentById.get(editingLabel.componentId);
+            if (!component) return null;
+            const definition = COMPONENT_DEFINITIONS[component.type];
+            return (
+              <foreignObject
+                className="label-editor-object"
+                x={component.x}
+                y={component.y + componentBounds(component).height + 4}
+                width={component.type === 'text' ? textComponentWidth(component) : definition.width}
+                height="38"
+              >
+                <input
+                  ref={labelInputRef}
+                  className="label-editor-input"
+                  value={editingLabel.value}
+                  onChange={(event) =>
+                    setEditingLabel({ ...editingLabel, value: event.target.value })
+                  }
+                  onKeyDown={onLabelEditorKeyDown}
+                  onBlur={commitRename}
+                  onMouseDown={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
+                />
+              </foreignObject>
+            );
+          })()}
       </svg>
       <div className="zoom-controls" onMouseDown={(event) => event.stopPropagation()}>
-        <button onClick={() => zoomAtCenter(1 / 1.2)} title="Aproximar">+</button>
-        <button onClick={() => zoomAtCenter(1.2)} title="Afastar">−</button>
-        <button onClick={resetCamera} title="Resetar zoom">{zoomPercent}%</button>
+        <button onClick={() => zoomAtCenter(1 / 1.2)} title="Aproximar">
+          +
+        </button>
+        <button onClick={() => zoomAtCenter(1.2)} title="Afastar">
+          −
+        </button>
+        <button onClick={resetCamera} title="Resetar zoom">
+          {zoomPercent}%
+        </button>
       </div>
     </div>
   );
@@ -403,7 +463,15 @@ export function CircuitCanvas(props: Props) {
 
 function MarqueeRect({ marquee }: { marquee: NonNullable<Marquee> }) {
   const rect = normalizeRect(marquee.start, marquee.end);
-  return <rect className="marquee-selection" x={rect.x} y={rect.y} width={rect.width} height={rect.height} />;
+  return (
+    <rect
+      className="marquee-selection"
+      x={rect.x}
+      y={rect.y}
+      width={rect.width}
+      height={rect.height}
+    />
+  );
 }
 
 function normalizeRect(start: Point, end: Point): RectBounds {
@@ -411,4 +479,3 @@ function normalizeRect(start: Point, end: Point): RectBounds {
   const y = Math.min(start.y, end.y);
   return { x, y, width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) };
 }
-

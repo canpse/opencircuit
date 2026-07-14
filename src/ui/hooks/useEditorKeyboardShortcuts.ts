@@ -104,10 +104,27 @@ export function useEditorKeyboardShortcuts({
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [contextMenu, hasSelection, onCancelContextMenu, onCancelPendingWire, onMessage, onRedo, onRemoveSelection, onSave, onSelectTool, onUndo, pendingWire, selection]);
+  }, [
+    contextMenu,
+    hasSelection,
+    onCancelContextMenu,
+    onCancelPendingWire,
+    onMessage,
+    onRedo,
+    onRemoveSelection,
+    onSave,
+    onSelectTool,
+    onUndo,
+    pendingWire,
+    selection,
+  ]);
 }
 
 function isEditingText(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
-  return element?.tagName === 'INPUT' || element?.tagName === 'TEXTAREA' || Boolean(element?.isContentEditable);
+  return (
+    element?.tagName === 'INPUT' ||
+    element?.tagName === 'TEXTAREA' ||
+    Boolean(element?.isContentEditable)
+  );
 }

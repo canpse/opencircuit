@@ -26,5 +26,10 @@ export function useResizableSidePanel(initialWidth = 320, minWidth = 260, maxWid
     };
   }, [maxWidth, minWidth, resizing]);
 
-  return { width, resizing, startResizing: () => setResizing(true), stopResizing: () => setResizing(false) };
+  return {
+    width,
+    resizing,
+    startResizing: () => setResizing(true),
+    stopResizing: () => setResizing(false),
+  };
 }

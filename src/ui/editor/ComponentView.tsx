@@ -26,7 +26,21 @@ const GATE_ASSETS: Partial<Record<GateType, string>> = {
   not: notGateAsset,
 };
 
-export function ComponentView({ component, evaluation, selected, onMouseDown, onContextMenu, onToggleInput, onSetButtonPressed, onRemove, onRenameStart, onResizeStart, onPinMouseDown, onPinMouseUp, onPinClick }: {
+export function ComponentView({
+  component,
+  evaluation,
+  selected,
+  onMouseDown,
+  onContextMenu,
+  onToggleInput,
+  onSetButtonPressed,
+  onRemove,
+  onRenameStart,
+  onResizeStart,
+  onPinMouseDown,
+  onPinMouseUp,
+  onPinClick,
+}: {
   component: LogicComponent;
   evaluation: EvaluationResult;
   selected: boolean;
@@ -43,7 +57,8 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
 }) {
   const definition = COMPONENT_DEFINITIONS[component.type];
   const bodyWidth = component.type === 'text' ? textComponentWidth(component) : definition.width;
-  const labelLines = component.type === 'text' ? wrapText(component.label ?? definition.label, bodyWidth - 42) : [];
+  const labelLines =
+    component.type === 'text' ? wrapText(component.label ?? definition.label, bodyWidth - 42) : [];
   const textBodyHeight = Math.max(definition.height, labelLines.length * 18 + 24);
   const bodyHeight = component.type === 'text' ? textBodyHeight : definition.height;
   const outputValue = Boolean(evaluation[component.id]?.out);
@@ -51,7 +66,8 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
   const buttonPressed = component.type === 'button' && Boolean(component.state);
   const clockValue = component.type === 'clock' && Boolean(evaluation[component.id]?.CLK);
   const gateAsset = GATE_ASSETS[component.type];
-  const isCombinationalBlock = !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
+  const isCombinationalBlock =
+    !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
 
   return (
     <g
@@ -69,7 +85,12 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
         onRenameStart();
       }}
     >
-      <rect className={component.type === 'text' ? 'text-note-body' : 'gate-body'} width={bodyWidth} height={bodyHeight} rx="14" />
+      <rect
+        className={component.type === 'text' ? 'text-note-body' : 'gate-body'}
+        width={bodyWidth}
+        height={bodyHeight}
+        rx="14"
+      />
       <g
         className="remove-component"
         transform={`translate(${bodyWidth - 8}, 8)`}
@@ -80,7 +101,9 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
         }}
       >
         <circle r="10" />
-        <text y="4" textAnchor="middle">×</text>
+        <text y="4" textAnchor="middle">
+          ×
+        </text>
       </g>
       {component.type === 'led' && (
         <image
@@ -102,7 +125,10 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
           width="54"
           height="42"
           preserveAspectRatio="xMidYMid meet"
-          onClick={(event) => { event.stopPropagation(); onToggleInput(); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleInput();
+          }}
         />
       )}
       {component.type === 'clock' && (
@@ -161,7 +187,9 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
             }}
           >
             {labelLines.map((line, index) => (
-              <tspan key={`${line}-${index}`} x="14" dy={index === 0 ? 0 : 18}>{line}</tspan>
+              <tspan key={`${line}-${index}`} x="14" dy={index === 0 ? 0 : 18}>
+                {line}
+              </tspan>
             ))}
           </text>
           <rect
@@ -249,17 +277,33 @@ export function ComponentView({ component, evaluation, selected, onMouseDown, on
               onPinClick({ componentId: component.id, pinId: pin.id }, pin.kind);
             }}
           >
-            <circle className={`pin ${pin.kind} ${value ? 'on' : ''}`} cx={pin.offset.x} cy={pin.offset.y} r="7" />
+            <circle
+              className={`pin ${pin.kind} ${value ? 'on' : ''}`}
+              cx={pin.offset.x}
+              cy={pin.offset.y}
+              r="7"
+            />
             {pin.kind === 'input' && component.type !== 'led' && component.type !== 'not' && (
-              <text className="pin-label" x={pin.offset.x + 12} y={pin.offset.y + 4} textAnchor="start">
+              <text
+                className="pin-label"
+                x={pin.offset.x + 12}
+                y={pin.offset.y + 4}
+                textAnchor="start"
+              >
                 {pin.label}
               </text>
             )}
-            {pin.kind === 'output' && definition.pins.filter((candidate) => candidate.kind === 'output').length > 1 && (
-              <text className="pin-label" x={pin.offset.x - 12} y={pin.offset.y + 4} textAnchor="end">
-                {pin.label}
-              </text>
-            )}
+            {pin.kind === 'output' &&
+              definition.pins.filter((candidate) => candidate.kind === 'output').length > 1 && (
+                <text
+                  className="pin-label"
+                  x={pin.offset.x - 12}
+                  y={pin.offset.y + 4}
+                  textAnchor="end"
+                >
+                  {pin.label}
+                </text>
+              )}
           </g>
         );
       })}

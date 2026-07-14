@@ -12,7 +12,10 @@ export function loadWireStyle(storageKey: string): WireStyle {
 export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
   return {
     version: circuit.version,
-    components: circuit.components.map((component) => ({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
+    components: circuit.components.map((component) => ({
+      ...component,
+      memory: component.memory ? { ...component.memory } : undefined,
+    })),
     wires: circuit.wires.map((wire) => ({
       id: wire.id,
       from: { ...wire.from },
@@ -24,7 +27,12 @@ export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
 export function normalizeCircuitForEditor(circuit: CircuitDocument): CircuitDocument {
   return {
     ...cloneCircuit(circuit),
-    components: circuit.components.map((component) => withSequentialDefaults({ ...component, memory: component.memory ? { ...component.memory } : undefined })),
+    components: circuit.components.map((component) =>
+      withSequentialDefaults({
+        ...component,
+        memory: component.memory ? { ...component.memory } : undefined,
+      }),
+    ),
   };
 }
 

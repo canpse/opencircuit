@@ -1,4 +1,10 @@
-import type { CircuitDocument, EvaluationResult, LogicComponent, SimulationResult, SimulationState } from '../types';
+import type {
+  CircuitDocument,
+  EvaluationResult,
+  LogicComponent,
+  SimulationResult,
+  SimulationState,
+} from '../types';
 import { evaluateComponent } from './gates';
 import { initializeValues, readPin, simulationResult, writePin } from './signals';
 
@@ -8,9 +14,14 @@ export function evaluateCircuit(circuit: CircuitDocument): EvaluationResult {
   return simulateCircuit(circuit).values;
 }
 
-export function simulateCircuit(circuit: CircuitDocument, previousState?: SimulationState): SimulationResult {
+export function simulateCircuit(
+  circuit: CircuitDocument,
+  previousState?: SimulationState,
+): SimulationResult {
   const values = initializeValues(circuit, previousState?.values);
-  const componentById = new Map<string, LogicComponent>(circuit.components.map((component) => [component.id, component]));
+  const componentById = new Map<string, LogicComponent>(
+    circuit.components.map((component) => [component.id, component]),
+  );
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
     let changed = false;

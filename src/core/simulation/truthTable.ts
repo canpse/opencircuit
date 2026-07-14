@@ -6,7 +6,11 @@ export interface TruthTableRow {
   outputs: boolean[];
 }
 
-export function buildCircuitTruthRows(circuit: CircuitDocument, inputs: LogicComponent[], outputs: LogicComponent[]): TruthTableRow[] {
+export function buildCircuitTruthRows(
+  circuit: CircuitDocument,
+  inputs: LogicComponent[],
+  outputs: LogicComponent[],
+): TruthTableRow[] {
   const rowCount = 2 ** inputs.length;
   return Array.from({ length: rowCount }, (_, rowIndex) => {
     const inputValues = inputs.map((_, inputIndex) => {
