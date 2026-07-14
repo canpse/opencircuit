@@ -10,12 +10,24 @@ export function evaluateComponent(
   switch (component.type) {
     case 'input':
     case 'button':
-      return writePin(values, { componentId: component.id, pinId: 'out' }, Boolean(component.state));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'out' },
+        Boolean(component.state),
+      );
     case 'clock':
-      return writePin(values, { componentId: component.id, pinId: 'CLK' }, Boolean(component.state));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'CLK' },
+        Boolean(component.state),
+      );
     case 'd-latch':
     case 'd-flip-flop':
-      return writePin(values, { componentId: component.id, pinId: 'Q' }, Boolean(component.memory?.q));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'Q' },
+        Boolean(component.memory?.q),
+      );
     case 'register-4':
       return writeMany(values, component.id, {
         Q0: Boolean(component.memory?.q0),
@@ -27,7 +39,11 @@ export function evaluateComponent(
     case 'text':
       return false;
     case 'not':
-      return writePin(values, { componentId: component.id, pinId: 'out' }, !inputValue(circuit, values, componentById, component.id, 'in'));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'out' },
+        !inputValue(circuit, values, componentById, component.id, 'in'),
+      );
     case 'and': {
       const a = inputValue(circuit, values, componentById, component.id, 'a');
       const b = inputValue(circuit, values, componentById, component.id, 'b');
@@ -67,7 +83,10 @@ export function evaluateComponent(
       const a = inputValue(circuit, values, componentById, component.id, 'A');
       const b = inputValue(circuit, values, componentById, component.id, 'B');
       const cin = inputValue(circuit, values, componentById, component.id, 'Cin');
-      return writeMany(values, component.id, { SUM: a !== b !== cin, Cout: (a && b) || (cin && (a !== b)) });
+      return writeMany(values, component.id, {
+        SUM: (a !== b) !== cin,
+        Cout: (a && b) || (cin && a !== b),
+      });
     }
     case 'mux-2-1': {
       const a = inputValue(circuit, values, componentById, component.id, 'A');
@@ -82,12 +101,21 @@ export function evaluateComponent(
       const d3 = inputValue(circuit, values, componentById, component.id, 'D3');
       const s0 = inputValue(circuit, values, componentById, component.id, 'S0');
       const s1 = inputValue(circuit, values, componentById, component.id, 'S1');
-      return writePin(values, { componentId: component.id, pinId: 'OUT' }, s1 ? (s0 ? d3 : d2) : (s0 ? d1 : d0));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'OUT' },
+        s1 ? (s0 ? d3 : d2) : s0 ? d1 : d0,
+      );
     }
     case 'decoder-2-4': {
       const a = inputValue(circuit, values, componentById, component.id, 'A');
       const b = inputValue(circuit, values, componentById, component.id, 'B');
-      return writeMany(values, component.id, { Y0: !a && !b, Y1: !a && b, Y2: a && !b, Y3: a && b });
+      return writeMany(values, component.id, {
+        Y0: !a && !b,
+        Y1: !a && b,
+        Y2: a && !b,
+        Y3: a && b,
+      });
     }
     case 'comparator-1-bit': {
       const a = inputValue(circuit, values, componentById, component.id, 'A');
@@ -104,13 +132,17 @@ export function evaluateComponent(
       const a = inputValue(circuit, values, componentById, component.id, 'A');
       const b = inputValue(circuit, values, componentById, component.id, 'B');
       const c = inputValue(circuit, values, componentById, component.id, 'C');
-      return writePin(values, { componentId: component.id, pinId: 'OUT' }, a !== b !== c);
+      return writePin(values, { componentId: component.id, pinId: 'OUT' }, (a !== b) !== c);
     }
     case 'majority-3': {
       const a = inputValue(circuit, values, componentById, component.id, 'A');
       const b = inputValue(circuit, values, componentById, component.id, 'B');
       const c = inputValue(circuit, values, componentById, component.id, 'C');
-      return writePin(values, { componentId: component.id, pinId: 'OUT' }, (a && b) || (a && c) || (b && c));
+      return writePin(
+        values,
+        { componentId: component.id, pinId: 'OUT' },
+        (a && b) || (a && c) || (b && c),
+      );
     }
     case 'half-subtractor': {
       const a = inputValue(circuit, values, componentById, component.id, 'A');
@@ -121,7 +153,10 @@ export function evaluateComponent(
       const a = inputValue(circuit, values, componentById, component.id, 'A');
       const b = inputValue(circuit, values, componentById, component.id, 'B');
       const bin = inputValue(circuit, values, componentById, component.id, 'Bin');
-      return writeMany(values, component.id, { DIFF: a !== b !== bin, Bout: (!a && b) || (bin && !(a !== b)) });
+      return writeMany(values, component.id, {
+        DIFF: (a !== b) !== bin,
+        Bout: (!a && b) || (bin && !(a !== b)),
+      });
     }
   }
 }

@@ -7,7 +7,9 @@ export function useReleaseMomentaryButtons(setCircuit: Dispatch<SetStateAction<C
       setCircuit((current) => ({
         ...current,
         components: current.components.map((component) =>
-          component.type === 'button' && component.state ? { ...component, state: false } : component,
+          component.type === 'button' && component.state
+            ? { ...component, state: false }
+            : component,
         ),
       }));
     }

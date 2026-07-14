@@ -8,7 +8,13 @@ export type ContextMenu =
   | { kind: 'wire'; x: number; y: number; wireId: string }
   | null;
 
-export function ContextMenuView({ menu, selection, onAddComponent, onRename, onRemove }: {
+export function ContextMenuView({
+  menu,
+  selection,
+  onAddComponent,
+  onRename,
+  onRemove,
+}: {
   menu: NonNullable<ContextMenu>;
   selection: Selection;
   onAddComponent: (type: GateType) => void;

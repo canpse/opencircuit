@@ -34,7 +34,19 @@ export const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
   { title: 'Portas Lógicas', tools: ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] },
   {
     title: 'Blocos Combinacionais',
-    tools: ['half-adder', 'full-adder', 'mux-2-1', 'mux-4-1', 'decoder-2-4', 'comparator-1-bit', 'encoder-4-2', 'odd-parity-3', 'majority-3', 'half-subtractor', 'full-subtractor'],
+    tools: [
+      'half-adder',
+      'full-adder',
+      'mux-2-1',
+      'mux-4-1',
+      'decoder-2-4',
+      'comparator-1-bit',
+      'encoder-4-2',
+      'odd-parity-3',
+      'majority-3',
+      'half-subtractor',
+      'full-subtractor',
+    ],
   },
   { title: 'Sequenciais', tools: ['clock', 'd-latch', 'd-flip-flop', 'register-4'] },
   { title: 'Anotações', tools: ['text'] },
@@ -62,7 +74,9 @@ export function ComponentLibrary({ selectedTool, onSelectTool }: ComponentLibrar
                   className={`tool-card ${selectedTool === type ? 'active' : ''}`}
                   draggable
                   onClick={() => onSelectTool(type)}
-                  onDragStart={(event) => event.dataTransfer.setData('application/opencircuit-gate', type)}
+                  onDragStart={(event) =>
+                    event.dataTransfer.setData('application/opencircuit-gate', type)
+                  }
                 >
                   <ToolButtonContent type={type} />
                 </button>

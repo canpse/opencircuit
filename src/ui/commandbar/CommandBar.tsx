@@ -66,28 +66,52 @@ export function CommandBar({
         aria-label="Aulas e exemplos"
         title="Passe o mouse sobre um exemplo para ver sua descrição."
       >
-        <option value="" disabled>Aulas</option>
+        <option value="" disabled>
+          Aulas
+        </option>
         {lessons.map((lesson) => (
           <optgroup key={lesson.id} label={lesson.title} title={lesson.description}>
             {lesson.examples.map((example) => (
-              <option key={example.id} value={example.id} title={example.description}>{example.name}</option>
+              <option key={example.id} value={example.id} title={example.description}>
+                {example.name}
+              </option>
             ))}
           </optgroup>
         ))}
       </select>
       <span className="command-separator" />
-      <button onClick={onUndo} disabled={!canUndo}>Desfazer</button>
-      <button onClick={onRedo} disabled={!canRedo}>Refazer</button>
+      <button onClick={onUndo} disabled={!canUndo}>
+        Desfazer
+      </button>
+      <button onClick={onRedo} disabled={!canRedo}>
+        Refazer
+      </button>
       <span className="command-separator" />
-      <button onClick={() => onSelectTool('pan')} className={selectedTool === 'pan' ? 'active' : ''}>Mão</button>
-      <button onClick={() => onSelectTool('select')} className={selectedTool === 'select' ? 'active' : ''}>Selecionar</button>
+      <button
+        onClick={() => onSelectTool('pan')}
+        className={selectedTool === 'pan' ? 'active' : ''}
+      >
+        Mão
+      </button>
+      <button
+        onClick={() => onSelectTool('select')}
+        className={selectedTool === 'select' ? 'active' : ''}
+      >
+        Selecionar
+      </button>
       <button onClick={onTick}>Tick</button>
-      <button onClick={onToggleAutoClock} className={autoClockRunning ? 'active clock-running' : ''}>
+      <button
+        onClick={onToggleAutoClock}
+        className={autoClockRunning ? 'active clock-running' : ''}
+      >
         {autoClockRunning ? 'Pausar clock' : 'Rodar clock'}
       </button>
       <label className="clock-speed-control">
         Velocidade
-        <select value={autoClockIntervalMs} onChange={(event) => onAutoClockIntervalChange(Number(event.target.value))}>
+        <select
+          value={autoClockIntervalMs}
+          onChange={(event) => onAutoClockIntervalChange(Number(event.target.value))}
+        >
           <option value={1000}>1 Hz</option>
           <option value={500}>2 Hz</option>
           <option value={250}>4 Hz</option>
@@ -97,12 +121,21 @@ export function CommandBar({
       <button onClick={onResetSimulation}>Resetar simulação</button>
       <label className="wire-style-control">
         Fios
-        <select value={wireStyle} onChange={(event) => onWireStyleChange(event.target.value as WireStyle)}>
+        <select
+          value={wireStyle}
+          onChange={(event) => onWireStyleChange(event.target.value as WireStyle)}
+        >
           <option value="orthogonal">Ortogonal</option>
           <option value="bezier">Curvo</option>
         </select>
       </label>
-      <input ref={fileInputRef} type="file" accept="application/json" onChange={onImportJson} hidden />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        onChange={onImportJson}
+        hidden
+      />
     </div>
   );
 }

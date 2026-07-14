@@ -12,7 +12,17 @@ import {
 } from './wireRouting';
 import type { WireStyle } from './CircuitCanvas';
 
-export function WireView({ wire, route, wireStyle, componentById, evaluation, selected, onSelect, onContextMenu, onRemove }: {
+export function WireView({
+  wire,
+  route,
+  wireStyle,
+  componentById,
+  evaluation,
+  selected,
+  onSelect,
+  onContextMenu,
+  onRemove,
+}: {
   wire: Wire;
   route: WireRoute | undefined;
   wireStyle: WireStyle;
@@ -28,13 +38,15 @@ export function WireView({ wire, route, wireStyle, componentById, evaluation, se
   if (!from || !to) return null;
   const start = getPinPosition(from, wire.from.pinId);
   const end = getPinPosition(to, wire.to.pinId);
-  const points = route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
+  const points =
+    route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
   const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
-  const d = wireStyle === 'orthogonal'
-    ? orthogonalPath(points, route?.jumps ?? [])
-    : from.id === to.id
-      ? bezierPathFromPoints(points)
-      : bezierPathWithPinStubs(start, end);
+  const d =
+    wireStyle === 'orthogonal'
+      ? orthogonalPath(points, route?.jumps ?? [])
+      : from.id === to.id
+        ? bezierPathFromPoints(points)
+        : bezierPathWithPinStubs(start, end);
 
   return (
     <path
@@ -57,7 +69,13 @@ export function WireView({ wire, route, wireStyle, componentById, evaluation, se
   );
 }
 
-export function PendingWire({ pendingWire, componentById, components, wireStyle, mousePoint }: {
+export function PendingWire({
+  pendingWire,
+  componentById,
+  components,
+  wireStyle,
+  mousePoint,
+}: {
   pendingWire: PinRef;
   componentById: Map<string, LogicComponent>;
   components: LogicComponent[];
@@ -68,8 +86,15 @@ export function PendingWire({ pendingWire, componentById, components, wireStyle,
   if (!component) return null;
   const start = getPinPosition(component, pendingWire.pinId);
   const end = mousePoint;
-  const route = end && wireStyle === 'orthogonal' ? routeBetweenPoints(start, end, components, new Set([component.id]), 0) : null;
-  const d = end ? (wireStyle === 'orthogonal' && route ? orthogonalPath(route, []) : bezierPath(start, end)) : '';
+  const route =
+    end && wireStyle === 'orthogonal'
+      ? routeBetweenPoints(start, end, components, new Set([component.id]), 0)
+      : null;
+  const d = end
+    ? wireStyle === 'orthogonal' && route
+      ? orthogonalPath(route, [])
+      : bezierPath(start, end)
+    : '';
 
   return (
     <g className="pending-wire-preview">

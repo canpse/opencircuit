@@ -11,7 +11,13 @@ export function isSequentialType(type: LogicComponent['type']): boolean {
 export function withSequentialDefaults(component: LogicComponent): LogicComponent {
   if (component.type === 'clock') return { ...component, state: Boolean(component.state) };
   if (component.type === 'd-latch' || component.type === 'd-flip-flop') {
-    return { ...component, memory: { q: Boolean(component.memory?.q), previousClk: Boolean(component.memory?.previousClk) } };
+    return {
+      ...component,
+      memory: {
+        q: Boolean(component.memory?.q),
+        previousClk: Boolean(component.memory?.previousClk),
+      },
+    };
   }
   if (component.type === 'register-4') {
     return {
@@ -54,7 +60,9 @@ export function stepCircuit(circuit: CircuitDocument): CircuitDocument {
     ),
   };
   const values = evaluateCircuit(clockedCircuit);
-  const componentById = new Map(clockedCircuit.components.map((component) => [component.id, component]));
+  const componentById = new Map(
+    clockedCircuit.components.map((component) => [component.id, component]),
+  );
 
   return {
     ...clockedCircuit,

@@ -1,9 +1,13 @@
 import { ChangeEvent, type SetStateAction, useCallback, useMemo, useRef, useState } from 'react';
 import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
-import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
+import type { CircuitDocument, GateType, PinRef, Point, Wire } from '../core/types';
 import { downloadJson, STARTER_CIRCUIT } from '../state/storage';
-import { createUntitledDocument, loadWorkspace, type WorkspaceDocument } from '../state/workspaceStorage';
-import { CircuitCanvas, type WireStyle } from './editor/CircuitCanvas';
+import {
+  createUntitledDocument,
+  loadWorkspace,
+  type WorkspaceDocument,
+} from '../state/workspaceStorage';
+import { CircuitCanvas } from './editor/CircuitCanvas';
 import { CIRCUIT_EXAMPLES, CIRCUIT_LESSONS } from '../examples/circuitExamples';
 import { CircuitTruthTable } from './panels/CircuitTruthTable';
 import { LessonPanel } from './panels/LessonPanel';
@@ -18,14 +22,21 @@ import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
 import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useSimulationRuntime } from './hooks/useSimulationRuntime';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
-import { cloneCircuit, componentDefinitionLabel, createLogicComponent, hasSelection, nextId, normalizeCircuitForEditor, snap } from './app/editorUtils';
+import {
+  cloneCircuit,
+  componentDefinitionLabel,
+  createLogicComponent,
+  hasSelection,
+  nextId,
+  normalizeCircuitForEditor,
+  snap,
+} from './app/editorUtils';
 import { ContextMenuView, type ContextMenu, type Selection } from './context-menu/ContextMenuView';
 import { ComponentLibrary } from './library/ComponentLibrary';
 
 const GRID = 20;
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
-
 
 const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 export function App() {
@@ -35,11 +46,15 @@ export function App() {
   const setDocuments = useCallback((action: SetStateAction<WorkspaceDocument[]>) => {
     setWorkspace((current) => {
       const nextDocuments = typeof action === 'function' ? action(current.documents) : action;
-      const activeStillExists = nextDocuments.some((document) => document.id === current.activeDocumentId);
+      const activeStillExists = nextDocuments.some(
+        (document) => document.id === current.activeDocumentId,
+      );
       return {
         ...current,
         documents: nextDocuments,
-        activeDocumentId: activeStillExists ? current.activeDocumentId : nextDocuments[0]?.id ?? current.activeDocumentId,
+        activeDocumentId: activeStillExists
+          ? current.activeDocumentId
+          : (nextDocuments[0]?.id ?? current.activeDocumentId),
       };
     });
   }, []);
@@ -49,24 +64,43 @@ export function App() {
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
-  const activeDocument = documents.find((document) => document.id === activeDocumentId) ?? documents[0];
+  const activeDocument =
+    documents.find((document) => document.id === activeDocumentId) ?? documents[0];
   const circuit = activeDocument.circuit;
   const currentExampleId = activeDocument.exampleId;
-  const setCircuit = useCallback((action: SetStateAction<CircuitDocument>) => {
-    setDocuments((currentDocuments) => currentDocuments.map((document) => {
-      if (document.id !== activeDocumentId) return document;
-      const nextCircuit = typeof action === 'function' ? action(document.circuit) : action;
-      return { ...document, circuit: nextCircuit, saved: false };
-    }));
-  }, [activeDocumentId]);
-  const setActiveExampleId = useCallback((exampleId: string | null) => {
-    setDocuments((currentDocuments) => currentDocuments.map((document) =>
-      document.id === activeDocumentId ? { ...document, exampleId } : document,
-    ));
-  }, [activeDocumentId]);
-  const { canUndo, canRedo, remember: rememberCircuit, undo: undoHistory, redo: redoHistory } = useCircuitHistory(circuit, HISTORY_LIMIT, activeDocumentId);
+  const setCircuit = useCallback(
+    (action: SetStateAction<CircuitDocument>) => {
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((document) => {
+          if (document.id !== activeDocumentId) return document;
+          const nextCircuit = typeof action === 'function' ? action(document.circuit) : action;
+          return { ...document, circuit: nextCircuit, saved: false };
+        }),
+      );
+    },
+    [activeDocumentId, setDocuments],
+  );
+  const setActiveExampleId = useCallback(
+    (exampleId: string | null) => {
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((document) =>
+          document.id === activeDocumentId ? { ...document, exampleId } : document,
+        ),
+      );
+    },
+    [activeDocumentId, setDocuments],
+  );
+  const {
+    canUndo,
+    canRedo,
+    remember: rememberCircuit,
+    undo: undoHistory,
+    redo: redoHistory,
+  } = useCircuitHistory(circuit, HISTORY_LIMIT, activeDocumentId);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
-  const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(null);
+  const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(
+    null,
+  );
   const [message, setMessage] = useState('Pronto para testar lógica.');
   const [autoClockRunning, setAutoClockRunning] = useState(false);
   const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
@@ -74,7 +108,9 @@ export function App() {
   const truthPanel = useResizableSidePanel(320, 260, 620);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);
-  const hasSequentialComponents = circuit.components.some((component) => isSequentialType(component.type));
+  const hasSequentialComponents = circuit.components.some((component) =>
+    isSequentialType(component.type),
+  );
   const hasFeedback = useMemo(() => circuitHasFeedback(circuit), [circuit]);
   const currentExample = useMemo(
     () => CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null,
@@ -87,7 +123,11 @@ export function App() {
   }, [setCircuit]);
 
   useAutoSaveWorkspace(workspace);
-  useAutoClock({ running: autoClockRunning, intervalMs: autoClockIntervalMs, onTick: autoClockTick });
+  useAutoClock({
+    running: autoClockRunning,
+    intervalMs: autoClockIntervalMs,
+    onTick: autoClockTick,
+  });
   useAutoCloseContextMenu(closeContextMenu);
   useReleaseMomentaryButtons(setCircuit);
 
@@ -179,9 +219,7 @@ export function App() {
   }
 
   function moveComponents(moves: Array<{ componentId: string; point: Point }>) {
-    const positions = new Map(
-      moves.map((move) => [move.componentId, snap(move.point, GRID)]),
-    );
+    const positions = new Map(moves.map((move) => [move.componentId, snap(move.point, GRID)]));
     setCircuit((current) => ({
       ...current,
       components: current.components.map((component) => {
@@ -193,14 +231,16 @@ export function App() {
 
   function toggleInput(componentId: string) {
     rememberCircuit();
-    setCircuit((current) => settleSequentialCircuit({
-      ...current,
-      components: current.components.map((component) =>
-        component.id === componentId && component.type === 'input'
-          ? { ...component, state: !component.state }
-          : component,
-      ),
-    }));
+    setCircuit((current) =>
+      settleSequentialCircuit({
+        ...current,
+        components: current.components.map((component) =>
+          component.id === componentId && component.type === 'input'
+            ? { ...component, state: !component.state }
+            : component,
+        ),
+      }),
+    );
   }
 
   function setButtonPressed(componentId: string, pressed: boolean) {
@@ -359,7 +399,10 @@ export function App() {
 
   function removeWire(wireId: string) {
     rememberCircuit();
-    setCircuit((current) => ({ ...current, wires: current.wires.filter((wire) => wire.id !== wireId) }));
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.filter((wire) => wire.id !== wireId),
+    }));
     setSelection((current) => ({
       componentIds: current.componentIds,
       wireIds: current.wireIds.filter((id) => id !== wireId),
@@ -444,7 +487,9 @@ export function App() {
 
     if (documents.length === 1) {
       const replacement = createUntitledDocument(1);
-      setDocuments([{ ...replacement, circuit: normalizeCircuitForEditor(cloneCircuit(replacement.circuit)) }]);
+      setDocuments([
+        { ...replacement, circuit: normalizeCircuitForEditor(cloneCircuit(replacement.circuit)) },
+      ]);
       resetSimulationRuntime();
       setActiveDocumentId(replacement.id);
       setPendingWire(null);
@@ -455,7 +500,9 @@ export function App() {
       return;
     }
 
-    setDocuments((currentDocuments) => currentDocuments.filter((document) => document.id !== documentId));
+    setDocuments((currentDocuments) =>
+      currentDocuments.filter((document) => document.id !== documentId),
+    );
     if (documentId === activeDocumentId) {
       resetSimulationRuntime();
       setActiveDocumentId(fallback.id);
@@ -468,7 +515,9 @@ export function App() {
   }
 
   function saveActiveDocument() {
-    const suggestedName = activeDocument.name.endsWith('.json') ? activeDocument.name : `${activeDocument.name}.json`;
+    const suggestedName = activeDocument.name.endsWith('.json')
+      ? activeDocument.name
+      : `${activeDocument.name}.json`;
     const chosenName = window.prompt('Nome do arquivo para salvar:', suggestedName);
     if (!chosenName) {
       setMessage('Salvamento cancelado.');
@@ -476,12 +525,15 @@ export function App() {
     }
     const filename = chosenName.endsWith('.json') ? chosenName : `${chosenName}.json`;
     downloadJson(filename, circuit);
-    setDocuments((currentDocuments) => currentDocuments.map((document) =>
-      document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
-    ));
+    setDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
+      ),
+    );
     setMessage(`Arquivo salvo: ${filename}.`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function resetCircuit() {
     rememberCircuit();
     resetSimulationRuntime();
@@ -520,10 +572,15 @@ export function App() {
   function importJson(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    file.text()
+    file
+      .text()
       .then((text) => {
         const parsed = JSON.parse(text) as CircuitDocument;
-        if (parsed.version !== 1 || !Array.isArray(parsed.components) || !Array.isArray(parsed.wires)) {
+        if (
+          parsed.version !== 1 ||
+          !Array.isArray(parsed.components) ||
+          !Array.isArray(parsed.wires)
+        ) {
           throw new Error('Formato inválido');
         }
         const id = `doc-${Date.now()}`;
@@ -557,7 +614,6 @@ export function App() {
           <strong>OpenCircuit</strong>
           <span className="project-name">Projeto: {activeDocument.name}</span>
         </div>
-
       </header>
 
       <CommandBar
@@ -595,24 +651,30 @@ export function App() {
               <div
                 key={document.id}
                 className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
-                title={document.exampleId ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}` : document.name}
+                title={
+                  document.exampleId
+                    ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}`
+                    : document.name
+                }
               >
                 <button className="document-tab-title" onClick={() => selectDocument(document.id)}>
                   {document.name}
                 </button>
                 <button
-                    className="document-tab-close"
-                    aria-label={`Fechar ${document.name}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      closeDocument(document.id);
-                    }}
-                  >
-                    ×
-                  </button>
+                  className="document-tab-close"
+                  aria-label={`Fechar ${document.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    closeDocument(document.id);
+                  }}
+                >
+                  ×
+                </button>
               </div>
             ))}
-            <button className="document-tab add-tab" onClick={createNewDocument}>+</button>
+            <button className="document-tab add-tab" onClick={createNewDocument}>
+              +
+            </button>
           </div>
           <div className="editor-panel">
             <CircuitCanvas
@@ -659,17 +721,30 @@ export function App() {
         />
 
         <aside className="properties-panel truth-panel">
-          <div className="panel-header">{hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}</div>
-          <CircuitTruthTable circuit={circuit} evaluation={evaluation} unstable={simulationResult.unstable} hasFeedback={hasFeedback} />
+          <div className="panel-header">
+            {hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}
+          </div>
+          <CircuitTruthTable
+            circuit={circuit}
+            evaluation={evaluation}
+            unstable={simulationResult.unstable}
+            hasFeedback={hasFeedback}
+          />
           <div className="panel-section-divider" />
           <div className="panel-header lesson-panel-header">Lição</div>
-          <LessonPanel example={currentExample} examples={CIRCUIT_EXAMPLES} onLoadExample={loadExample} />
+          <LessonPanel
+            example={currentExample}
+            examples={CIRCUIT_EXAMPLES}
+            onLoadExample={loadExample}
+          />
         </aside>
       </section>
 
       <footer className="statusbar app-footer">
         <span>{message}</span>
-        <span>{circuit.components.length} componentes · {circuit.wires.length} fios</span>
+        <span>
+          {circuit.components.length} componentes · {circuit.wires.length} fios
+        </span>
       </footer>
 
       {contextMenu && (
@@ -684,4 +759,3 @@ export function App() {
     </main>
   );
 }
-

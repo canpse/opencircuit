@@ -22,7 +22,9 @@ export function createInitialWorkspace(): WorkspaceState {
   return {
     version: 1,
     activeDocumentId: id,
-    documents: [{ id, name: 'circuito_logico.json', circuit: loadCircuit(), exampleId: null, saved: true }],
+    documents: [
+      { id, name: 'circuito_logico.json', circuit: loadCircuit(), exampleId: null, saved: true },
+    ],
   };
 }
 
@@ -39,7 +41,9 @@ export function loadWorkspace(): WorkspaceState {
       parsed.documents.length > 0 &&
       parsed.documents.every(isWorkspaceDocument)
     ) {
-      const activeDocumentId = parsed.documents.some((document) => document.id === parsed.activeDocumentId)
+      const activeDocumentId = parsed.documents.some(
+        (document) => document.id === parsed.activeDocumentId,
+      )
         ? parsed.activeDocumentId
         : parsed.documents[0].id;
       return { ...parsed, activeDocumentId };
@@ -76,6 +80,6 @@ function isWorkspaceDocument(value: WorkspaceDocument): boolean {
     typeof value.name === 'string' &&
     value.circuit?.version === 1 &&
     Array.isArray(value.circuit.components) &&
-    Array.isArray(value.circuit.wires)
+    Array.isArray(value.circuit.wires),
   );
 }

@@ -13,6 +13,7 @@ export function useLabelEditing(
   const [editingLabel, setEditingLabel] = useState<EditingLabel>(null);
   const labelInputRef = useRef<HTMLInputElement>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!editingLabel) return;
     labelInputRef.current?.focus();

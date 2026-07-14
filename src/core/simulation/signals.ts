@@ -1,7 +1,16 @@
 import { getPins } from '../catalog';
-import type { CircuitDocument, EvaluationResult, LogicComponent, PinRef, SimulationResult } from '../types';
+import type {
+  CircuitDocument,
+  EvaluationResult,
+  LogicComponent,
+  PinRef,
+  SimulationResult,
+} from '../types';
 
-export function initializeValues(circuit: CircuitDocument, previousValues?: EvaluationResult): EvaluationResult {
+export function initializeValues(
+  circuit: CircuitDocument,
+  previousValues?: EvaluationResult,
+): EvaluationResult {
   const values: EvaluationResult = {};
   for (const component of circuit.components) {
     values[component.id] = {};
@@ -21,8 +30,17 @@ export function initializeValues(circuit: CircuitDocument, previousValues?: Eval
   return values;
 }
 
-export function simulationResult(values: EvaluationResult, unstable: boolean, iterations: number): SimulationResult {
-  return { values, unstable, iterations, state: { values: cloneValues(values), unstable, iterations } };
+export function simulationResult(
+  values: EvaluationResult,
+  unstable: boolean,
+  iterations: number,
+): SimulationResult {
+  return {
+    values,
+    unstable,
+    iterations,
+    state: { values: cloneValues(values), unstable, iterations },
+  };
 }
 
 export function cloneValues(values: EvaluationResult): EvaluationResult {
@@ -38,7 +56,9 @@ export function inputValue(
   componentId: string,
   pinId: string,
 ): boolean {
-  const incoming = circuit.wires.find((wire) => wire.to.componentId === componentId && wire.to.pinId === pinId);
+  const incoming = circuit.wires.find(
+    (wire) => wire.to.componentId === componentId && wire.to.pinId === pinId,
+  );
   if (!incoming) return false;
   const sourceComponent = componentById.get(incoming.from.componentId);
   if (!sourceComponent) return false;
@@ -56,7 +76,11 @@ export function writePin(values: EvaluationResult, pin: PinRef, value: boolean):
   return true;
 }
 
-export function writeMany(values: EvaluationResult, componentId: string, outputs: Record<string, boolean>): boolean {
+export function writeMany(
+  values: EvaluationResult,
+  componentId: string,
+  outputs: Record<string, boolean>,
+): boolean {
   return Object.entries(outputs).reduce(
     (changed, [pinId, value]) => writePin(values, { componentId, pinId }, value) || changed,
     false,

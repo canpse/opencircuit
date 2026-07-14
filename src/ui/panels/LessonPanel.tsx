@@ -1,10 +1,24 @@
-import { CURRICULUM_FAMILIES, CURRICULUM_MODULES, CURRICULUM_TRACKS, type CircuitExample } from '../../examples/circuitExamples';
+import {
+  CURRICULUM_FAMILIES,
+  CURRICULUM_MODULES,
+  CURRICULUM_TRACKS,
+  type CircuitExample,
+} from '../../examples/circuitExamples';
 
-export function LessonPanel({ example, examples, onLoadExample }: { example: CircuitExample | null; examples: CircuitExample[]; onLoadExample: (exampleId: string) => void }) {
+export function LessonPanel({
+  example,
+  examples,
+  onLoadExample,
+}: {
+  example: CircuitExample | null;
+  examples: CircuitExample[];
+  onLoadExample: (exampleId: string) => void;
+}) {
   if (!example) {
     return (
       <div className="properties-card muted-card lesson-empty">
-        Carregue um exemplo em <strong>Aulas</strong> para ver objetivo, conceitos, experimentos e próximos caminhos.
+        Carregue um exemplo em <strong>Aulas</strong> para ver objetivo, conceitos, experimentos e
+        próximos caminhos.
       </div>
     );
   }
@@ -21,10 +35,19 @@ export function LessonPanel({ example, examples, onLoadExample }: { example: Cir
         <p>{example.goal}</p>
       </div>
 
-      <LessonSection title="Antes de começar" items={example.prerequisites} empty="Você pode começar por aqui." examples={examples} onItemClick={onLoadExample} />
+      <LessonSection
+        title="Antes de começar"
+        items={example.prerequisites}
+        empty="Você pode começar por aqui."
+        examples={examples}
+        onItemClick={onLoadExample}
+      />
       <LessonSection title="Passo a passo" items={example.steps} ordered />
       <LessonSection title="Observe" items={example.observe} />
-      <LessonSection title="Ideias importantes" items={example.ideas.length ? example.ideas : example.concepts} />
+      <LessonSection
+        title="Ideias importantes"
+        items={example.ideas.length ? example.ideas : example.concepts}
+      />
       <LessonSection title="Experimente" items={example.experiments} />
 
       {example.challenge && (
@@ -34,24 +57,53 @@ export function LessonPanel({ example, examples, onLoadExample }: { example: Cir
         </div>
       )}
 
-      <LessonSection title="Lista de exercícios" items={example.exercises} empty="Sem exercícios extras para esta lição." ordered />
+      <LessonSection
+        title="Lista de exercícios"
+        items={example.exercises}
+        empty="Sem exercícios extras para esta lição."
+        ordered
+      />
 
-      <LessonSection title="Continue com" items={example.next} empty="Você chegou ao fim desta trilha por enquanto." examples={examples} onItemClick={onLoadExample} />
+      <LessonSection
+        title="Continue com"
+        items={example.next}
+        empty="Você chegou ao fim desta trilha por enquanto."
+        examples={examples}
+        onItemClick={onLoadExample}
+      />
 
       <div className="properties-card lesson-meta-card">
         <span className="property-subtitle">Mapa</span>
         <div className="lesson-tags">
           <span>Dificuldade {example.difficulty}/5</span>
           <span>{levelLabel(example.level)}</span>
-          {tracks.map((track) => <span key={track.id}>{track.title}</span>)}
-          {families.map((family) => <span key={family.id}>{family.title}</span>)}
+          {tracks.map((track) => (
+            <span key={track.id}>{track.title}</span>
+          ))}
+          {families.map((family) => (
+            <span key={family.id}>{family.title}</span>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-function LessonSection({ title, items, empty, examples = [], ordered = false, onItemClick }: { title: string; items: string[]; empty?: string; examples?: CircuitExample[]; ordered?: boolean; onItemClick?: (item: string) => void }) {
+function LessonSection({
+  title,
+  items,
+  empty,
+  examples = [],
+  ordered = false,
+  onItemClick,
+}: {
+  title: string;
+  items: string[];
+  empty?: string;
+  examples?: CircuitExample[];
+  ordered?: boolean;
+  onItemClick?: (item: string) => void;
+}) {
   const exampleById = new Map(examples.map((example) => [example.id, example]));
   return (
     <div className="properties-card lesson-section-card">
@@ -75,10 +127,18 @@ function LessonSection({ title, items, empty, examples = [], ordered = false, on
   );
 }
 
-function renderLessonItem(item: string, exampleById: Map<string, CircuitExample>, onItemClick?: (item: string) => void) {
-  return onItemClick && exampleById.has(item)
-    ? <button className="lesson-link-button" onClick={() => onItemClick(item)}>{exampleById.get(item)?.name}</button>
-    : item;
+function renderLessonItem(
+  item: string,
+  exampleById: Map<string, CircuitExample>,
+  onItemClick?: (item: string) => void,
+) {
+  return onItemClick && exampleById.has(item) ? (
+    <button className="lesson-link-button" onClick={() => onItemClick(item)}>
+      {exampleById.get(item)?.name}
+    </button>
+  ) : (
+    item
+  );
 }
 
 function levelLabel(level: CircuitExample['level']): string {
