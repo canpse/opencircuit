@@ -1,39 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useImmer } from 'use-immer';
 
 export type HistoryState<T> = { past: T[]; future: T[] };
 
 export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string) {
-  const [history, setHistory] = useState<HistoryState<T>>({ past: [], future: [] });
+  const [history, updateHistory] = useImmer<HistoryState<T>>({ past: [], future: [] });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHistory({ past: [], future: [] });
-  }, [resetKey]);
+    updateHistory(() => ({ past: [], future: [] }));
+  }, [resetKey, updateHistory]);
 
   function remember(snapshot: T = current) {
-    setHistory((state) => ({
-      past: [...state.past, snapshot].slice(-limit),
-      future: [],
-    }));
+    updateHistory((draft) => {
+      draft.past.push(snapshot as any);
+      if (draft.past.length > limit) draft.past.shift();
+      draft.future = [];
+    });
   }
 
   function undo(): T | null {
-    const previous = history.past[history.past.length - 1];
-    if (!previous) return null;
-    setHistory((state) => ({
-      past: state.past.slice(0, -1),
-      future: [current, ...state.future].slice(0, limit),
-    }));
+    let previous: T | null = null;
+    updateHistory((draft) => {
+      if (draft.past.length === 0) return;
+      previous = draft.past.pop() as T;
+      draft.future.unshift(current as any);
+      if (draft.future.length > limit) draft.future.pop();
+    });
     return previous;
   }
 
   function redo(): T | null {
-    const next = history.future[0];
-    if (!next) return null;
-    setHistory((state) => ({
-      past: [...state.past, current].slice(-limit),
-      future: state.future.slice(1),
-    }));
+    let next: T | null = null;
+    updateHistory((draft) => {
+      if (draft.future.length === 0) return;
+      next = draft.future.shift() as T;
+      draft.past.push(current as any);
+      if (draft.past.length > limit) draft.past.shift();
+    });
     return next;
   }
 
@@ -46,3 +50,4 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
     redo,
   };
 }
+
