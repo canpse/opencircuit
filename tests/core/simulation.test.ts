@@ -4,15 +4,22 @@ import { join } from 'node:path';
 import { evaluateCircuit, simulateCircuit, stepCircuit } from '../../src/core/evaluateCircuit';
 import { circuitHasFeedback } from '../../src/core/simulation/graph';
 import { buildCircuitTruthRows } from '../../src/core/simulation/truthTable';
-import { bezierPathFromPoints, orthogonalPath, selfLoopRoute } from '../../src/ui/editor/wireRouting';
+import {
+  bezierPathFromPoints,
+  orthogonalPath,
+  selfLoopRoute,
+} from '../../src/ui/editor/wireRouting';
 import { cameraPointFromClient } from '../../src/ui/editor/useCanvasCamera';
 import { CIRCUIT_EXAMPLES } from '../../src/examples/circuitExamples';
+import { isCircuitDocument } from '../../src/core/validateCircuitDocument';
 import type { CircuitDocument, SimulationState } from '../../src/core/types';
 
 type InputValues = Record<string, boolean>;
 
 function loadExample(name: string): CircuitDocument {
-  return JSON.parse(readFileSync(join(process.cwd(), 'examples/sequential-feedback', name), 'utf8')) as CircuitDocument;
+  return JSON.parse(
+    readFileSync(join(process.cwd(), 'examples/sequential-feedback', name), 'utf8'),
+  ) as CircuitDocument;
 }
 
 function setInputs(circuit: CircuitDocument, values: InputValues): CircuitDocument {
@@ -54,7 +61,11 @@ function testCombinationalStillWorks() {
     wires: [
       { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
       { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
-      { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      {
+        id: 'W3',
+        from: { componentId: 'X1', pinId: 'out' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
     ],
   };
 
@@ -135,8 +146,16 @@ function testGatedDLatchFromNand() {
 function testNotSelfFeedbackIsUnstable() {
   const circuit = loadExample('04_unstable_not_feedback.json');
   const result = run(circuit);
-  assert.equal(circuitHasFeedback(circuit), true, 'NOT realimentado deve ser detectado como feedback no grafo');
-  assert.equal(result.unstable, true, 'NOT realimentado em si mesmo deve ser detectado como instável');
+  assert.equal(
+    circuitHasFeedback(circuit),
+    true,
+    'NOT realimentado deve ser detectado como feedback no grafo',
+  );
+  assert.equal(
+    result.unstable,
+    true,
+    'NOT realimentado em si mesmo deve ser detectado como instável',
+  );
 }
 
 function testFeedbackGraphDistinguishesAcyclicCircuit() {
@@ -149,10 +168,18 @@ function testFeedbackGraphDistinguishesAcyclicCircuit() {
     ],
     wires: [
       { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'G1', pinId: 'a' } },
-      { id: 'W2', from: { componentId: 'G1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      {
+        id: 'W2',
+        from: { componentId: 'G1', pinId: 'out' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
     ],
   };
-  assert.equal(circuitHasFeedback(circuit), false, 'Circuito acíclico não deve ser marcado como feedback');
+  assert.equal(
+    circuitHasFeedback(circuit),
+    false,
+    'Circuito acíclico não deve ser marcado como feedback',
+  );
 }
 
 function nativeFlipFlopCircuit(d = false): CircuitDocument {
@@ -166,7 +193,11 @@ function nativeFlipFlopCircuit(d = false): CircuitDocument {
     ],
     wires: [
       { id: 'W1', from: { componentId: 'D', pinId: 'out' }, to: { componentId: 'FF', pinId: 'D' } },
-      { id: 'W2', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'FF', pinId: 'CLK' } },
+      {
+        id: 'W2',
+        from: { componentId: 'CLK', pinId: 'CLK' },
+        to: { componentId: 'FF', pinId: 'CLK' },
+      },
       { id: 'W3', from: { componentId: 'FF', pinId: 'Q' }, to: { componentId: 'Q', pinId: 'in' } },
     ],
   };
@@ -176,17 +207,41 @@ function testStepCircuitCapturesFlipFlopOnRisingEdgeOnly() {
   let circuit = nativeFlipFlopCircuit(true);
 
   circuit = stepCircuit(circuit);
-  assert.equal(circuit.components.find((component) => component.id === 'CLK')?.state, true, 'Primeiro tick deve subir clock');
-  assert.equal(circuit.components.find((component) => component.id === 'FF')?.memory?.q, true, 'Borda de subida deve capturar D=1');
+  assert.equal(
+    circuit.components.find((component) => component.id === 'CLK')?.state,
+    true,
+    'Primeiro tick deve subir clock',
+  );
+  assert.equal(
+    circuit.components.find((component) => component.id === 'FF')?.memory?.q,
+    true,
+    'Borda de subida deve capturar D=1',
+  );
 
   circuit = setInputs(circuit, { D: false });
   circuit = stepCircuit(circuit);
-  assert.equal(circuit.components.find((component) => component.id === 'CLK')?.state, false, 'Segundo tick deve descer clock');
-  assert.equal(circuit.components.find((component) => component.id === 'FF')?.memory?.q, true, 'Borda de descida não deve capturar D=0');
+  assert.equal(
+    circuit.components.find((component) => component.id === 'CLK')?.state,
+    false,
+    'Segundo tick deve descer clock',
+  );
+  assert.equal(
+    circuit.components.find((component) => component.id === 'FF')?.memory?.q,
+    true,
+    'Borda de descida não deve capturar D=0',
+  );
 
   circuit = stepCircuit(circuit);
-  assert.equal(circuit.components.find((component) => component.id === 'CLK')?.state, true, 'Terceiro tick deve subir clock de novo');
-  assert.equal(circuit.components.find((component) => component.id === 'FF')?.memory?.q, false, 'Nova borda de subida deve capturar D=0');
+  assert.equal(
+    circuit.components.find((component) => component.id === 'CLK')?.state,
+    true,
+    'Terceiro tick deve subir clock de novo',
+  );
+  assert.equal(
+    circuit.components.find((component) => component.id === 'FF')?.memory?.q,
+    false,
+    'Nova borda de subida deve capturar D=0',
+  );
 }
 
 function testRegister4CapturesOnRisingEdgeOnly() {
@@ -198,14 +253,40 @@ function testRegister4CapturesOnRisingEdgeOnly() {
       { id: 'D2', type: 'input', x: 0, y: 120, state: true },
       { id: 'D3', type: 'input', x: 0, y: 180, state: false },
       { id: 'CLK', type: 'clock', x: 0, y: 240, state: false },
-      { id: 'REG', type: 'register-4', x: 180, y: 80, memory: { q0: false, q1: false, q2: false, q3: false, previousClk: false } },
+      {
+        id: 'REG',
+        type: 'register-4',
+        x: 180,
+        y: 80,
+        memory: { q0: false, q1: false, q2: false, q3: false, previousClk: false },
+      },
     ],
     wires: [
-      { id: 'W0', from: { componentId: 'D0', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D0' } },
-      { id: 'W1', from: { componentId: 'D1', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D1' } },
-      { id: 'W2', from: { componentId: 'D2', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D2' } },
-      { id: 'W3', from: { componentId: 'D3', pinId: 'out' }, to: { componentId: 'REG', pinId: 'D3' } },
-      { id: 'W4', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'REG', pinId: 'CLK' } },
+      {
+        id: 'W0',
+        from: { componentId: 'D0', pinId: 'out' },
+        to: { componentId: 'REG', pinId: 'D0' },
+      },
+      {
+        id: 'W1',
+        from: { componentId: 'D1', pinId: 'out' },
+        to: { componentId: 'REG', pinId: 'D1' },
+      },
+      {
+        id: 'W2',
+        from: { componentId: 'D2', pinId: 'out' },
+        to: { componentId: 'REG', pinId: 'D2' },
+      },
+      {
+        id: 'W3',
+        from: { componentId: 'D3', pinId: 'out' },
+        to: { componentId: 'REG', pinId: 'D3' },
+      },
+      {
+        id: 'W4',
+        from: { componentId: 'CLK', pinId: 'CLK' },
+        to: { componentId: 'REG', pinId: 'CLK' },
+      },
     ],
   };
 
@@ -262,10 +343,22 @@ function assertAdder4BitExample(exampleId: string) {
     for (let b = 0; b < 16; b += 1) {
       const circuit = setNibble(setNibble(base, 'A', a), 'B', b);
       const result = run(circuit);
-      assert.equal(result.unstable, false, `${exampleId}: somador não deveria oscilar em ${a}+${b}`);
+      assert.equal(
+        result.unstable,
+        false,
+        `${exampleId}: somador não deveria oscilar em ${a}+${b}`,
+      );
       const sum = a + b;
-      assert.equal(readNibble(circuit, result.state, 'S'), sum & 0b1111, `${exampleId} ${a}+${b}: soma errada`);
-      assert.equal(led(circuit, result.state, 'Cout'), sum > 0b1111, `${exampleId} ${a}+${b}: Cout errado`);
+      assert.equal(
+        readNibble(circuit, result.state, 'S'),
+        sum & 0b1111,
+        `${exampleId} ${a}+${b}: soma errada`,
+      );
+      assert.equal(
+        led(circuit, result.state, 'Cout'),
+        sum > 0b1111,
+        `${exampleId} ${a}+${b}: Cout errado`,
+      );
     }
   }
 }
@@ -276,13 +369,21 @@ function assertSubtractor4BitExample(exampleId: string) {
     for (let b = 0; b < 16; b += 1) {
       const circuit = setNibble(setNibble(base, 'A', a), 'B', b);
       const result = run(circuit);
-      assert.equal(result.unstable, false, `${exampleId}: subtrator não deveria oscilar em ${a}-${b}`);
+      assert.equal(
+        result.unstable,
+        false,
+        `${exampleId}: subtrator não deveria oscilar em ${a}-${b}`,
+      );
       assert.equal(
         readNibble(circuit, result.state, 'D'),
         (a - b) & 0b1111,
         `${exampleId} ${a}-${b}: diferença errada em complemento de 2`,
       );
-      assert.equal(led(circuit, result.state, 'Cout'), a >= b, `${exampleId} ${a}-${b}: Cout errado`);
+      assert.equal(
+        led(circuit, result.state, 'Cout'),
+        a >= b,
+        `${exampleId} ${a}-${b}: Cout errado`,
+      );
     }
   }
 }
@@ -322,10 +423,18 @@ function testAlu4BitAllOperationsAllCombinations() {
           `ULA op=${op} a=${a} b=${b}: resultado errado`,
         );
         if (op === 0) {
-          assert.equal(led(circuit, result.state, 'Cout'), a + b > 0b1111, `ULA soma ${a}+${b}: Cout errado`);
+          assert.equal(
+            led(circuit, result.state, 'Cout'),
+            a + b > 0b1111,
+            `ULA soma ${a}+${b}: Cout errado`,
+          );
         }
         if (op === 1) {
-          assert.equal(led(circuit, result.state, 'Cout'), a >= b, `ULA subtração ${a}-${b}: Cout errado`);
+          assert.equal(
+            led(circuit, result.state, 'Cout'),
+            a >= b,
+            `ULA subtração ${a}-${b}: Cout errado`,
+          );
         }
       }
     }
@@ -344,26 +453,49 @@ function testTruthTableRowsForXor() {
     wires: [
       { id: 'W1', from: { componentId: 'A', pinId: 'out' }, to: { componentId: 'X1', pinId: 'a' } },
       { id: 'W2', from: { componentId: 'B', pinId: 'out' }, to: { componentId: 'X1', pinId: 'b' } },
-      { id: 'W3', from: { componentId: 'X1', pinId: 'out' }, to: { componentId: 'OUT', pinId: 'in' } },
+      {
+        id: 'W3',
+        from: { componentId: 'X1', pinId: 'out' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
     ],
   };
   const inputs = circuit.components.filter((component) => component.type === 'input');
   const outputs = circuit.components.filter((component) => component.type === 'led');
   const rows = buildCircuitTruthRows(circuit, inputs, outputs);
-  assert.deepEqual(rows.map((row) => row.outputs[0]), [false, true, true, false], 'Tabela verdade do XOR deve ser 0,1,1,0');
+  assert.deepEqual(
+    rows.map((row) => row.outputs[0]),
+    [false, true, true, false],
+    'Tabela verdade do XOR deve ser 0,1,1,0',
+  );
 }
 
 function testWireRoutingSelfLoopGoesAroundComponent() {
-  const component = { id: 'N1', type: 'not', x: 100, y: 100 } satisfies CircuitDocument['components'][number];
+  const component = {
+    id: 'N1',
+    type: 'not',
+    x: 100,
+    y: 100,
+  } satisfies CircuitDocument['components'][number];
   const start = { x: 182, y: 128 };
   const end = { x: 100, y: 128 };
   const route = selfLoopRoute(component, start, end, 0);
   assert.deepEqual(route[0], start, 'Self-loop deve começar no pino de saída');
   assert.deepEqual(route[route.length - 1], end, 'Self-loop deve terminar no pino de entrada');
-  assert.ok(route.some((point) => point.y < component.y), 'Self-loop deve subir acima do componente');
-  assert.ok(route.some((point) => point.x < component.x), 'Self-loop deve passar à esquerda antes de conectar entrada');
+  assert.ok(
+    route.some((point) => point.y < component.y),
+    'Self-loop deve subir acima do componente',
+  );
+  assert.ok(
+    route.some((point) => point.x < component.x),
+    'Self-loop deve passar à esquerda antes de conectar entrada',
+  );
   assert.match(orthogonalPath(route, []), /^M /, 'Rota ortogonal deve gerar path SVG');
-  assert.match(bezierPathFromPoints(route), /Q/, 'Rota curva do self-loop deve ter cantos arredondados');
+  assert.match(
+    bezierPathFromPoints(route),
+    /Q/,
+    'Rota curva do self-loop deve ter cantos arredondados',
+  );
 }
 
 function testCameraPointAccountsForSvgLetterboxing() {
@@ -389,10 +521,115 @@ function testNativeDFlipFlopCapturesOnlyOnRisingEdge() {
   result = run(circuit, result.state);
   assert.equal(pin(result.state, 'FF', 'Q'), false, 'Sem borda de clock, FF deve manter Q=0');
 
-  circuit = { ...circuit, components: circuit.components.map((c) => c.id === 'CLK' ? { ...c, state: true } : c) };
+  circuit = {
+    ...circuit,
+    components: circuit.components.map((c) => (c.id === 'CLK' ? { ...c, state: true } : c)),
+  };
   // stepCircuit é testado indiretamente na UI; aqui validamos a avaliação nativa atual: Q vem da memória, não do D imediato.
   result = run(circuit, result.state);
-  assert.equal(pin(result.state, 'FF', 'Q'), false, 'Avaliação pura não deve capturar D sem step sequencial');
+  assert.equal(
+    pin(result.state, 'FF', 'Q'),
+    false,
+    'Avaliação pura não deve capturar D sem step sequencial',
+  );
+}
+
+function validDocument(): CircuitDocument {
+  return {
+    version: 1,
+    components: [
+      { id: 'A', type: 'input', x: 0, y: 0 },
+      { id: 'OUT', type: 'led', x: 160, y: 0 },
+    ],
+    wires: [
+      {
+        id: 'W1',
+        from: { componentId: 'A', pinId: 'out' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
+    ],
+  };
+}
+
+function testCircuitDocumentValidationAcceptsValidCircuit() {
+  assert.equal(isCircuitDocument(validDocument()), true, 'Circuito bem formado deve ser aceito');
+}
+
+function testCircuitDocumentValidationRejectsUnknownComponent() {
+  const circuit = validDocument() as unknown as Record<string, unknown>;
+  const components = (circuit.components as Array<Record<string, unknown>>).map((component) =>
+    component.id === 'A' ? { ...component, type: 'unknown-gate' } : component,
+  );
+
+  assert.equal(
+    isCircuitDocument({ ...circuit, components }),
+    false,
+    'Tipo de componente desconhecido deve ser rejeitado',
+  );
+}
+
+function testCircuitDocumentValidationRejectsInvalidWire() {
+  const circuit = validDocument();
+  const danglingWire = {
+    ...circuit.wires[0],
+    from: { componentId: 'missing', pinId: 'out' },
+  };
+  const reversedWire = {
+    ...circuit.wires[0],
+    from: { componentId: 'OUT', pinId: 'in' },
+    to: { componentId: 'A', pinId: 'out' },
+  };
+
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [danglingWire] }),
+    false,
+    'Referência a componente ausente deve ser rejeitada',
+  );
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [reversedWire] }),
+    false,
+    'Fio de entrada para saída deve ser rejeitado',
+  );
+}
+
+function testCircuitDocumentValidationRejectsConflictingIdsAndInputs() {
+  const circuit = validDocument();
+  const duplicateComponent = { ...circuit.components[0] };
+  const duplicateInputWire = { ...circuit.wires[0], id: 'W2' };
+
+  assert.equal(
+    isCircuitDocument({ ...circuit, components: [...circuit.components, duplicateComponent] }),
+    false,
+    'IDs de componente duplicados devem ser rejeitados',
+  );
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [...circuit.wires, duplicateInputWire] }),
+    false,
+    'Mais de um fio na mesma entrada deve ser rejeitado',
+  );
+}
+
+function testBundledCircuitDocumentsAreValid() {
+  for (const example of CIRCUIT_EXAMPLES) {
+    assert.equal(
+      isCircuitDocument(example.circuit),
+      true,
+      `Exemplo embutido ${example.id} deve respeitar o formato`,
+    );
+  }
+
+  for (const filename of [
+    '01_sr_latch_nor.json',
+    '02_sr_latch_nand_active_low.json',
+    '03_gated_d_latch_from_nand.json',
+    '04_unstable_not_feedback.json',
+  ]) {
+    assert.equal(
+      isCircuitDocument(loadExample(filename)),
+      true,
+      `Exemplo JSON ${filename} deve respeitar o formato`,
+    );
+  }
 }
 
 const tests = [
@@ -413,6 +650,11 @@ const tests = [
   testWireRoutingSelfLoopGoesAroundComponent,
   testCameraPointAccountsForSvgLetterboxing,
   testNativeDFlipFlopCapturesOnlyOnRisingEdge,
+  testCircuitDocumentValidationAcceptsValidCircuit,
+  testCircuitDocumentValidationRejectsUnknownComponent,
+  testCircuitDocumentValidationRejectsInvalidWire,
+  testCircuitDocumentValidationRejectsConflictingIdsAndInputs,
+  testBundledCircuitDocumentsAreValid,
 ];
 
 for (const test of tests) {
@@ -420,4 +662,4 @@ for (const test of tests) {
   console.log(`✓ ${test.name}`);
 }
 
-console.log(`\n${tests.length} testes de simulação passaram.`);
+console.log(`\n${tests.length} testes automatizados passaram.`);

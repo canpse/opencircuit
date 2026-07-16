@@ -5,8 +5,12 @@ import type { Selection } from '../context-menu/ContextMenuView';
 import type { WireStyle } from '../editor/CircuitCanvas';
 
 export function loadWireStyle(storageKey: string): WireStyle {
-  const stored = localStorage.getItem(storageKey);
-  return stored === 'bezier' ? 'bezier' : 'orthogonal';
+  try {
+    const stored = localStorage.getItem(storageKey);
+    return stored === 'bezier' ? 'bezier' : 'orthogonal';
+  } catch {
+    return 'orthogonal';
+  }
 }
 
 export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {

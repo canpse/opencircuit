@@ -7,14 +7,45 @@
     { "id": "GQB", "type": "nand", "x": 280, "y": 250, "label": "NAND !Q" },
     { "id": "Q", "type": "led", "x": 530, "y": 99, "label": "Q" },
     { "id": "QB", "type": "led", "x": 530, "y": 259, "label": "!Q" },
-    { "id": "TXT1", "type": "text", "x": 60, "y": 370, "width": 720, "label": "Teste SR NAND ativo em nível baixo. Repouso é S̅=1,R̅=1. Para SET: coloque S̅=0 e depois volte para 1. Para RESET: coloque R̅=0 e depois volte para 1. S̅=R̅=0 é proibido." }
+    {
+      "id": "TXT1",
+      "type": "text",
+      "x": 60,
+      "y": 370,
+      "width": 720,
+      "label": "Teste SR NAND ativo em nível baixo. Repouso é S̅=1,R̅=1. Para SET: coloque S̅=0 e depois volte para 1. Para RESET: coloque R̅=0 e depois volte para 1. S̅=R̅=0 é proibido."
+    }
   ],
   "wires": [
-    { "id": "W1", "from": { "componentId": "SB", "pinId": "out" }, "to": { "componentId": "GQ", "pinId": "a" } },
-    { "id": "W2", "from": { "componentId": "RB", "pinId": "out" }, "to": { "componentId": "GQB", "pinId": "a" } },
-    { "id": "W3", "from": { "componentId": "GQ", "pinId": "out" }, "to": { "componentId": "Q", "pinId": "in" } },
-    { "id": "W4", "from": { "componentId": "GQB", "pinId": "out" }, "to": { "componentId": "QB", "pinId": "in" } },
-    { "id": "W5", "from": { "componentId": "GQ", "pinId": "out" }, "to": { "componentId": "GQB", "pinId": "b" } },
-    { "id": "W6", "from": { "componentId": "GQB", "pinId": "out" }, "to": { "componentId": "GQ", "pinId": "b" } }
+    {
+      "id": "W1",
+      "from": { "componentId": "SB", "pinId": "out" },
+      "to": { "componentId": "GQ", "pinId": "a" }
+    },
+    {
+      "id": "W2",
+      "from": { "componentId": "RB", "pinId": "out" },
+      "to": { "componentId": "GQB", "pinId": "a" }
+    },
+    {
+      "id": "W3",
+      "from": { "componentId": "GQ", "pinId": "out" },
+      "to": { "componentId": "Q", "pinId": "in" }
+    },
+    {
+      "id": "W4",
+      "from": { "componentId": "GQB", "pinId": "out" },
+      "to": { "componentId": "QB", "pinId": "in" }
+    },
+    {
+      "id": "W5",
+      "from": { "componentId": "GQ", "pinId": "out" },
+      "to": { "componentId": "GQB", "pinId": "b" }
+    },
+    {
+      "id": "W6",
+      "from": { "componentId": "GQB", "pinId": "out" },
+      "to": { "componentId": "GQ", "pinId": "b" }
+    }
   ]
 }

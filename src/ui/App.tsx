@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
 import type { CircuitDocument, GateType, PinRef, Point, Wire } from '../core/types';
+import { isCircuitDocument } from '../core/validateCircuitDocument';
 import { downloadJson } from '../state/storage';
 import {
   createUntitledDocument,
@@ -582,14 +583,8 @@ export function App() {
     file
       .text()
       .then((text) => {
-        const parsed = JSON.parse(text) as CircuitDocument;
-        if (
-          parsed.version !== 1 ||
-          !Array.isArray(parsed.components) ||
-          !Array.isArray(parsed.wires)
-        ) {
-          throw new Error('Formato inválido');
-        }
+        const parsed: unknown = JSON.parse(text);
+        if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
         const id = `doc-${Date.now()}`;
         setDocuments((currentDocuments) => [
           ...currentDocuments,

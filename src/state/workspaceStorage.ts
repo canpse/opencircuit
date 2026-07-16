@@ -1,4 +1,5 @@
 import type { CircuitDocument } from '../core/types';
+import { isCircuitDocument } from '../core/validateCircuitDocument';
 import { loadCircuit } from './storage';
 import { measureProfile } from '../performance/profiling';
 
@@ -30,17 +31,17 @@ export function createInitialWorkspace(): WorkspaceState {
 }
 
 export function loadWorkspace(): WorkspaceState {
-  const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
-  if (!raw) return createInitialWorkspace();
-
   try {
+    const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+    if (!raw) return createInitialWorkspace();
     const parsed = JSON.parse(raw) as WorkspaceState;
     if (
       parsed.version === 1 &&
       typeof parsed.activeDocumentId === 'string' &&
       Array.isArray(parsed.documents) &&
       parsed.documents.length > 0 &&
-      parsed.documents.every(isWorkspaceDocument)
+      parsed.documents.every(isWorkspaceDocument) &&
+      new Set(parsed.documents.map((document) => document.id)).size === parsed.documents.length
     ) {
       const activeDocumentId = parsed.documents.some(
         (document) => document.id === parsed.activeDocumentId,
@@ -56,22 +57,29 @@ export function loadWorkspace(): WorkspaceState {
   return createInitialWorkspace();
 }
 
-export function saveWorkspace(workspace: WorkspaceState): void {
-  const details = {
-    documents: workspace.documents.length,
-    components: workspace.documents.reduce(
-      (count, document) => count + document.circuit.components.length,
-      0,
-    ),
-    wires: workspace.documents.reduce(
-      (count, document) => count + document.circuit.wires.length,
-      0,
-    ),
-  };
-  const serialized = measureProfile('autosave.stringify', details, () => JSON.stringify(workspace));
-  measureProfile('autosave.write', { ...details, bytes: serialized.length }, () =>
-    localStorage.setItem(WORKSPACE_STORAGE_KEY, serialized),
-  );
+export function saveWorkspace(workspace: WorkspaceState): boolean {
+  try {
+    const details = {
+      documents: workspace.documents.length,
+      components: workspace.documents.reduce(
+        (count, document) => count + document.circuit.components.length,
+        0,
+      ),
+      wires: workspace.documents.reduce(
+        (count, document) => count + document.circuit.wires.length,
+        0,
+      ),
+    };
+    const serialized = measureProfile('autosave.stringify', details, () =>
+      JSON.stringify(workspace),
+    );
+    measureProfile('autosave.write', { ...details, bytes: serialized.length }, () =>
+      localStorage.setItem(WORKSPACE_STORAGE_KEY, serialized),
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function createEmptyCircuit(): CircuitDocument {
@@ -88,13 +96,15 @@ export function createUntitledDocument(index: number): WorkspaceDocument {
   };
 }
 
-function isWorkspaceDocument(value: WorkspaceDocument): boolean {
+function isWorkspaceDocument(value: unknown): value is WorkspaceDocument {
+  if (typeof value !== 'object' || value === null) return false;
+  const document = value as Partial<WorkspaceDocument>;
   return Boolean(
-    value &&
-    typeof value.id === 'string' &&
-    typeof value.name === 'string' &&
-    value.circuit?.version === 1 &&
-    Array.isArray(value.circuit.components) &&
-    Array.isArray(value.circuit.wires),
+    typeof document.id === 'string' &&
+    document.id.length > 0 &&
+    typeof document.name === 'string' &&
+    isCircuitDocument(document.circuit) &&
+    (document.exampleId === null || typeof document.exampleId === 'string') &&
+    typeof document.saved === 'boolean',
   );
 }

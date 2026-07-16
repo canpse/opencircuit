@@ -1,4 +1,5 @@
 import type { CircuitDocument } from '../core/types';
+import { isCircuitDocument } from '../core/validateCircuitDocument';
 
 const STORAGE_KEY = 'opencircuit.logic.document.v1';
 
@@ -18,16 +19,13 @@ export const STARTER_CIRCUIT: CircuitDocument = {
 };
 
 export function loadCircuit(): CircuitDocument {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return STARTER_CIRCUIT;
-
   try {
-    const parsed = JSON.parse(raw) as CircuitDocument;
-    if (parsed.version === 1 && Array.isArray(parsed.components) && Array.isArray(parsed.wires)) {
-      return parsed;
-    }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return STARTER_CIRCUIT;
+    const parsed: unknown = JSON.parse(raw);
+    if (isCircuitDocument(parsed)) return parsed;
   } catch {
-    // Fall back to starter circuit.
+    // Storage can be unavailable or contain invalid data; fall back below.
   }
 
   return STARTER_CIRCUIT;

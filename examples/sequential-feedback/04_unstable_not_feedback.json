@@ -3,10 +3,25 @@
   "components": [
     { "id": "N1", "type": "not", "x": 220, "y": 120, "label": "NOT instável" },
     { "id": "OUT", "type": "led", "x": 430, "y": 122, "label": "OUT" },
-    { "id": "TXT1", "type": "text", "x": 60, "y": 250, "width": 620, "label": "Teste negativo: uma porta NOT ligada nela mesma não tem estado estável ideal. O painel deve avisar que o circuito não estabilizou ou mostrar comportamento instável. Serve para testar detecção de realimentação problemática." }
+    {
+      "id": "TXT1",
+      "type": "text",
+      "x": 60,
+      "y": 250,
+      "width": 620,
+      "label": "Teste negativo: uma porta NOT ligada nela mesma não tem estado estável ideal. O painel deve avisar que o circuito não estabilizou ou mostrar comportamento instável. Serve para testar detecção de realimentação problemática."
+    }
   ],
   "wires": [
-    { "id": "W1", "from": { "componentId": "N1", "pinId": "out" }, "to": { "componentId": "N1", "pinId": "in" } },
-    { "id": "W2", "from": { "componentId": "N1", "pinId": "out" }, "to": { "componentId": "OUT", "pinId": "in" } }
+    {
+      "id": "W1",
+      "from": { "componentId": "N1", "pinId": "out" },
+      "to": { "componentId": "N1", "pinId": "in" }
+    },
+    {
+      "id": "W2",
+      "from": { "componentId": "N1", "pinId": "out" },
+      "to": { "componentId": "OUT", "pinId": "in" }
+    }
   ]
 }
