@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "components": [
+    { "id": "D", "type": "input", "x": 50, "y": 120, "label": "D", "state": false },
+    { "id": "EN", "type": "input", "x": 50, "y": 300, "label": "EN", "state": false },
+    { "id": "ND", "type": "not", "x": 210, "y": 200, "label": "!D" },
+    { "id": "GS", "type": "nand", "x": 390, "y": 115, "label": "gera S̅" },
+    { "id": "GR", "type": "nand", "x": 390, "y": 280, "label": "gera R̅" },
+    { "id": "LQ", "type": "nand", "x": 620, "y": 130, "label": "Latch Q" },
+    { "id": "LQB", "type": "nand", "x": 620, "y": 295, "label": "Latch !Q" },
+    { "id": "Q", "type": "led", "x": 870, "y": 139, "label": "Q" },
+    { "id": "QB", "type": "led", "x": 870, "y": 304, "label": "!Q" },
+    { "id": "TXT1", "type": "text", "x": 50, "y": 430, "width": 760, "label": "Latch D construído com portas comuns. Com EN=1, Q deve acompanhar D. Com EN=0, Q deve manter o último valor. Teste: EN=1,D=1 seta; EN=0 mantém; mude D com EN=0 e Q não deve mudar; EN=1 faz Q acompanhar D." }
+  ],
+  "wires": [
+    { "id": "W1", "from": { "componentId": "D", "pinId": "out" }, "to": { "componentId": "ND", "pinId": "in" } },
+    { "id": "W2", "from": { "componentId": "D", "pinId": "out" }, "to": { "componentId": "GS", "pinId": "a" } },
+    { "id": "W3", "from": { "componentId": "EN", "pinId": "out" }, "to": { "componentId": "GS", "pinId": "b" } },
+    { "id": "W4", "from": { "componentId": "ND", "pinId": "out" }, "to": { "componentId": "GR", "pinId": "a" } },
+    { "id": "W5", "from": { "componentId": "EN", "pinId": "out" }, "to": { "componentId": "GR", "pinId": "b" } },
+    { "id": "W6", "from": { "componentId": "GS", "pinId": "out" }, "to": { "componentId": "LQ", "pinId": "a" } },
+    { "id": "W7", "from": { "componentId": "GR", "pinId": "out" }, "to": { "componentId": "LQB", "pinId": "a" } },
+    { "id": "W8", "from": { "componentId": "LQ", "pinId": "out" }, "to": { "componentId": "Q", "pinId": "in" } },
+    { "id": "W9", "from": { "componentId": "LQB", "pinId": "out" }, "to": { "componentId": "QB", "pinId": "in" } },
+    { "id": "W10", "from": { "componentId": "LQ", "pinId": "out" }, "to": { "componentId": "LQB", "pinId": "b" } },
+    { "id": "W11", "from": { "componentId": "LQB", "pinId": "out" }, "to": { "componentId": "LQ", "pinId": "b" } }
+  ]
+}
