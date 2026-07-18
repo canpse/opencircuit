@@ -8,7 +8,7 @@ import {
   useState,
 } from 'react';
 import { isSequentialType, settleSequentialCircuit, stepCircuit } from '../core/evaluateCircuit';
-import type { CircuitDocument, GateType, PinRef, Point, Wire } from '../core/types';
+import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../core/types';
 import { isCircuitDocument } from '../core/validateCircuitDocument';
 import { downloadJson } from '../state/storage';
 import {
@@ -99,6 +99,7 @@ export function App() {
     redo: redoHistory,
   } = useCircuitHistory(circuit, HISTORY_LIMIT, activeDocumentId);
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
+  const [clipboard, setClipboard] = useState<{ components: LogicComponent[]; wires: Wire[] } | null>(null);
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(
     null,
   );
@@ -145,6 +146,8 @@ export function App() {
     onRedo: redo,
     onSave: saveActiveDocument,
     onRemoveSelection: removeSelection,
+    onCopy,
+    onPaste,
   });
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
@@ -175,6 +178,69 @@ export function App() {
     }
 
     restoreCircuit(next, 'Refeito.');
+  }
+
+  function onCopy() {
+    if (selection.componentIds.length === 0 && selection.wireIds.length === 0) return;
+    
+    const copiedComponents = circuit.components.filter((c) => selection.componentIds.includes(c.id));
+    const copiedWires = circuit.wires.filter((w) => selection.wireIds.includes(w.id));
+    
+    setClipboard({ components: copiedComponents, wires: copiedWires });
+    setMessage(`${copiedComponents.length} portas e ${copiedWires.length} fios copiados.`);
+  }
+
+  function onPaste() {
+    if (!clipboard) {
+      setMessage('A área de transferência está vazia.');
+      return;
+    }
+
+    rememberCircuit();
+
+    setCircuit((current) => {
+      const nextComponents = [...current.components];
+      const nextWires = [...current.wires];
+      const idMap = new Map<string, string>();
+      const pastedComponentIds: string[] = [];
+      const pastedWireIds: string[] = [];
+
+      for (const comp of clipboard.components) {
+        const newId = nextId(comp.type, nextComponents);
+        idMap.set(comp.id, newId);
+        
+        const newComp: LogicComponent = {
+          ...comp,
+          id: newId,
+          x: snap({ x: comp.x + GRID * 2, y: 0 }, GRID).x,
+          y: snap({ x: 0, y: comp.y + GRID * 2 }, GRID).y,
+        };
+        
+        if (newComp.state !== undefined) newComp.state = false;
+        if (newComp.memory !== undefined) newComp.memory = {};
+
+        nextComponents.push(newComp);
+        pastedComponentIds.push(newId);
+      }
+
+      let wireIndex = 0;
+      for (const wire of clipboard.wires) {
+        if (idMap.has(wire.from.componentId) && idMap.has(wire.to.componentId)) {
+          const newWireId = `W${Date.now()}_${wireIndex++}`;
+          nextWires.push({
+            id: newWireId,
+            from: { ...wire.from, componentId: idMap.get(wire.from.componentId)! },
+            to: { ...wire.to, componentId: idMap.get(wire.to.componentId)! },
+          });
+          pastedWireIds.push(newWireId);
+        }
+      }
+
+      setSelection({ componentIds: pastedComponentIds, wireIds: pastedWireIds });
+      setMessage(`Colado ${pastedComponentIds.length} portas e ${pastedWireIds.length} fios.`);
+      
+      return { ...current, components: nextComponents, wires: nextWires };
+    });
   }
 
   function openCanvasMenu(x: number, y: number, point: Point) {

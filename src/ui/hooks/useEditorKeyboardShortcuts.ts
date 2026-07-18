@@ -17,6 +17,8 @@ interface Options {
   onRedo: () => void;
   onSave: () => void;
   onRemoveSelection: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
 }
 
 export function useEditorKeyboardShortcuts({
@@ -32,6 +34,8 @@ export function useEditorKeyboardShortcuts({
   onRedo,
   onSave,
   onRemoveSelection,
+  onCopy,
+  onPaste,
 }: Options) {
   useEffect(() => {
     function onSpaceDown(event: KeyboardEvent) {
@@ -74,6 +78,8 @@ export function useEditorKeyboardShortcuts({
       const isUndo = command && key === 'z' && !event.shiftKey;
       const isRedo = command && ((key === 'z' && event.shiftKey) || key === 'y');
       const isSave = command && key === 's';
+      const isCopy = command && key === 'c';
+      const isPaste = command && key === 'v';
 
       if (isUndo) {
         event.preventDefault();
@@ -90,6 +96,18 @@ export function useEditorKeyboardShortcuts({
       if (isSave) {
         event.preventDefault();
         onSave();
+        return;
+      }
+
+      if (isCopy) {
+        event.preventDefault();
+        onCopy();
+        return;
+      }
+
+      if (isPaste) {
+        event.preventDefault();
+        onPaste();
         return;
       }
 
@@ -113,6 +131,8 @@ export function useEditorKeyboardShortcuts({
     onRedo,
     onRemoveSelection,
     onSave,
+    onCopy,
+    onPaste,
     onSelectTool,
     onUndo,
     pendingWire,
