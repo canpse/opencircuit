@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run typecheck && vite build",
-    "test": "node scripts/run-tests.mjs",
+    "test": "vitest run",
     "profile": "node scripts/run-profile.mjs",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
@@ -19,8 +19,10 @@
     "check": "npm run format:check && npm run lint && npm test && npm run build"
   },
   "dependencies": {
+    "immer": "^11.1.11",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "use-immer": "^0.11.0"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
@@ -35,6 +37,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.9.5",
     "typescript": "^6.0.3",
-    "vite": "^8.1.4"
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }

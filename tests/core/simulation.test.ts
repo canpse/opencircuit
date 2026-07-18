@@ -1,3 +1,4 @@
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -657,9 +658,6 @@ const tests = [
   testBundledCircuitDocumentsAreValid,
 ];
 
-for (const test of tests) {
-  test();
-  console.log(`✓ ${test.name}`);
+for (const testCase of tests) {
+  test(testCase.name.replace(/^test/, ''), testCase);
 }
-
-console.log(`\n${tests.length} testes automatizados passaram.`);
