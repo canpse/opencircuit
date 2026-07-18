@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { Draft } from 'immer';
 import { useImmer } from 'use-immer';
 
 export type HistoryState<T> = { past: T[]; future: T[] };
@@ -13,7 +14,7 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
 
   function remember(snapshot: T = current) {
     updateHistory((draft) => {
-      draft.past.push(snapshot as any);
+      draft.past.push(snapshot as Draft<T>);
       if (draft.past.length > limit) draft.past.shift();
       draft.future = [];
     });
@@ -25,7 +26,7 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
 
     updateHistory((draft) => {
       draft.past.pop();
-      draft.future.unshift(current as any);
+      draft.future.unshift(current as Draft<T>);
       if (draft.future.length > limit) draft.future.pop();
     });
     return previous;
@@ -37,7 +38,7 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
 
     updateHistory((draft) => {
       draft.future.shift();
-      draft.past.push(current as any);
+      draft.past.push(current as Draft<T>);
       if (draft.past.length > limit) draft.past.shift();
     });
     return next;
@@ -52,4 +53,3 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
     redo,
   };
 }
-

@@ -1,5 +1,12 @@
 import { useState, type SetStateAction } from 'react';
-import type { CircuitDocument, GateType, LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import type {
+  CircuitDocument,
+  GateType,
+  LogicComponent,
+  PinRef,
+  Point,
+  Wire,
+} from '../../core/types';
 import {
   componentDefinitionLabel,
   createLogicComponent,
@@ -30,7 +37,10 @@ export function useCircuitEditor({
 }: Options) {
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
-  const [clipboard, setClipboard] = useState<{ components: LogicComponent[]; wires: Wire[] } | null>(null);
+  const [clipboard, setClipboard] = useState<{
+    components: LogicComponent[];
+    wires: Wire[];
+  } | null>(null);
 
   function addComponent(type: GateType, point: Point) {
     const snapped = snap(point, GRID);
@@ -229,10 +239,12 @@ export function useCircuitEditor({
 
   function onCopy() {
     if (selection.componentIds.length === 0 && selection.wireIds.length === 0) return;
-    
-    const copiedComponents = circuit.components.filter((c) => selection.componentIds.includes(c.id));
+
+    const copiedComponents = circuit.components.filter((c) =>
+      selection.componentIds.includes(c.id),
+    );
     const copiedWires = circuit.wires.filter((w) => selection.wireIds.includes(w.id));
-    
+
     setClipboard({ components: copiedComponents, wires: copiedWires });
     onMessage(`${copiedComponents.length} portas e ${copiedWires.length} fios copiados.`);
   }
@@ -255,14 +267,14 @@ export function useCircuitEditor({
       for (const comp of clipboard.components) {
         const newId = nextId(comp.type, nextComponents);
         idMap.set(comp.id, newId);
-        
+
         const newComp: LogicComponent = {
           ...comp,
           id: newId,
           x: snap({ x: comp.x + GRID * 2, y: 0 }, GRID).x,
           y: snap({ x: 0, y: comp.y + GRID * 2 }, GRID).y,
         };
-        
+
         if (newComp.state !== undefined) newComp.state = false;
         if (newComp.memory !== undefined) newComp.memory = {};
 
@@ -285,7 +297,7 @@ export function useCircuitEditor({
 
       setSelection({ componentIds: pastedComponentIds, wireIds: pastedWireIds });
       onMessage(`Colado ${pastedComponentIds.length} portas e ${pastedWireIds.length} fios.`);
-      
+
       return { ...current, components: nextComponents, wires: nextWires };
     });
   }

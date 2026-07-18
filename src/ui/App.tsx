@@ -14,10 +14,7 @@ import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
 import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
 import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
-import {
-  hasSelection,
-  normalizeCircuitForEditor,
-} from './app/editorUtils';
+import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
@@ -61,7 +58,6 @@ export function App() {
     pendingWire,
     setPendingWire,
     selection,
-    setSelection,
     addComponent,
     beginMoveComponent,
     moveComponents,
@@ -91,7 +87,7 @@ export function App() {
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(
     null,
   );
-  
+
   const {
     contextMenu,
     closeContextMenu,
@@ -125,7 +121,6 @@ export function App() {
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
-    resetSimulationRuntime,
   } = useSimulationController({
     circuit,
     setCircuit,
@@ -137,7 +132,8 @@ export function App() {
   const truthPanel = useResizableSidePanel(320, 260, 620);
 
   const hasFeedback = circuitHasFeedback(circuit);
-  const currentExample = CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
+  const currentExample =
+    CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
 
   useAutoSaveWorkspace(workspace);
   useReleaseMomentaryButtons(setCircuit);
@@ -161,6 +157,7 @@ export function App() {
 
   // Reset editor state when switching documents
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTool('select');
     resetSimulation();
     setPendingWire(null);

@@ -16,7 +16,7 @@ interface Options {
 
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
-  
+
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
   const activeDocument =
@@ -49,7 +49,8 @@ export function useWorkspaceManager({ onMessage }: Options) {
       setDocuments((currentDocuments) =>
         currentDocuments.map((document) => {
           if (document.id !== activeDocumentId) return document;
-          const nextCircuit = typeof action === 'function' ? action(document.circuit) : action as CircuitDocument;
+          const nextCircuit =
+            typeof action === 'function' ? action(document.circuit) : (action as CircuitDocument);
           return { ...document, circuit: nextCircuit, saved: false };
         }),
       );
