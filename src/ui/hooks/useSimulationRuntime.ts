@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CircuitDocument, SimulationState, SimulationResult } from '../../core/types';
+import type { CircuitDocument, SimulationResult } from '../../core/types';
+import type {
+  SimulationRequest,
+  SimulationResponse,
+} from '../../core/simulation/simulationSession';
 import SimulationWorker from '../../core/simulation/worker?worker';
 
-export function useSimulationRuntime(circuit: CircuitDocument) {
-  const simulationStateRef = useRef<SimulationState | undefined>(undefined);
-  const [resetToken, setResetToken] = useState(0);
+const EMPTY_RESULT: SimulationResult = {
+  values: {},
+  state: { values: {}, unstable: false, iterations: 0 },
+  unstable: false,
+  iterations: 0,
+};
 
-  const [simulationResult, setSimulationResult] = useState<SimulationResult>({
-    values: {},
-    state: { values: {}, unstable: false, iterations: 0 },
-    unstable: false,
-    iterations: 0,
-  });
+export function useSimulationRuntime(circuit: CircuitDocument) {
+  const [resetToken, setResetToken] = useState(0);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult>(EMPTY_RESULT);
 
   const workerRef = useRef<Worker | null>(null);
   const messageIdRef = useRef(0);
@@ -29,19 +33,15 @@ export function useSimulationRuntime(circuit: CircuitDocument) {
 
     const id = ++messageIdRef.current;
 
-    const handleMessage = (e: MessageEvent) => {
+    const handleMessage = (e: MessageEvent<SimulationResponse>) => {
       if (e.data.id === id) {
-        simulationStateRef.current = e.data.result.state;
         setSimulationResult(e.data.result);
       }
     };
 
     workerRef.current.addEventListener('message', handleMessage);
-    workerRef.current.postMessage({
-      id,
-      circuit,
-      previousState: simulationStateRef.current,
-    });
+    const request: SimulationRequest = { type: 'simulate', id, circuit };
+    workerRef.current.postMessage(request);
 
     return () => {
       workerRef.current?.removeEventListener('message', handleMessage);
@@ -49,13 +49,9 @@ export function useSimulationRuntime(circuit: CircuitDocument) {
   }, [circuit, resetToken]);
 
   function resetSimulationRuntime() {
-    simulationStateRef.current = undefined;
-    setSimulationResult({
-      values: {},
-      state: { values: {}, unstable: false, iterations: 0 },
-      unstable: false,
-      iterations: 0,
-    });
+    const request: SimulationRequest = { type: 'reset' };
+    workerRef.current?.postMessage(request);
+    setSimulationResult(EMPTY_RESULT);
     setResetToken((current) => current + 1);
   }
 
