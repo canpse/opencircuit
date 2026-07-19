@@ -6,6 +6,7 @@ import { recordReactProfile } from '../performance/profiling';
 import { CIRCUIT_EXAMPLES, CIRCUIT_LESSONS } from '../examples/circuitExamples';
 import { CircuitTruthTable } from './panels/CircuitTruthTable';
 import { LessonPanel } from './panels/LessonPanel';
+import { WaveformPanel } from './panels/WaveformPanel';
 import { circuitHasFeedback } from '../core/simulation/graph';
 import { CommandBar } from './commandbar/CommandBar';
 import { useAutoSaveWorkspace } from './hooks/useAutoSaveWorkspace';
@@ -26,6 +27,7 @@ const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 export function App() {
   const [message, setMessage] = useState('Pronto para testar lógica.');
+  const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'waveform' | 'lesson'>('truth');
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -118,6 +120,9 @@ export function App() {
     simulationResult,
     evaluation,
     hasSequentialComponents,
+    waveformSamples,
+    waveformSignals,
+    clearWaveformHistory,
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
@@ -326,30 +331,75 @@ export function App() {
           className="panel-resizer"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Redimensionar tabela verdade"
+          aria-label="Redimensionar painel lateral"
           onMouseDown={(event) => {
             event.preventDefault();
             truthPanel.startResizing();
           }}
         />
 
-        <aside className="properties-panel truth-panel">
-          <div className="panel-header">
-            {hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}
+        <aside className="properties-panel side-panel">
+          <div className="side-panel-tabs" role="tablist" aria-label="Painéis do circuito">
+            <button
+              role="tab"
+              aria-selected={sidePanelTab === 'truth'}
+              className={sidePanelTab === 'truth' ? 'active' : ''}
+              onClick={() => setSidePanelTab('truth')}
+            >
+              Tabela verdade
+            </button>
+            <button
+              role="tab"
+              aria-selected={sidePanelTab === 'waveform'}
+              className={sidePanelTab === 'waveform' ? 'active' : ''}
+              onClick={() => setSidePanelTab('waveform')}
+            >
+              Formas de onda
+            </button>
+            <button
+              role="tab"
+              aria-selected={sidePanelTab === 'lesson'}
+              className={sidePanelTab === 'lesson' ? 'active' : ''}
+              onClick={() => setSidePanelTab('lesson')}
+            >
+              Lição
+            </button>
           </div>
-          <CircuitTruthTable
-            circuit={circuit}
-            evaluation={evaluation}
-            unstable={simulationResult.unstable}
-            hasFeedback={hasFeedback}
-          />
-          <div className="panel-section-divider" />
-          <div className="panel-header lesson-panel-header">Lição</div>
-          <LessonPanel
-            example={currentExample}
-            examples={CIRCUIT_EXAMPLES}
-            onLoadExample={loadExample}
-          />
+
+          {sidePanelTab === 'truth' && (
+            <div role="tabpanel">
+              <div className="panel-header">
+                {hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}
+              </div>
+              <CircuitTruthTable
+                circuit={circuit}
+                evaluation={evaluation}
+                unstable={simulationResult.unstable}
+                hasFeedback={hasFeedback}
+              />
+            </div>
+          )}
+          {sidePanelTab === 'waveform' && (
+            <div role="tabpanel">
+              <div className="panel-header">Formas de onda</div>
+              <WaveformPanel
+                signals={waveformSignals}
+                samples={waveformSamples}
+                autoClockRunning={autoClockRunning}
+                onClear={clearWaveformHistory}
+              />
+            </div>
+          )}
+          {sidePanelTab === 'lesson' && (
+            <div role="tabpanel">
+              <div className="panel-header">Lição</div>
+              <LessonPanel
+                example={currentExample}
+                examples={CIRCUIT_EXAMPLES}
+                onLoadExample={loadExample}
+              />
+            </div>
+          )}
         </aside>
       </section>
 
