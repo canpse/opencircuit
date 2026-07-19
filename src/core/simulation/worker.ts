@@ -1,14 +1,13 @@
-import { simulateCircuit } from './simulate';
-import type { CircuitDocument, SimulationState } from '../types';
+import { createSimulationSession } from './simulationSession';
+import type { SimulationRequest } from './simulationSession';
 
-export type SimulationRequest = {
-  id: number;
-  circuit: CircuitDocument;
-  previousState: SimulationState | undefined;
-};
+export type { SimulationRequest, SimulationResponse } from './simulationSession';
+
+const session = createSimulationSession();
 
 self.onmessage = (e: MessageEvent<SimulationRequest>) => {
-  const { id, circuit, previousState } = e.data;
-  const result = simulateCircuit(circuit, previousState);
-  self.postMessage({ id, result });
+  const response = session.handle(e.data);
+  if (response) {
+    self.postMessage(response);
+  }
 };
