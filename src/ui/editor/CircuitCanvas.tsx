@@ -1,6 +1,8 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { COMPONENT_DEFINITIONS } from '../../core/catalog';
+import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
 import { ComponentView } from './ComponentView';
+import { useCanvasLayoutComponents } from './canvasMemo';
+import { useEventCallback } from '../hooks/useEventCallback';
 import {
   componentBounds,
   intersects,
@@ -81,9 +83,13 @@ export function CircuitCanvas(props: Props) {
 
   const suppressNextClick = useRef(false);
   const suppressNextPinClick = useRef(false);
+  // Lista com identidade estável enquanto o layout não muda: um tick de
+  // clock (que só altera state/memory) não invalida componentById nem as
+  // rotas, mantendo o React.memo dos fios e componentes efetivo.
+  const layoutComponents = useCanvasLayoutComponents(props.circuit.components);
   const componentById = useMemo(
-    () => new Map(props.circuit.components.map((component) => [component.id, component])),
-    [props.circuit.components],
+    () => new Map(layoutComponents.map((component) => [component.id, component])),
+    [layoutComponents],
   );
   const wireRoutes = useMemo(
     () =>
@@ -91,17 +97,25 @@ export function CircuitCanvas(props: Props) {
         ? measureProfile(
             'routing.orthogonal',
             {
-              components: props.circuit.components.length,
+              components: layoutComponents.length,
               wires: props.circuit.wires.length,
             },
-            () => routeCircuitWires(props.circuit.wires, componentById, props.circuit.components),
+            () => routeCircuitWires(props.circuit.wires, componentById, layoutComponents),
           )
         : [],
-    [props.wireStyle, props.circuit.wires, componentById, props.circuit.components],
+    [props.wireStyle, props.circuit.wires, componentById, layoutComponents],
   );
   const routeByWireId = useMemo(
     () => new Map(wireRoutes.map((route) => [route.wireId, route])),
     [wireRoutes],
+  );
+  const selectedComponentIds = useMemo(
+    () => new Set(props.selection.componentIds),
+    [props.selection.componentIds],
+  );
+  const selectedWireIds = useMemo(
+    () => new Set(props.selection.wireIds),
+    [props.selection.wireIds],
   );
   const {
     editingLabel,
@@ -188,6 +202,106 @@ export function CircuitCanvas(props: Props) {
     props.onSelectItems({ componentIds, wireIds });
   }
 
+  // O mousePoint só é acompanhado enquanto há fio pendente (ver
+  // onMouseMove); ao iniciar um fio, semeia a posição com o próprio pino
+  // para a prévia não partir de uma coordenada antiga.
+  function seedPendingWireMousePoint(pin: PinRef) {
+    const component = componentById.get(pin.componentId);
+    if (component) setMousePoint(getPinPosition(component, pin.pinId));
+  }
+
+  // Handlers com identidade permanente (useEventCallback) e parametrizados
+  // por ID: sem arrow functions novas a cada render dentro dos .map(), o
+  // React.memo dos filhos passa a bloquear reconciliações de verdade.
+  const handleWireSelect = useEventCallback((wireId: string) => props.onSelectWire(wireId));
+  const handleWireContextMenu = useEventCallback(
+    (event: MouseEvent<SVGPathElement>, wireId: string) =>
+      props.onOpenWireMenu(event.clientX, event.clientY, wireId),
+  );
+  const handleWireRemove = useEventCallback((wireId: string) => props.onRemoveWire(wireId));
+
+  const handleComponentMouseDown = useEventCallback(
+    (event: MouseEvent<SVGGElement>, componentId: string) => {
+      const point = svgPoint(event);
+      const componentIds = props.selection.componentIds.includes(componentId)
+        ? props.selection.componentIds
+        : [componentId];
+      if (!props.selection.componentIds.includes(componentId)) {
+        props.onSelectComponent(componentId);
+      }
+      const origins = Object.fromEntries(
+        componentIds
+          .map((selectedId) => componentById.get(selectedId))
+          .filter((selectedComponent): selectedComponent is LogicComponent =>
+            Boolean(selectedComponent),
+          )
+          .map((selectedComponent) => [
+            selectedComponent.id,
+            { x: selectedComponent.x, y: selectedComponent.y },
+          ]),
+      );
+      setDragging({
+        componentIds: Object.keys(origins),
+        startMouse: point,
+        origins,
+        recorded: false,
+      });
+    },
+  );
+  const handleComponentContextMenu = useEventCallback(
+    (event: MouseEvent<SVGGElement>, componentId: string) =>
+      props.onOpenComponentMenu(event.clientX, event.clientY, componentId),
+  );
+  const handleToggleInput = useEventCallback((componentId: string) =>
+    props.onToggleInput(componentId),
+  );
+  const handleSetButtonPressed = useEventCallback((componentId: string, pressed: boolean) =>
+    props.onSetButtonPressed(componentId, pressed),
+  );
+  const handleComponentRemove = useEventCallback((componentId: string) =>
+    props.onRemoveComponent(componentId),
+  );
+  const handleRenameStart = useEventCallback((componentId: string) => {
+    const component = componentById.get(componentId);
+    if (component) startRename(component);
+  });
+  const handleResizeStart = useEventCallback(
+    (event: MouseEvent<SVGRectElement>, componentId: string) => {
+      const component = componentById.get(componentId);
+      if (!component) return;
+      event.stopPropagation();
+      const point = svgPoint(event);
+      props.onSelectComponent(componentId);
+      setDragging(null);
+      setResizingText({
+        componentId,
+        startMouse: point,
+        startWidth: textComponentWidth(component),
+        recorded: false,
+      });
+    },
+  );
+  const handlePinMouseDown = useEventCallback((pin: PinRef, kind: 'input' | 'output') => {
+    if (kind !== 'output') return;
+    seedPendingWireMousePoint(pin);
+    props.onPinClick(pin, kind);
+    setDragConnecting(pin);
+  });
+  const handlePinMouseUp = useEventCallback((pin: PinRef, kind: 'input' | 'output') => {
+    if (!dragConnecting || kind !== 'input') return;
+    props.onPinClick(pin, kind);
+    setDragConnecting(null);
+    suppressNextPinClick.current = true;
+  });
+  const handlePinClick = useEventCallback((pin: PinRef, kind: 'input' | 'output') => {
+    if (suppressNextPinClick.current) {
+      suppressNextPinClick.current = false;
+      return;
+    }
+    if (kind === 'output') seedPendingWireMousePoint(pin);
+    props.onPinClick(pin, kind);
+  });
+
   return (
     <div className="canvas-wrap">
       <CanvasViewport
@@ -209,7 +323,9 @@ export function CircuitCanvas(props: Props) {
         onMouseDown={onCanvasMouseDown}
         onMouseMove={(event) => {
           const point = svgPoint(event);
-          setMousePoint(point);
+          // Só a prévia do fio pendente consome o mousePoint; acompanhar o
+          // mouse fora desse caso re-renderizaria o canvas a cada pixel.
+          if (props.pendingWire) setMousePoint(point);
           if (marquee) {
             setMarquee({ ...marquee, end: point });
             return;
@@ -284,27 +400,33 @@ export function CircuitCanvas(props: Props) {
           </linearGradient>
         </defs>
         <g className="wires">
-          {props.circuit.wires.map((wire) => (
-            <WireView
-              key={wire.id}
-              wire={wire}
-              route={routeByWireId.get(wire.id)}
-              wireStyle={props.wireStyle}
-              componentById={componentById}
-              evaluation={props.evaluation}
-              selected={props.selection.wireIds.includes(wire.id)}
-              onSelect={() => props.onSelectWire(wire.id)}
-              onContextMenu={(event) => props.onOpenWireMenu(event.clientX, event.clientY, wire.id)}
-              onRemove={() => props.onRemoveWire(wire.id)}
-            />
-          ))}
+          {props.circuit.wires.map((wire) => {
+            const fromComponent = componentById.get(wire.from.componentId);
+            const toComponent = componentById.get(wire.to.componentId);
+            if (!fromComponent || !toComponent) return null;
+            return (
+              <WireView
+                key={wire.id}
+                wire={wire}
+                route={routeByWireId.get(wire.id)}
+                wireStyle={props.wireStyle}
+                fromComponent={fromComponent}
+                toComponent={toComponent}
+                active={Boolean(props.evaluation[wire.from.componentId]?.[wire.from.pinId])}
+                selected={selectedWireIds.has(wire.id)}
+                onSelect={handleWireSelect}
+                onContextMenu={handleWireContextMenu}
+                onRemove={handleWireRemove}
+              />
+            );
+          })}
         </g>
 
         {props.pendingWire && !dragging && (
           <PendingWire
             pendingWire={props.pendingWire}
             componentById={componentById}
-            components={props.circuit.components}
+            components={layoutComponents}
             wireStyle={props.wireStyle}
             mousePoint={mousePoint}
           />
@@ -317,71 +439,18 @@ export function CircuitCanvas(props: Props) {
             <ComponentView
               key={component.id}
               component={component}
-              evaluation={props.evaluation}
-              selected={props.selection.componentIds.includes(component.id)}
-              onMouseDown={(event) => {
-                const point = svgPoint(event);
-                const componentIds = props.selection.componentIds.includes(component.id)
-                  ? props.selection.componentIds
-                  : [component.id];
-                if (!props.selection.componentIds.includes(component.id)) {
-                  props.onSelectComponent(component.id);
-                }
-                const origins = Object.fromEntries(
-                  componentIds
-                    .map((componentId) => componentById.get(componentId))
-                    .filter((selectedComponent): selectedComponent is LogicComponent =>
-                      Boolean(selectedComponent),
-                    )
-                    .map((selectedComponent) => [
-                      selectedComponent.id,
-                      { x: selectedComponent.x, y: selectedComponent.y },
-                    ]),
-                );
-                setDragging({
-                  componentIds: Object.keys(origins),
-                  startMouse: point,
-                  origins,
-                  recorded: false,
-                });
-              }}
-              onContextMenu={(event) =>
-                props.onOpenComponentMenu(event.clientX, event.clientY, component.id)
-              }
-              onToggleInput={() => props.onToggleInput(component.id)}
-              onSetButtonPressed={(pressed) => props.onSetButtonPressed(component.id, pressed)}
-              onRemove={() => props.onRemoveComponent(component.id)}
-              onRenameStart={() => startRename(component)}
-              onResizeStart={(event) => {
-                event.stopPropagation();
-                const point = svgPoint(event);
-                props.onSelectComponent(component.id);
-                setDragging(null);
-                setResizingText({
-                  componentId: component.id,
-                  startMouse: point,
-                  startWidth: textComponentWidth(component),
-                  recorded: false,
-                });
-              }}
-              onPinMouseDown={(pin, kind) => {
-                if (kind !== 'output') return;
-                props.onPinClick(pin, kind);
-                setDragConnecting(pin);
-              }}
-              onPinMouseUp={(pin, kind) => {
-                if (!dragConnecting || kind !== 'input') return;
-                props.onPinClick(pin, kind);
-                setDragConnecting(null);
-                suppressNextPinClick.current = true;
-              }}
-              onPinClick={(pin, kind) => {
-                if (suppressNextPinClick.current) {
-                  suppressNextPinClick.current = false;
-                  return;
-                }
-                props.onPinClick(pin, kind);
-              }}
+              values={props.evaluation[component.id]}
+              selected={selectedComponentIds.has(component.id)}
+              onMouseDown={handleComponentMouseDown}
+              onContextMenu={handleComponentContextMenu}
+              onToggleInput={handleToggleInput}
+              onSetButtonPressed={handleSetButtonPressed}
+              onRemove={handleComponentRemove}
+              onRenameStart={handleRenameStart}
+              onResizeStart={handleResizeStart}
+              onPinMouseDown={handlePinMouseDown}
+              onPinMouseUp={handlePinMouseUp}
+              onPinClick={handlePinClick}
             />
           ))}
         </g>

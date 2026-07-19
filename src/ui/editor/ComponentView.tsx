@@ -1,6 +1,6 @@
 import { memo, type MouseEvent } from 'react';
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
-import type { EvaluationResult, GateType, LogicComponent, PinRef } from '../../core/types';
+import type { GateType, LogicComponent, PinRef } from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
 import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
 import inputSwitchOnAsset from '../../assets/components/input_switch_on.png';
@@ -15,6 +15,7 @@ import outputPortAsset from '../../assets/components/output_port.png';
 import xnorGateAsset from '../../assets/components/xnor_gate.png';
 import xorGateAsset from '../../assets/components/xor_gate.png';
 import { textComponentWidth, wrapText } from './wireRouting';
+import { sameEvaluationValues } from './canvasMemo';
 
 const GATE_ASSETS: Partial<Record<GateType, string>> = {
   and: andGateAsset,
@@ -26,9 +27,49 @@ const GATE_ASSETS: Partial<Record<GateType, string>> = {
   not: notGateAsset,
 };
 
+type ComponentViewProps = {
+  component: LogicComponent;
+  values: Record<string, boolean> | undefined;
+  selected: boolean;
+  onMouseDown: (event: MouseEvent<SVGGElement>, componentId: string) => void;
+  onContextMenu: (event: MouseEvent<SVGGElement>, componentId: string) => void;
+  onToggleInput: (componentId: string) => void;
+  onSetButtonPressed: (componentId: string, pressed: boolean) => void;
+  onRemove: (componentId: string) => void;
+  onRenameStart: (componentId: string) => void;
+  onResizeStart: (event: MouseEvent<SVGRectElement>, componentId: string) => void;
+  onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
+  onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
+  onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
+};
+
+// A simulação recria o objeto de avaliação a cada tick; comparar `values`
+// por valor (e o resto por identidade) é o que impede a re-renderização
+// dos componentes cujo estado lógico não mudou.
+function componentViewPropsAreEqual(
+  previous: ComponentViewProps,
+  next: ComponentViewProps,
+): boolean {
+  return (
+    previous.component === next.component &&
+    previous.selected === next.selected &&
+    sameEvaluationValues(previous.values, next.values) &&
+    previous.onMouseDown === next.onMouseDown &&
+    previous.onContextMenu === next.onContextMenu &&
+    previous.onToggleInput === next.onToggleInput &&
+    previous.onSetButtonPressed === next.onSetButtonPressed &&
+    previous.onRemove === next.onRemove &&
+    previous.onRenameStart === next.onRenameStart &&
+    previous.onResizeStart === next.onResizeStart &&
+    previous.onPinMouseDown === next.onPinMouseDown &&
+    previous.onPinMouseUp === next.onPinMouseUp &&
+    previous.onPinClick === next.onPinClick
+  );
+}
+
 export const ComponentView = memo(function ComponentView({
   component,
-  evaluation,
+  values,
   selected,
   onMouseDown,
   onContextMenu,
@@ -40,31 +81,17 @@ export const ComponentView = memo(function ComponentView({
   onPinMouseDown,
   onPinMouseUp,
   onPinClick,
-}: {
-  component: LogicComponent;
-  evaluation: EvaluationResult;
-  selected: boolean;
-  onMouseDown: (event: MouseEvent<SVGGElement>) => void;
-  onContextMenu: (event: MouseEvent<SVGGElement>) => void;
-  onToggleInput: () => void;
-  onSetButtonPressed: (pressed: boolean) => void;
-  onRemove: () => void;
-  onRenameStart: () => void;
-  onResizeStart: (event: MouseEvent<SVGRectElement>) => void;
-  onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
-  onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
-  onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
-}) {
+}: ComponentViewProps) {
   const definition = COMPONENT_DEFINITIONS[component.type];
   const bodyWidth = component.type === 'text' ? textComponentWidth(component) : definition.width;
   const labelLines =
     component.type === 'text' ? wrapText(component.label ?? definition.label, bodyWidth - 42) : [];
   const textBodyHeight = Math.max(definition.height, labelLines.length * 18 + 24);
   const bodyHeight = component.type === 'text' ? textBodyHeight : definition.height;
-  const outputValue = Boolean(evaluation[component.id]?.out);
-  const ledValue = Boolean(evaluation[component.id]?.in);
+  const outputValue = Boolean(values?.out);
+  const ledValue = Boolean(values?.in);
   const buttonPressed = component.type === 'button' && Boolean(component.state);
-  const clockValue = component.type === 'clock' && Boolean(evaluation[component.id]?.CLK);
+  const clockValue = component.type === 'clock' && Boolean(values?.CLK);
   const gateAsset = GATE_ASSETS[component.type];
   const isCombinationalBlock =
     !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
@@ -73,16 +100,16 @@ export const ComponentView = memo(function ComponentView({
     <g
       transform={`translate(${component.x}, ${component.y})`}
       className={`component ${selected ? 'selected' : ''}`}
-      onMouseDown={onMouseDown}
+      onMouseDown={(event) => onMouseDown(event, component.id)}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onContextMenu(event);
+        onContextMenu(event, component.id);
       }}
       onDoubleClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onRenameStart();
+        onRenameStart(component.id);
       }}
     >
       <rect
@@ -97,7 +124,7 @@ export const ComponentView = memo(function ComponentView({
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
-          onRemove();
+          onRemove(component.id);
         }}
       >
         <circle r="10" />
@@ -127,7 +154,7 @@ export const ComponentView = memo(function ComponentView({
           preserveAspectRatio="xMidYMid meet"
           onClick={(event) => {
             event.stopPropagation();
-            onToggleInput();
+            onToggleInput(component.id);
           }}
         />
       )}
@@ -147,13 +174,13 @@ export const ComponentView = memo(function ComponentView({
           className="pulse-button"
           onMouseDown={(event) => {
             event.stopPropagation();
-            onSetButtonPressed(true);
+            onSetButtonPressed(component.id, true);
           }}
           onMouseUp={(event) => {
             event.stopPropagation();
-            onSetButtonPressed(false);
+            onSetButtonPressed(component.id, false);
           }}
-          onMouseLeave={() => onSetButtonPressed(false)}
+          onMouseLeave={() => onSetButtonPressed(component.id, false)}
         >
           <rect className="component-hitbox" x="12" y="4" width="62" height="46" rx="10" />
           <image
@@ -178,12 +205,12 @@ export const ComponentView = memo(function ComponentView({
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              onRenameStart();
+              onRenameStart(component.id);
             }}
             onDoubleClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
-              onRenameStart();
+              onRenameStart(component.id);
             }}
           >
             {labelLines.map((line, index) => (
@@ -199,7 +226,7 @@ export const ComponentView = memo(function ComponentView({
             width="12"
             height="12"
             rx="3"
-            onMouseDown={onResizeStart}
+            onMouseDown={(event) => onResizeStart(event, component.id)}
           />
         </>
       )}
@@ -213,12 +240,12 @@ export const ComponentView = memo(function ComponentView({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRenameStart();
+            onRenameStart(component.id);
           }}
           onDoubleClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRenameStart();
+            onRenameStart(component.id);
           }}
         >
           {component.label ?? definition.label}
@@ -245,19 +272,19 @@ export const ComponentView = memo(function ComponentView({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRenameStart();
+            onRenameStart(component.id);
           }}
           onDoubleClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRenameStart();
+            onRenameStart(component.id);
           }}
         >
           {component.label ?? definition.label}
         </text>
       )}
       {definition.pins.map((pin) => {
-        const value = Boolean(evaluation[component.id]?.[pin.id]);
+        const value = Boolean(values?.[pin.id]);
         return (
           <g
             key={pin.id}
@@ -309,4 +336,4 @@ export const ComponentView = memo(function ComponentView({
       })}
     </g>
   );
-});
+}, componentViewPropsAreEqual);
