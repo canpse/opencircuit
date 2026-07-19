@@ -1,6 +1,6 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import { withSequentialDefaults } from '../../core/evaluateCircuit';
-import type { CircuitDocument, GateType, LogicComponent, Point } from '../../core/types';
+import type { CircuitDocument, GateType, LogicComponent, Point, Wire } from '../../core/types';
 import type { Selection } from '../context-menu/ContextMenuView';
 import type { WireStyle } from '../editor/CircuitCanvas';
 
@@ -46,6 +46,66 @@ export function hasSelection(selection: Selection): boolean {
 
 export function snap(point: Point, grid: number): Point {
   return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
+}
+
+export type CircuitClipboard = { components: LogicComponent[]; wires: Wire[] };
+
+export function pasteClipboard(
+  circuit: CircuitDocument,
+  clipboard: CircuitClipboard,
+  offset: Point,
+  grid: number,
+): { circuit: CircuitDocument; selection: Selection } {
+  const nextComponents = [...circuit.components];
+  const idMap = new Map<string, string>();
+
+  for (const component of clipboard.components) {
+    const newId = nextId(component.type, nextComponents);
+    idMap.set(component.id, newId);
+
+    const pasted: LogicComponent = {
+      ...component,
+      id: newId,
+      x: snap({ x: component.x + offset.x, y: 0 }, grid).x,
+      y: snap({ x: 0, y: component.y + offset.y }, grid).y,
+    };
+    if (pasted.state !== undefined) pasted.state = false;
+    if (pasted.memory !== undefined) pasted.memory = {};
+
+    nextComponents.push(pasted);
+  }
+
+  const usedWireIds = new Set(circuit.wires.map((wire) => wire.id));
+  const timestamp = Date.now();
+  let wireIndex = 0;
+  const pastedWires: Wire[] = clipboard.wires
+    .filter((wire) => idMap.has(wire.from.componentId) && idMap.has(wire.to.componentId))
+    .map((wire) => {
+      let id = `W${timestamp}_${wireIndex}`;
+      while (usedWireIds.has(id)) {
+        wireIndex += 1;
+        id = `W${timestamp}_${wireIndex}`;
+      }
+      usedWireIds.add(id);
+      wireIndex += 1;
+      return {
+        id,
+        from: { ...wire.from, componentId: idMap.get(wire.from.componentId)! },
+        to: { ...wire.to, componentId: idMap.get(wire.to.componentId)! },
+      };
+    });
+
+  return {
+    circuit: {
+      ...circuit,
+      components: nextComponents,
+      wires: [...circuit.wires, ...pastedWires],
+    },
+    selection: {
+      componentIds: clipboard.components.map((component) => idMap.get(component.id)!),
+      wireIds: pastedWires.map((wire) => wire.id),
+    },
+  };
 }
 
 export function nextId(type: GateType, components: LogicComponent[]): string {

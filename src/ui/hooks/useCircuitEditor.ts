@@ -1,18 +1,13 @@
 import { useState, type SetStateAction } from 'react';
-import type {
-  CircuitDocument,
-  GateType,
-  LogicComponent,
-  PinRef,
-  Point,
-  Wire,
-} from '../../core/types';
+import type { CircuitDocument, GateType, PinRef, Point, Wire } from '../../core/types';
 import {
   componentDefinitionLabel,
   createLogicComponent,
   hasSelection,
   nextId,
+  pasteClipboard,
   snap,
+  type CircuitClipboard,
 } from '../app/editorUtils';
 import type { Selection } from '../context-menu/ContextMenuView';
 import { settleSequentialCircuit } from '../../core/evaluateCircuit';
@@ -37,10 +32,7 @@ export function useCircuitEditor({
 }: Options) {
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
-  const [clipboard, setClipboard] = useState<{
-    components: LogicComponent[];
-    wires: Wire[];
-  } | null>(null);
+  const [clipboard, setClipboard] = useState<CircuitClipboard | null>(null);
 
   function addComponent(type: GateType, point: Point) {
     const snapped = snap(point, GRID);
@@ -257,49 +249,12 @@ export function useCircuitEditor({
 
     rememberCircuit();
 
-    setCircuit((current) => {
-      const nextComponents = [...current.components];
-      const nextWires = [...current.wires];
-      const idMap = new Map<string, string>();
-      const pastedComponentIds: string[] = [];
-      const pastedWireIds: string[] = [];
-
-      for (const comp of clipboard.components) {
-        const newId = nextId(comp.type, nextComponents);
-        idMap.set(comp.id, newId);
-
-        const newComp: LogicComponent = {
-          ...comp,
-          id: newId,
-          x: snap({ x: comp.x + GRID * 2, y: 0 }, GRID).x,
-          y: snap({ x: 0, y: comp.y + GRID * 2 }, GRID).y,
-        };
-
-        if (newComp.state !== undefined) newComp.state = false;
-        if (newComp.memory !== undefined) newComp.memory = {};
-
-        nextComponents.push(newComp);
-        pastedComponentIds.push(newId);
-      }
-
-      let wireIndex = 0;
-      for (const wire of clipboard.wires) {
-        if (idMap.has(wire.from.componentId) && idMap.has(wire.to.componentId)) {
-          const newWireId = `W${Date.now()}_${wireIndex++}`;
-          nextWires.push({
-            id: newWireId,
-            from: { ...wire.from, componentId: idMap.get(wire.from.componentId)! },
-            to: { ...wire.to, componentId: idMap.get(wire.to.componentId)! },
-          });
-          pastedWireIds.push(newWireId);
-        }
-      }
-
-      setSelection({ componentIds: pastedComponentIds, wireIds: pastedWireIds });
-      onMessage(`Colado ${pastedComponentIds.length} portas e ${pastedWireIds.length} fios.`);
-
-      return { ...current, components: nextComponents, wires: nextWires };
-    });
+    const pasted = pasteClipboard(circuit, clipboard, { x: GRID * 2, y: GRID * 2 }, GRID);
+    setCircuit(pasted.circuit);
+    setSelection(pasted.selection);
+    onMessage(
+      `Colado ${pasted.selection.componentIds.length} portas e ${pasted.selection.wireIds.length} fios.`,
+    );
   }
 
   return {
