@@ -119,10 +119,9 @@ export function App() {
     evaluation,
     hasSequentialComponents,
     tickSequentialCircuit,
-    setAutoClockRunning,
     toggleAutoClock,
     resetSimulation,
-    resetSimulationRuntime,
+    resetSimulationState,
   } = useSimulationController({
     circuit,
     setCircuit,
@@ -162,8 +161,7 @@ export function App() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTool('select');
-    resetSimulationRuntime();
-    setAutoClockRunning(false);
+    resetSimulationState();
     setPendingWire(null);
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps

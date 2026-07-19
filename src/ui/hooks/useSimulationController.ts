@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isSequentialType, stepCircuit } from '../../core/evaluateCircuit';
 import { useSimulationRuntime } from './useSimulationRuntime';
+import { useWaveformHistory } from './useWaveformHistory';
 import { useAutoClock } from './useAutoClock';
 import type { SetStateAction } from 'react';
 
@@ -20,8 +21,15 @@ export function useSimulationController({
 }: Options) {
   const [autoClockRunning, setAutoClockRunning] = useState(false);
   const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
+  const [tickCount, setTickCount] = useState(0);
 
   const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);
+
+  const { waveformSamples, waveformSignals, clearWaveformHistory } = useWaveformHistory({
+    circuit,
+    simulationResult,
+    tickCount,
+  });
 
   const hasSequentialComponents = circuit.components.some((component) =>
     isSequentialType(component.type),
@@ -29,6 +37,7 @@ export function useSimulationController({
 
   const autoClockTick = useCallback(() => {
     setCircuit((current) => stepCircuit(current));
+    setTickCount((current) => current + 1);
   }, [setCircuit]);
 
   useAutoClock({
@@ -48,6 +57,7 @@ export function useSimulationController({
     }
     rememberCircuit();
     setCircuit((current) => stepCircuit(current));
+    setTickCount((current) => current + 1);
     onMessage('Tick: tempo sequencial avançado.');
   }
 
@@ -63,23 +73,33 @@ export function useSimulationController({
     onMessage(autoClockRunning ? 'Clock automático pausado.' : 'Clock automático rodando.');
   }
 
-  function resetSimulation() {
+  // Reset sem mensagem de status: usado na troca de documento, cujo handler
+  // já emite a própria mensagem.
+  function resetSimulationState() {
     setAutoClockRunning(false);
     resetSimulationRuntime();
+    setTickCount(0);
+    clearWaveformHistory();
+  }
+
+  function resetSimulation() {
+    resetSimulationState();
     onMessage('Estado da simulação resetado.');
   }
 
   return {
     autoClockRunning,
-    setAutoClockRunning,
     autoClockIntervalMs,
     setAutoClockIntervalMs,
     simulationResult,
     evaluation,
     hasSequentialComponents,
+    tickCount,
+    waveformSamples,
+    waveformSignals,
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
-    resetSimulationRuntime,
+    resetSimulationState,
   };
 }
