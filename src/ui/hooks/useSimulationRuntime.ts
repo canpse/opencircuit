@@ -6,7 +6,7 @@ import type {
 } from '../../core/simulation/simulationSession';
 import SimulationWorker from '../../core/simulation/worker?worker';
 
-const EMPTY_RESULT: SimulationResult = {
+export const EMPTY_SIMULATION_RESULT: SimulationResult = {
   values: {},
   state: { values: {}, unstable: false, iterations: 0 },
   unstable: false,
@@ -15,7 +15,8 @@ const EMPTY_RESULT: SimulationResult = {
 
 export function useSimulationRuntime(circuit: CircuitDocument) {
   const [resetToken, setResetToken] = useState(0);
-  const [simulationResult, setSimulationResult] = useState<SimulationResult>(EMPTY_RESULT);
+  const [simulationResult, setSimulationResult] =
+    useState<SimulationResult>(EMPTY_SIMULATION_RESULT);
 
   const workerRef = useRef<Worker | null>(null);
   const messageIdRef = useRef(0);
@@ -51,7 +52,7 @@ export function useSimulationRuntime(circuit: CircuitDocument) {
   function resetSimulationRuntime() {
     const request: SimulationRequest = { type: 'reset' };
     workerRef.current?.postMessage(request);
-    setSimulationResult(EMPTY_RESULT);
+    setSimulationResult(EMPTY_SIMULATION_RESULT);
     setResetToken((current) => current + 1);
   }
 

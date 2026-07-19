@@ -32,7 +32,7 @@ Ganchos úteis da UI:
 - Tick manual: botão "Tick".
 - Estado visível: `path.wire.on` (fios ativos), `g.component`,
   `image.input-asset` (clicável, alterna input), `image.led-asset`.
-  A *soma* de fios ativos pode ser invariante num tick (CLK e ¬CLK alternam);
+  A _soma_ de fios ativos pode ser invariante num tick (CLK e ¬CLK alternam);
   compare a assinatura de quais fios estão ativos, não a contagem.
 
 ## Profiling em página
