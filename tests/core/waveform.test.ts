@@ -9,6 +9,7 @@ import {
   signalKey,
 } from '../../src/core/simulation/waveform';
 import type { CircuitDocument, SimulationState } from '../../src/core/types';
+import { buildSquareWavePath, waveformIsAtEnd } from '../../src/ui/panels/WaveformPanel';
 
 // Cobre o núcleo de amostragem do waveform viewer (issue #15): extração dos
 // sinais observáveis, amostragem da avaliação e o gravador de uma amostra
@@ -186,4 +187,30 @@ test('clock rápido: tick sem resposta do worker fica sem amostra, sem corromper
     ],
     'o tick 1 fica sem amostra, mas o tick 2 reflete a captura feita na subida',
   );
+});
+
+test('buildSquareWavePath desenha níveis e transições quadradas respeitando lacunas de tick', () => {
+  const samples = [
+    { tick: 3, values: { signal: false } },
+    { tick: 4, values: { signal: true } },
+    { tick: 6, values: { signal: false } },
+  ];
+
+  assert.equal(
+    buildSquareWavePath(samples, 'signal', 0),
+    'M 12 60 H 54 V 40 H 138 V 60 H 180',
+    'a distância horizontal representa os ticks ausentes e as mudanças são verticais',
+  );
+});
+
+test('buildSquareWavePath posiciona cada sinal em sua linha e trata valor ausente como baixo', () => {
+  const samples = [{ tick: 0, values: {} }];
+
+  assert.equal(buildSquareWavePath(samples, 'missing', 1), 'M 12 104 H 54');
+  assert.equal(buildSquareWavePath([], 'missing', 0), '');
+});
+
+test('waveformIsAtEnd mantém o acompanhamento apenas quando a rolagem está no fim', () => {
+  assert.equal(waveformIsAtEnd(288, 300, 600), true, 'tolera poucos pixels até o final');
+  assert.equal(waveformIsAtEnd(250, 300, 600), false, 'rolar para trás suspende o acompanhamento');
 });

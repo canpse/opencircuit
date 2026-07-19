@@ -97,6 +97,7 @@ export function useSimulationController({
     tickCount,
     waveformSamples,
     waveformSignals,
+    clearWaveformHistory,
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
