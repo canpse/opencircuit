@@ -119,8 +119,10 @@ export function App() {
     evaluation,
     hasSequentialComponents,
     tickSequentialCircuit,
+    setAutoClockRunning,
     toggleAutoClock,
     resetSimulation,
+    resetSimulationRuntime,
   } = useSimulationController({
     circuit,
     setCircuit,
@@ -155,11 +157,13 @@ export function App() {
     onPaste,
   });
 
-  // Reset editor state when switching documents
+  // Reset editor state when switching documents, without emitting a status
+  // message: the handler that switched the document already set its own.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTool('select');
-    resetSimulation();
+    resetSimulationRuntime();
+    setAutoClockRunning(false);
     setPendingWire(null);
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
