@@ -1,6 +1,6 @@
 import { memo, type MouseEvent } from 'react';
 import { getPinPosition } from '../../core/catalog';
-import type { EvaluationResult, LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import type { LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import {
   bezierPath,
   bezierPathFromPoints,
@@ -16,8 +16,9 @@ export const WireView = memo(function WireView({
   wire,
   route,
   wireStyle,
-  componentById,
-  evaluation,
+  fromComponent,
+  toComponent,
+  active,
   selected,
   onSelect,
   onContextMenu,
@@ -26,25 +27,25 @@ export const WireView = memo(function WireView({
   wire: Wire;
   route: WireRoute | undefined;
   wireStyle: WireStyle;
-  componentById: Map<string, LogicComponent>;
-  evaluation: EvaluationResult;
+  fromComponent: LogicComponent;
+  toComponent: LogicComponent;
+  active: boolean;
   selected: boolean;
-  onSelect: () => void;
-  onContextMenu: (event: MouseEvent<SVGPathElement>) => void;
-  onRemove: () => void;
+  onSelect: (wireId: string) => void;
+  onContextMenu: (event: MouseEvent<SVGPathElement>, wireId: string) => void;
+  onRemove: (wireId: string) => void;
 }) {
-  const from = componentById.get(wire.from.componentId);
-  const to = componentById.get(wire.to.componentId);
-  if (!from || !to) return null;
-  const start = getPinPosition(from, wire.from.pinId);
-  const end = getPinPosition(to, wire.to.pinId);
+  const start = getPinPosition(fromComponent, wire.from.pinId);
+  const end = getPinPosition(toComponent, wire.to.pinId);
   const points =
-    route?.points ?? (from.id === to.id ? selfLoopRoute(from, start, end, 0) : [start, end]);
-  const active = Boolean(evaluation[wire.from.componentId]?.[wire.from.pinId]);
+    route?.points ??
+    (fromComponent.id === toComponent.id
+      ? selfLoopRoute(fromComponent, start, end, 0)
+      : [start, end]);
   const d =
     wireStyle === 'orthogonal'
       ? orthogonalPath(points, route?.jumps ?? [])
-      : from.id === to.id
+      : fromComponent.id === toComponent.id
         ? bezierPathFromPoints(points)
         : bezierPathWithPinStubs(start, end);
 
@@ -54,16 +55,16 @@ export const WireView = memo(function WireView({
       className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
       onClick={(event) => {
         event.stopPropagation();
-        onSelect();
+        onSelect(wire.id);
       }}
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onContextMenu(event);
+        onContextMenu(event, wire.id);
       }}
       onDoubleClick={(event) => {
         event.stopPropagation();
-        onRemove();
+        onRemove(wire.id);
       }}
     />
   );

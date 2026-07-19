@@ -8,9 +8,19 @@ export function isSequentialType(type: LogicComponent['type']): boolean {
   return SEQUENTIAL_TYPES.includes(type as (typeof SEQUENTIAL_TYPES)[number]);
 }
 
+function memoryHasBooleans(memory: Record<string, boolean> | undefined, keys: string[]): boolean {
+  return Boolean(memory) && keys.every((key) => typeof memory?.[key] === 'boolean');
+}
+
+// Componentes já normalizados são devolvidos como estão: preservar a
+// identidade referencial evita re-renderizações desnecessárias na UI.
 export function withSequentialDefaults(component: LogicComponent): LogicComponent {
-  if (component.type === 'clock') return { ...component, state: Boolean(component.state) };
+  if (component.type === 'clock') {
+    if (typeof component.state === 'boolean') return component;
+    return { ...component, state: Boolean(component.state) };
+  }
   if (component.type === 'd-latch' || component.type === 'd-flip-flop') {
+    if (memoryHasBooleans(component.memory, ['q', 'previousClk'])) return component;
     return {
       ...component,
       memory: {
@@ -20,6 +30,9 @@ export function withSequentialDefaults(component: LogicComponent): LogicComponen
     };
   }
   if (component.type === 'register-4') {
+    if (memoryHasBooleans(component.memory, ['q0', 'q1', 'q2', 'q3', 'previousClk'])) {
+      return component;
+    }
     return {
       ...component,
       memory: {
