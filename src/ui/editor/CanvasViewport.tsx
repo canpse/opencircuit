@@ -40,6 +40,7 @@ export function CanvasViewport({
     panning,
     zoomPercent,
     resetCamera,
+    zoomToFit,
     zoomAtCenter,
     onWheelZoom,
     startPan,
@@ -110,6 +111,9 @@ export function CanvasViewport({
         </button>
         <button onClick={resetCamera} title="Resetar zoom">
           {zoomPercent}%
+        </button>
+        <button onClick={zoomToFit} title="Enquadrar circuito (Ctrl+0)">
+          Fit
         </button>
       </div>
     </>
