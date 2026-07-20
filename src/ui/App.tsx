@@ -52,6 +52,8 @@ export function App() {
     saveActiveDocument,
     saveActiveDocumentAs,
     openDocumentsFromPicker,
+    openRecentDocument,
+    recentFiles,
     linkedDocumentIds,
     renameDocument,
     loadExample,
@@ -266,7 +268,9 @@ export function App() {
         autoClockRunning={autoClockRunning}
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
+        recentFiles={recentFiles}
         onOpen={openDocuments}
+        onOpenRecent={(recentId) => void openRecentDocument(recentId)}
         onSave={saveActiveDocument}
         onSaveAs={saveActiveDocumentAs}
         onExportImage={exportImage}
