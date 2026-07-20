@@ -2,6 +2,7 @@ import { RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } 
 import type { MouseEvent, WheelEvent } from 'react';
 import type { Point } from '../../core/types';
 import { beginProfileInteraction } from '../../performance/profiling';
+import { circuitContentBounds, type Bounds } from './exportCircuitImage';
 
 export type Camera = { x: number; y: number; width: number; height: number };
 type Panning = { startClient: Point; startCamera: Camera } | null;
@@ -10,6 +11,24 @@ type ViewportBounds = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, width: 1200, height: 720 };
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
+const FIT_MARGIN = 40;
+
+// Câmera que enquadra os bounds com margem, centralizada e respeitando os
+// limites de zoom. Exportada para os testes; a UI usa via zoomToFit.
+export function fitCameraToBounds(bounds: Bounds): Camera {
+  const fitWidth = bounds.width + FIT_MARGIN * 2;
+  const fitHeight = bounds.height + FIT_MARGIN * 2;
+  const idealZoom = Math.min(DEFAULT_CAMERA.width / fitWidth, DEFAULT_CAMERA.height / fitHeight);
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, idealZoom));
+  const width = DEFAULT_CAMERA.width / zoom;
+  const height = DEFAULT_CAMERA.height / zoom;
+  return {
+    x: bounds.x + bounds.width / 2 - width / 2,
+    y: bounds.y + bounds.height / 2 - height / 2,
+    width,
+    height,
+  };
+}
 
 export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
@@ -21,6 +40,18 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
     beginProfileInteraction('canvas.reset');
     setCamera(DEFAULT_CAMERA);
   }, []);
+
+  // Enquadra o circuito; com o canvas vazio volta à câmera padrão.
+  const zoomToFit = useCallback(() => {
+    const svg = svgRef.current;
+    const bounds = svg ? circuitContentBounds(svg) : null;
+    if (!bounds) {
+      resetCamera();
+      return;
+    }
+    beginProfileInteraction('canvas.fit');
+    setCamera(fitCameraToBounds(bounds));
+  }, [resetCamera, svgRef]);
 
   const zoomAtCenter = useCallback((factor: number) => {
     beginProfileInteraction('canvas.zoom');
@@ -70,7 +101,7 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
         zoomAtCenter(1.2);
       } else if (event.key === '0') {
         event.preventDefault();
-        resetCamera();
+        zoomToFit();
       }
     }
 
@@ -84,7 +115,7 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('blur', onBlur);
     };
-  }, [resetCamera, zoomAtCenter]);
+  }, [zoomAtCenter, zoomToFit]);
 
   function onWheelZoom(event: WheelEvent<SVGSVGElement>) {
     event.preventDefault();
@@ -123,6 +154,7 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
     panning,
     zoomPercent,
     resetCamera,
+    zoomToFit,
     zoomAtCenter,
     onWheelZoom,
     startPan,

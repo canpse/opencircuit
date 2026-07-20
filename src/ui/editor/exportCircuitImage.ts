@@ -8,14 +8,20 @@ const CANVAS_BACKGROUND = '#f9fbfc';
 
 export type CircuitImageFormat = 'png' | 'svg';
 
-type Bounds = { x: number; y: number; width: number; height: number };
+export type Bounds = { x: number; y: number; width: number; height: number };
 
 export async function renderCircuitImage(
   svg: SVGSVGElement,
   format: CircuitImageFormat,
 ): Promise<Blob> {
-  const bounds = contentBounds(svg);
-  if (!bounds) throw new Error('Circuito vazio');
+  const content = circuitContentBounds(svg);
+  if (!content) throw new Error('Circuito vazio');
+  const bounds = {
+    x: content.x - EXPORT_PADDING,
+    y: content.y - EXPORT_PADDING,
+    width: content.width + EXPORT_PADDING * 2,
+    height: content.height + EXPORT_PADDING * 2,
+  };
 
   const clone = prepareExportSvg(svg, bounds);
   await inlineImageAssets(clone);
@@ -38,7 +44,9 @@ export async function exportCircuitImage(
   return filename;
 }
 
-function contentBounds(svg: SVGSVGElement): Bounds | null {
+// Bounds crus do conteúdo desenhado (componentes + fios), sem margem.
+// Compartilhado entre a exportação de imagem e o zoom to fit.
+export function circuitContentBounds(svg: SVGSVGElement): Bounds | null {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -54,12 +62,7 @@ function contentBounds(svg: SVGSVGElement): Bounds | null {
   }
 
   if (!Number.isFinite(minX)) return null;
-  return {
-    x: minX - EXPORT_PADDING,
-    y: minY - EXPORT_PADDING,
-    width: maxX - minX + EXPORT_PADDING * 2,
-    height: maxY - minY + EXPORT_PADDING * 2,
-  };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 function prepareExportSvg(svg: SVGSVGElement, bounds: Bounds): SVGSVGElement {
