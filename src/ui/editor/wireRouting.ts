@@ -74,16 +74,103 @@ export function routeCircuitWires(
       from.id === to.id
         ? selfLoopRoute(from, start, end, index)
         : routeBetweenPoints(start, end, components, ignore, index);
-    return { wireId: wire.id, points, jumps: [] };
+    return { wireId: wire.id, points: mergeCollinearPoints(points), jumps: [] };
   });
 
-  return routes.map((route, index) => ({
+  const spread = spreadWireCorridors(routes);
+
+  return spread.map((route, index) => ({
     ...route,
     jumps: findWireJumps(
       route,
-      routes.filter((_, otherIndex) => otherIndex !== index),
+      spread.filter((_, otherIndex) => otherIndex !== index),
     ),
   }));
+}
+
+const CORRIDOR_SPACING = 8;
+const MIN_CORRIDOR_OVERLAP = 20;
+
+// Fios que compartilham o mesmo corredor (segmentos colineares sobrepostos)
+// são afastados simetricamente alguns pixels, como trilhas paralelas. Só
+// segmentos interiores se movem: as pontas nos pinos ficam intactas, e os
+// segmentos vizinhos (perpendiculares) apenas esticam ou encolhem.
+export function spreadWireCorridors(routes: WireRoute[]): WireRoute[] {
+  const points = routes.map((route) => route.points.map((point) => ({ ...point })));
+
+  type SegmentRef = { routeIndex: number; segmentIndex: number; lo: number; hi: number };
+  const lines = new Map<string, SegmentRef[]>();
+
+  points.forEach((routePoints, routeIndex) => {
+    for (let segmentIndex = 1; segmentIndex <= routePoints.length - 3; segmentIndex += 1) {
+      const a = routePoints[segmentIndex];
+      const b = routePoints[segmentIndex + 1];
+      const vertical = a.x === b.x && a.y !== b.y;
+      const horizontal = a.y === b.y && a.x !== b.x;
+      if (!vertical && !horizontal) continue;
+      const key = vertical ? `v:${a.x}` : `h:${a.y}`;
+      const lo = vertical ? Math.min(a.y, b.y) : Math.min(a.x, b.x);
+      const hi = vertical ? Math.max(a.y, b.y) : Math.max(a.x, b.x);
+      const refs = lines.get(key) ?? [];
+      refs.push({ routeIndex, segmentIndex, lo, hi });
+      lines.set(key, refs);
+    }
+  });
+
+  for (const [key, refs] of lines) {
+    if (refs.length < 2) continue;
+    const vertical = key.startsWith('v:');
+    refs.sort((left, right) => left.lo - right.lo || left.routeIndex - right.routeIndex);
+
+    // Agrupa por sobreposição encadeada ao longo da linha.
+    const clusters: SegmentRef[][] = [];
+    let cluster: SegmentRef[] = [];
+    let clusterHi = -Infinity;
+    for (const ref of refs) {
+      if (cluster.length > 0 && clusterHi - ref.lo >= MIN_CORRIDOR_OVERLAP) {
+        cluster.push(ref);
+        clusterHi = Math.max(clusterHi, ref.hi);
+      } else {
+        if (cluster.length >= 2) clusters.push(cluster);
+        cluster = [ref];
+        clusterHi = ref.hi;
+      }
+    }
+    if (cluster.length >= 2) clusters.push(cluster);
+
+    for (const members of clusters) {
+      members.sort((left, right) => left.routeIndex - right.routeIndex);
+      members.forEach((member, order) => {
+        const offset = (order - (members.length - 1) / 2) * CORRIDOR_SPACING;
+        if (offset === 0) return;
+        const a = points[member.routeIndex][member.segmentIndex];
+        const b = points[member.routeIndex][member.segmentIndex + 1];
+        if (vertical) {
+          a.x += offset;
+          b.x += offset;
+        } else {
+          a.y += offset;
+          b.y += offset;
+        }
+      });
+    }
+  }
+
+  return routes.map((route, index) => ({ ...route, points: points[index] }));
+}
+
+// Remove pontos intermediários colineares para que segmentos consecutivos
+// sejam sempre perpendiculares — pré-condição do espaçamento de corredores.
+export function mergeCollinearPoints(points: Point[]): Point[] {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    const next = points[index + 1];
+    if (!previous || !next) return true;
+    const collinear =
+      (previous.x === point.x && point.x === next.x) ||
+      (previous.y === point.y && point.y === next.y);
+    return !collinear;
+  });
 }
 
 export function selfLoopRoute(
