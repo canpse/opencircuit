@@ -17,6 +17,8 @@ interface Options {
   onUndo: () => void;
   onRedo: () => void;
   onSave: () => void;
+  onSaveAs: () => void;
+  onOpen: () => void;
   onRemoveSelection: () => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -35,6 +37,8 @@ export function useEditorKeyboardShortcuts({
   onUndo,
   onRedo,
   onSave,
+  onSaveAs,
+  onOpen,
   onRemoveSelection,
   onCopy,
   onPaste,
@@ -82,7 +86,9 @@ export function useEditorKeyboardShortcuts({
       const command = event.ctrlKey || event.metaKey;
       const isUndo = command && key === 'z' && !event.shiftKey;
       const isRedo = command && ((key === 'z' && event.shiftKey) || key === 'y');
-      const isSave = command && key === 's';
+      const isSaveAs = command && key === 's' && event.shiftKey;
+      const isSave = command && key === 's' && !event.shiftKey;
+      const isOpen = command && key === 'o';
       const isCopy = command && key === 'c';
       const isPaste = command && key === 'v';
 
@@ -98,9 +104,21 @@ export function useEditorKeyboardShortcuts({
         return;
       }
 
+      if (isSaveAs) {
+        event.preventDefault();
+        onSaveAs();
+        return;
+      }
+
       if (isSave) {
         event.preventDefault();
         onSave();
+        return;
+      }
+
+      if (isOpen) {
+        event.preventDefault();
+        onOpen();
         return;
       }
 
@@ -137,6 +155,8 @@ export function useEditorKeyboardShortcuts({
     onRedo,
     onRemoveSelection,
     onSave,
+    onSaveAs,
+    onOpen,
     onCopy,
     onPaste,
     onSelectTool,
