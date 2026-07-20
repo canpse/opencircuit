@@ -1,6 +1,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { isDocumentDirty, type WorkspaceDocument } from '../../src/state/workspaceStorage';
+import {
+  ensureJsonExtension,
+  isDocumentDirty,
+  type WorkspaceDocument,
+} from '../../src/state/workspaceStorage';
 import type { CircuitDocument } from '../../src/core/types';
 
 function circuitWith(components: number, wires: number): CircuitDocument {
@@ -50,4 +54,9 @@ test('DocumentoJaSalvoQueFoiEsvaziadoEstaSujo', () => {
 
 test('DocumentoLegadoSemEverSavedVazioNaoEstaSujo', () => {
   assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0))), false);
+});
+
+test('EnsureJsonExtensionAcrescentaSufixoQuandoFalta', () => {
+  assert.equal(ensureJsonExtension('meu_circuito'), 'meu_circuito.json');
+  assert.equal(ensureJsonExtension('meu_circuito.json'), 'meu_circuito.json');
 });

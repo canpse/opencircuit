@@ -18,7 +18,7 @@ import { useWireStylePreference } from './hooks/useWireStylePreference';
 import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
-import { isDocumentDirty } from '../state/workspaceStorage';
+import { DocumentTabs } from './tabs/DocumentTabs';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
@@ -49,6 +49,7 @@ export function App() {
     discardPendingCloseDocument,
     cancelPendingClose,
     saveActiveDocument,
+    renameDocument,
     loadExample,
     importJson,
   } = useWorkspaceManager({
@@ -269,45 +270,14 @@ export function App() {
         <ComponentLibrary selectedTool={selectedTool} onSelectTool={setSelectedTool} />
 
         <div className="center-panel">
-          <div className="document-tabs">
-            {documents.map((document) => (
-              <div
-                key={document.id}
-                className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
-                title={
-                  document.exampleId
-                    ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}`
-                    : document.name
-                }
-              >
-                <button className="document-tab-title" onClick={() => selectDocument(document.id)}>
-                  {document.name}
-                </button>
-                {isDocumentDirty(document) && (
-                  <span
-                    className="document-tab-dirty"
-                    title="Mudanças não salvas"
-                    aria-label="Mudanças não salvas"
-                  >
-                    •
-                  </span>
-                )}
-                <button
-                  className="document-tab-close"
-                  aria-label={`Fechar ${document.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    requestCloseDocument(document.id);
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button className="document-tab add-tab" onClick={createNewDocument}>
-              +
-            </button>
-          </div>
+          <DocumentTabs
+            documents={documents}
+            activeDocumentId={activeDocumentId}
+            onSelect={selectDocument}
+            onRequestClose={requestCloseDocument}
+            onRename={renameDocument}
+            onCreate={createNewDocument}
+          />
           <div className="editor-panel">
             <Profiler id="CircuitCanvas" onRender={recordReactProfile}>
               <CircuitCanvas

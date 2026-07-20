@@ -522,6 +522,19 @@ button:disabled {
   background: transparent;
   box-shadow: none;
 }
+.document-tab-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 4px 4px 4px 8px;
+  padding: 3px 6px;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: #fff;
+  outline: none;
+}
 .document-tab-dirty {
   flex: 0 0 auto;
   color: var(--brand-strong);

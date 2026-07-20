@@ -5,6 +5,7 @@ import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
 import { downloadJson } from '../../state/storage';
 import {
   createUntitledDocument,
+  ensureJsonExtension,
   isDocumentDirty,
   loadWorkspace,
   type WorkspaceDocument,
@@ -103,9 +104,8 @@ export function useWorkspaceManager({ onMessage }: Options) {
   function savePendingCloseDocument() {
     if (!pendingCloseDocument) return;
     setPendingCloseId(null);
-    if (saveDocument(pendingCloseDocument)) {
-      closeDocument(pendingCloseDocument.id);
-    }
+    saveDocument(pendingCloseDocument);
+    closeDocument(pendingCloseDocument.id);
   }
 
   function discardPendingCloseDocument() {
@@ -141,14 +141,8 @@ export function useWorkspaceManager({ onMessage }: Options) {
     onMessage('Arquivo fechado.');
   }
 
-  function saveDocument(target: WorkspaceDocument): boolean {
-    const suggestedName = target.name.endsWith('.json') ? target.name : `${target.name}.json`;
-    const chosenName = window.prompt('Nome do arquivo para salvar:', suggestedName);
-    if (!chosenName) {
-      onMessage('Salvamento cancelado.');
-      return false;
-    }
-    const filename = chosenName.endsWith('.json') ? chosenName : `${chosenName}.json`;
+  function saveDocument(target: WorkspaceDocument) {
+    const filename = ensureJsonExtension(target.name);
     downloadJson(filename, target.circuit);
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
@@ -158,11 +152,22 @@ export function useWorkspaceManager({ onMessage }: Options) {
       ),
     );
     onMessage(`Arquivo salvo: ${filename}.`);
-    return true;
   }
 
   function saveActiveDocument() {
     saveDocument(activeDocument);
+  }
+
+  function renameDocument(documentId: string, name: string) {
+    const trimmed = name.trim();
+    const current = documents.find((document) => document.id === documentId);
+    if (!current || !trimmed || trimmed === current.name) return;
+    setDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === documentId ? { ...document, name: trimmed } : document,
+      ),
+    );
+    onMessage(`Arquivo renomeado: ${trimmed}.`);
   }
 
   function loadExample(exampleId: string) {
@@ -228,6 +233,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     discardPendingCloseDocument,
     cancelPendingClose,
     saveActiveDocument,
+    renameDocument,
     loadExample,
     importJson,
   };

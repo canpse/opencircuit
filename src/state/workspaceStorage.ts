@@ -92,6 +92,10 @@ export function saveWorkspace(workspace: WorkspaceState): boolean {
   }
 }
 
+export function ensureJsonExtension(name: string): string {
+  return name.endsWith('.json') ? name : `${name}.json`;
+}
+
 // Sujo = tem mudanças que ainda não foram salvas em arquivo. Uma aba vazia que
 // nunca foi salva não conta: fechá-la não perde nada. Já uma aba vazia de um
 // documento que teve versão salva conta — o "apaguei tudo" é uma mudança.
