@@ -229,6 +229,63 @@ export function useCircuitEditor({
     onMessage(`Túnel renomeado para ${nextLabel}.`);
   }
 
+  function addWireWaypoint(wireId: string, waypointIndex: number, point: Point) {
+    const currentWire = circuit.wires.find((wire) => wire.id === wireId);
+    if (!currentWire) return;
+    rememberCircuit();
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.map((wire) =>
+        wire.id === wireId
+          ? {
+              ...wire,
+              waypoints: [
+                ...(wire.waypoints ?? []).slice(0, waypointIndex),
+                { ...point },
+                ...(wire.waypoints ?? []).slice(waypointIndex),
+              ],
+            }
+          : wire,
+      ),
+    }));
+    setSelection({ componentIds: [], wireIds: [wireId] });
+    onMessage('Guia de rota adicionada.');
+  }
+
+  function beginMoveWireWaypoint() {
+    rememberCircuit();
+  }
+
+  function moveWireWaypoint(wireId: string, waypointIndex: number, point: Point) {
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.map((wire) => {
+        if (wire.id !== wireId || !wire.waypoints?.[waypointIndex]) return wire;
+        return {
+          ...wire,
+          waypoints: wire.waypoints.map((waypoint, index) =>
+            index === waypointIndex ? { ...point } : waypoint,
+          ),
+        };
+      }),
+    }));
+  }
+
+  function removeWireWaypoint(wireId: string, waypointIndex: number) {
+    const currentWire = circuit.wires.find((wire) => wire.id === wireId);
+    if (!currentWire?.waypoints?.[waypointIndex]) return;
+    rememberCircuit();
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.map((wire) => {
+        if (wire.id !== wireId || !wire.waypoints) return wire;
+        const waypoints = wire.waypoints.filter((_, index) => index !== waypointIndex);
+        return { ...wire, waypoints: waypoints.length > 0 ? waypoints : undefined };
+      }),
+    }));
+    onMessage('Guia de rota removida.');
+  }
+
   function removeComponent(componentId: string) {
     rememberCircuit();
     setCircuit((current) => ({
@@ -322,6 +379,10 @@ export function useCircuitEditor({
     removeWire,
     toggleWireDisplay,
     renameWire,
+    addWireWaypoint,
+    beginMoveWireWaypoint,
+    moveWireWaypoint,
+    removeWireWaypoint,
     removeComponent,
     renameComponent,
     resizeTextComponent,

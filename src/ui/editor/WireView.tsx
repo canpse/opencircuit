@@ -24,6 +24,9 @@ export const WireView = memo(function WireView({
   onContextMenu,
   onRemove,
   onRename,
+  onWireMouseDown,
+  onWaypointMouseDown,
+  onRemoveWaypoint,
 }: {
   wire: Wire;
   route: WireRoute | undefined;
@@ -36,6 +39,13 @@ export const WireView = memo(function WireView({
   onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onRemove: (wireId: string) => void;
   onRename: (wireId: string, label: string) => void;
+  onWireMouseDown: (event: MouseEvent<SVGPathElement>, wireId: string) => void;
+  onWaypointMouseDown: (
+    event: MouseEvent<SVGCircleElement>,
+    wireId: string,
+    waypointIndex: number,
+  ) => void;
+  onRemoveWaypoint: (wireId: string, waypointIndex: number) => void;
 }) {
   const [editingEnd, setEditingEnd] = useState<'from' | 'to' | null>(null);
   const [draftLabel, setDraftLabel] = useState('');
@@ -49,9 +59,11 @@ export const WireView = memo(function WireView({
   const d =
     wireStyle === 'orthogonal'
       ? orthogonalPath(points, route?.jumps ?? [])
-      : fromComponent.id === toComponent.id
+      : wire.waypoints?.length
         ? bezierPathFromPoints(points)
-        : bezierPathWithPinStubs(start, end);
+        : fromComponent.id === toComponent.id
+          ? bezierPathFromPoints(points)
+          : bezierPathWithPinStubs(start, end);
 
   if (wire.display === 'tunnel') {
     const label = wire.label || 'Túnel';
@@ -132,23 +144,55 @@ export const WireView = memo(function WireView({
   }
 
   return (
-    <path
-      d={d}
-      className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect(wire.id);
-      }}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onContextMenu(event, wire.id);
-      }}
-      onDoubleClick={(event) => {
-        event.stopPropagation();
-        onRemove(wire.id);
-      }}
-    />
+    <>
+      <path
+        d={d}
+        className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
+        onMouseDown={(event) => onWireMouseDown(event, wire.id)}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(wire.id);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onContextMenu(event, wire.id);
+        }}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          onRemove(wire.id);
+        }}
+      />
+      {selected &&
+        wire.waypoints?.map((point, waypointIndex) => (
+          <circle
+            key={waypointIndex}
+            className="wire-waypoint"
+            cx={point.x}
+            cy={point.y}
+            r="7"
+            tabIndex={0}
+            role="button"
+            aria-label={`Guia de rota ${waypointIndex + 1}`}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (event.button === 0) onWaypointMouseDown(event, wire.id, waypointIndex);
+            }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onSelect(wire.id);
+            }}
+            onDoubleClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+              event.preventDefault();
+              event.stopPropagation();
+              onRemoveWaypoint(wire.id, waypointIndex);
+            }}
+          />
+        ))}
+    </>
   );
 });
 

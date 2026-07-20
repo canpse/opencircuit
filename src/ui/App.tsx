@@ -94,6 +94,10 @@ export function App() {
     removeWire,
     toggleWireDisplay,
     renameWire,
+    addWireWaypoint,
+    beginMoveWireWaypoint,
+    moveWireWaypoint,
+    removeWireWaypoint,
     removeComponent,
     renameComponent,
     resizeTextComponent,
@@ -318,6 +322,10 @@ export function App() {
                 onPinClick={onPinClick}
                 onRemoveWire={removeWire}
                 onRenameWire={renameWire}
+                onAddWireWaypoint={addWireWaypoint}
+                onBeginMoveWireWaypoint={beginMoveWireWaypoint}
+                onMoveWireWaypoint={moveWireWaypoint}
+                onRemoveWireWaypoint={removeWireWaypoint}
                 onRemoveComponent={removeComponent}
                 onRenameComponent={renameComponent}
                 onCancelPendingWire={cancelPendingWire}

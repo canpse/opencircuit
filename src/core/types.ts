@@ -55,6 +55,7 @@ export interface Wire {
   to: PinRef;
   display?: 'wire' | 'tunnel';
   label?: string;
+  waypoints?: Point[];
 }
 
 export interface CircuitDocument {
