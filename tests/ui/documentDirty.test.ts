@@ -20,22 +20,34 @@ function circuitWith(components: number, wires: number): CircuitDocument {
   };
 }
 
-function documentWith(saved: boolean, circuit: CircuitDocument): WorkspaceDocument {
-  return { id: 'doc-1', name: 'teste.json', circuit, exampleId: null, saved };
+function documentWith(
+  saved: boolean,
+  circuit: CircuitDocument,
+  everSaved?: boolean,
+): WorkspaceDocument {
+  return { id: 'doc-1', name: 'teste.json', circuit, exampleId: null, saved, everSaved };
 }
 
 test('DocumentoSalvoNaoEstaSujo', () => {
-  assert.equal(isDocumentDirty(documentWith(true, circuitWith(3, 2))), false);
+  assert.equal(isDocumentDirty(documentWith(true, circuitWith(3, 2), true)), false);
 });
 
-test('DocumentoVazioNaoEstaSujoMesmoSemSalvar', () => {
-  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0))), false);
+test('AbaNovaVaziaNaoEstaSuja', () => {
+  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0), false)), false);
 });
 
 test('DocumentoNaoSalvoComComponentesEstaSujo', () => {
-  assert.equal(isDocumentDirty(documentWith(false, circuitWith(1, 0))), true);
+  assert.equal(isDocumentDirty(documentWith(false, circuitWith(1, 0), false)), true);
 });
 
 test('DocumentoNaoSalvoApenasComFiosEstaSujo', () => {
-  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 1))), true);
+  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 1), false)), true);
+});
+
+test('DocumentoJaSalvoQueFoiEsvaziadoEstaSujo', () => {
+  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0), true)), true);
+});
+
+test('DocumentoLegadoSemEverSavedVazioNaoEstaSujo', () => {
+  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0))), false);
 });

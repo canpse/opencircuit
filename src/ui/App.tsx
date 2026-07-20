@@ -154,6 +154,7 @@ export function App() {
     selection,
     pendingWire,
     contextMenu,
+    dialogOpen: pendingCloseDocument !== null,
     hasSelection,
     onCancelContextMenu: closeContextMenu,
     onCancelPendingWire: () => setPendingWire(null),

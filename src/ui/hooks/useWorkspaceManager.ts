@@ -152,7 +152,9 @@ export function useWorkspaceManager({ onMessage }: Options) {
     downloadJson(filename, target.circuit);
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
-        document.id === target.id ? { ...document, name: filename, saved: true } : document,
+        document.id === target.id
+          ? { ...document, name: filename, saved: true, everSaved: true }
+          : document,
       ),
     );
     onMessage(`Arquivo salvo: ${filename}.`);
@@ -175,6 +177,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
         circuit: normalizeCircuitForEditor(cloneCircuit(example.circuit)),
         exampleId: example.id,
         saved: false,
+        everSaved: false,
       },
     ]);
     setActiveDocumentId(id);
@@ -198,6 +201,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
             circuit: normalizeCircuitForEditor(parsed),
             exampleId: null,
             saved: true,
+            everSaved: true,
           },
         ]);
         setActiveDocumentId(id);
