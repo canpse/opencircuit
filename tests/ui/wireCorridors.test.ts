@@ -4,6 +4,7 @@ import {
   mergeCollinearPoints,
   routeCircuitWires,
   spreadWireCorridors,
+  waypointInsertionIndex,
   type WireRoute,
 } from '../../src/ui/editor/wireRouting';
 import type { LogicComponent, Point, Wire } from '../../src/core/types';
@@ -150,6 +151,71 @@ test('RoteamentoIgnoraFiosExibidosComoTunel', () => {
     ),
     [],
   );
+});
+
+test('RoteamentoPassaPorTodasAsGuiasNaOrdem', () => {
+  const source: LogicComponent = { id: 'IN', type: 'input', x: 0, y: 100 };
+  const target: LogicComponent = { id: 'LED', type: 'led', x: 500, y: 100 };
+  const components = [source, target];
+  const waypoints = [
+    { x: 180, y: 40 },
+    { x: 340, y: 240 },
+  ];
+  const wires: Wire[] = [
+    {
+      id: 'W1',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'LED', pinId: 'in' },
+      waypoints,
+    },
+  ];
+
+  const [guidedRoute] = routeCircuitWires(
+    wires,
+    new Map(components.map((component) => [component.id, component])),
+    components,
+  );
+  const indexes = waypoints.map((waypoint) =>
+    guidedRoute.points.findIndex((point) => point.x === waypoint.x && point.y === waypoint.y),
+  );
+
+  assert.ok(indexes[0] > 0, 'a primeira guia deve fazer parte da rota');
+  assert.ok(indexes[1] > indexes[0], 'as guias devem manter a ordem definida pelo usuário');
+  assert.ok(
+    guidedRoute.points.slice(0, -1).every((point, index) => {
+      const next = guidedRoute.points[index + 1];
+      return point.x === next.x || point.y === next.y;
+    }),
+    'todos os trechos devem permanecer ortogonais',
+  );
+});
+
+test('EspacamentoDeCorredorNaoMoveGuiasFixas', () => {
+  const fixed = { x: 100, y: 100 };
+  const a = {
+    ...route('a', [{ x: 0, y: 0 }, fixed, { x: 100, y: 300 }, { x: 300, y: 300 }]),
+    fixedPoints: [fixed],
+  };
+  const b = route('b', [
+    { x: 0, y: 40 },
+    { x: 100, y: 40 },
+    { x: 100, y: 320 },
+    { x: 300, y: 320 },
+  ]);
+
+  const [spreadA] = spreadWireCorridors([a, b]);
+
+  assert.deepEqual(spreadA.points[1], fixed);
+});
+
+test('NovaGuiaEhInseridaNoTrechoClicado', () => {
+  const first = { x: 100, y: 0 };
+  const second = { x: 200, y: 100 };
+  const points = [{ x: 0, y: 0 }, first, { x: 100, y: 100 }, second, { x: 300, y: 100 }];
+
+  assert.equal(waypointInsertionIndex(points, [first, second], { x: 40, y: 0 }), 0);
+  assert.equal(waypointInsertionIndex(points, [first, second], { x: 100, y: 60 }), 1);
+  assert.equal(waypointInsertionIndex(points, [first, second], { x: 260, y: 100 }), 2);
 });
 
 test('MergeCollinearRemovePontosRedundantes', () => {

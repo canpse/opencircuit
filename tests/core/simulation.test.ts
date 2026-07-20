@@ -614,6 +614,36 @@ function testCircuitDocumentValidationAcceptsTunnelMetadata() {
   );
 }
 
+function testCircuitDocumentValidationAcceptsWaypoints() {
+  const circuit = validDocument();
+  const wireWithGuides = {
+    ...circuit.wires[0],
+    waypoints: [
+      { x: 60, y: 40 },
+      { x: 100, y: 80 },
+    ],
+  };
+
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [wireWithGuides] }),
+    true,
+    'Guias de rota finitas devem ser aceitas no formato v1',
+  );
+  assert.equal(
+    isCircuitDocument({
+      ...circuit,
+      wires: [{ ...wireWithGuides, waypoints: [{ x: Number.NaN, y: 40 }] }],
+    }),
+    false,
+    'Coordenadas não finitas devem ser rejeitadas',
+  );
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [{ ...wireWithGuides, waypoints: ['inválida'] }] }),
+    false,
+    'Guias malformadas devem ser rejeitadas',
+  );
+}
+
 function testCircuitDocumentValidationRejectsConflictingIdsAndInputs() {
   const circuit = validDocument();
   const duplicateComponent = { ...circuit.components[0] };
@@ -676,6 +706,7 @@ const tests = [
   testCircuitDocumentValidationRejectsUnknownComponent,
   testCircuitDocumentValidationRejectsInvalidWire,
   testCircuitDocumentValidationAcceptsTunnelMetadata,
+  testCircuitDocumentValidationAcceptsWaypoints,
   testCircuitDocumentValidationRejectsConflictingIdsAndInputs,
   testBundledCircuitDocumentsAreValid,
 ];

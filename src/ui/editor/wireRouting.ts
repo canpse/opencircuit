@@ -1,7 +1,7 @@
 import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
 import type { LogicComponent, Point, Wire } from '../../core/types';
 
-export type WireRoute = { wireId: string; points: Point[]; jumps: Point[] };
+export type WireRoute = { wireId: string; points: Point[]; jumps: Point[]; fixedPoints?: Point[] };
 
 export interface RectBounds {
   x: number;
@@ -72,11 +72,18 @@ export function routeCircuitWires(
       const start = getPinPosition(from, wire.from.pinId);
       const end = getPinPosition(to, wire.to.pinId);
       const ignore = new Set([from.id, to.id]);
-      const points =
-        from.id === to.id
+      const fixedPoints = wire.waypoints?.map((point) => ({ ...point }));
+      const points = fixedPoints?.length
+        ? routeThroughWaypoints(start, end, fixedPoints, components, ignore, index)
+        : from.id === to.id
           ? selfLoopRoute(from, start, end, index)
           : routeBetweenPoints(start, end, components, ignore, index);
-      return { wireId: wire.id, points: mergeCollinearPoints(points), jumps: [] };
+      return {
+        wireId: wire.id,
+        points: fixedPoints?.length ? points : mergeCollinearPoints(points),
+        jumps: [],
+        fixedPoints,
+      };
     });
 
   const spread = spreadWireCorridors(routes);
@@ -107,6 +114,8 @@ export function spreadWireCorridors(routes: WireRoute[]): WireRoute[] {
     for (let segmentIndex = 1; segmentIndex <= routePoints.length - 3; segmentIndex += 1) {
       const a = routePoints[segmentIndex];
       const b = routePoints[segmentIndex + 1];
+      const fixedPoints = routes[routeIndex].fixedPoints ?? [];
+      if (fixedPoints.some((point) => samePoint(point, a) || samePoint(point, b))) continue;
       const vertical = a.x === b.x && a.y !== b.y;
       const horizontal = a.y === b.y && a.x !== b.x;
       if (!vertical && !horizontal) continue;
@@ -161,6 +170,10 @@ export function spreadWireCorridors(routes: WireRoute[]): WireRoute[] {
   return routes.map((route, index) => ({ ...route, points: points[index] }));
 }
 
+function samePoint(left: Point, right: Point): boolean {
+  return left.x === right.x && left.y === right.y;
+}
+
 // Remove pontos intermediários colineares para que segmentos consecutivos
 // sejam sempre perpendiculares — pré-condição do espaçamento de corredores.
 export function mergeCollinearPoints(points: Point[]): Point[] {
@@ -203,13 +216,14 @@ export function routeBetweenPoints(
   components: LogicComponent[],
   ignoreComponentIds: Set<string>,
   index: number,
+  pinStubs: { start: boolean; end: boolean } = { start: true, end: true },
 ): Point[] {
   const offset = ((index % 5) - 2) * 10;
   const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
   const needsPinStub = end.x <= start.x;
   const stub = needsPinStub ? Math.max(28, Math.min(48, distance / 4)) : 14;
-  const routeStart = { x: start.x + stub, y: start.y };
-  const routeEnd = { x: end.x - stub, y: end.y };
+  const routeStart = { x: start.x + (pinStubs.start ? stub : 0), y: start.y };
+  const routeEnd = { x: end.x - (pinStubs.end ? stub : 0), y: end.y };
   const midX = Math.round((routeStart.x + routeEnd.x) / 2) + offset;
   const margin = 34 + Math.abs(offset);
   const obstacles = components
@@ -264,10 +278,62 @@ export function routeBetweenPoints(
   return candidates
     .map((points) => ({
       points,
-      collisions: countRouteCollisionsBetweenStubs(points, obstacles),
+      collisions: countRouteCollisionsBetweenStubs(points, obstacles, pinStubs),
       length: routeLength(points),
     }))
     .sort((a, b) => a.collisions - b.collisions || a.length - b.length)[0].points;
+}
+
+export function waypointInsertionIndex(
+  routePoints: Point[],
+  waypoints: Point[],
+  point: Point,
+): number {
+  if (waypoints.length === 0 || routePoints.length < 2) return 0;
+  const segments = routeSegments(routePoints);
+  let nearestSegmentIndex = 0;
+  let nearestDistance = Infinity;
+  segments.forEach((segment, segmentIndex) => {
+    const distance = distanceToSegmentSquared(point, segment.a, segment.b);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestSegmentIndex = segmentIndex;
+    }
+  });
+  const waypointRouteIndexes = waypoints.map((waypoint) =>
+    routePoints.findIndex((routePoint) => samePoint(routePoint, waypoint)),
+  );
+  return waypointRouteIndexes.filter(
+    (routeIndex) => routeIndex >= 0 && routeIndex <= nearestSegmentIndex,
+  ).length;
+}
+
+export function routeThroughWaypoints(
+  start: Point,
+  end: Point,
+  waypoints: Point[],
+  components: LogicComponent[],
+  ignoreComponentIds: Set<string>,
+  index: number,
+): Point[] {
+  const anchors = [start, ...waypoints, end];
+  const points: Point[] = [];
+
+  for (let sectionIndex = 0; sectionIndex < anchors.length - 1; sectionIndex += 1) {
+    const section = mergeCollinearPoints(
+      routeBetweenPoints(
+        anchors[sectionIndex],
+        anchors[sectionIndex + 1],
+        components,
+        ignoreComponentIds,
+        index + sectionIndex,
+        { start: sectionIndex === 0, end: sectionIndex === anchors.length - 2 },
+      ),
+    );
+    points.push(...(sectionIndex === 0 ? section : section.slice(1)));
+  }
+
+  return points;
 }
 
 function compactRoute(points: Point[]): Point[] {
@@ -286,14 +352,30 @@ function inflateRect(rect: RectBounds, amount: number): RectBounds {
   };
 }
 
-function countRouteCollisionsBetweenStubs(points: Point[], obstacles: RectBounds[]): number {
+function countRouteCollisionsBetweenStubs(
+  points: Point[],
+  obstacles: RectBounds[],
+  pinStubs: { start: boolean; end: boolean },
+): number {
   const segments = routeSegments(points);
-  const middleSegments = segments.slice(1, -1);
+  const middleSegments = segments.slice(
+    pinStubs.start ? 1 : 0,
+    segments.length - (pinStubs.end ? 1 : 0),
+  );
   return middleSegments.reduce(
     (count, segment) =>
       count + obstacles.filter((rect) => segmentIntersectsRect(segment.a, segment.b, rect)).length,
     0,
   );
+}
+
+function distanceToSegmentSquared(point: Point, a: Point, b: Point): number {
+  if (a.x === b.x) {
+    const closestY = Math.max(Math.min(point.y, Math.max(a.y, b.y)), Math.min(a.y, b.y));
+    return (point.x - a.x) ** 2 + (point.y - closestY) ** 2;
+  }
+  const closestX = Math.max(Math.min(point.x, Math.max(a.x, b.x)), Math.min(a.x, b.x));
+  return (point.x - closestX) ** 2 + (point.y - a.y) ** 2;
 }
 
 function routeLength(points: Point[]): number {

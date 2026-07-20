@@ -24,6 +24,7 @@ export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
       ...wire,
       from: { ...wire.from },
       to: { ...wire.to },
+      waypoints: wire.waypoints?.map((point) => ({ ...point })),
     })),
   };
 }
@@ -93,6 +94,10 @@ export function pasteClipboard(
         id,
         from: { ...wire.from, componentId: idMap.get(wire.from.componentId)! },
         to: { ...wire.to, componentId: idMap.get(wire.to.componentId)! },
+        waypoints: wire.waypoints?.map((point) => ({
+          x: point.x + offset.x,
+          y: point.y + offset.y,
+        })),
       };
     });
 

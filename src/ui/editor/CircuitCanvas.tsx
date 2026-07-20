@@ -8,6 +8,7 @@ import {
   intersects,
   routeCircuitWires,
   textComponentWidth,
+  waypointInsertionIndex,
   wireInRect,
   type RectBounds,
 } from './wireRouting';
@@ -41,6 +42,13 @@ type ResizingText = {
   startWidth: number;
   recorded: boolean;
 } | null;
+type WireWaypointDrag = {
+  wireId: string;
+  waypointIndex: number;
+  isNew: boolean;
+  startMouse: Point;
+  recorded: boolean;
+} | null;
 
 interface Props {
   circuit: CircuitDocument;
@@ -60,6 +68,10 @@ interface Props {
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
   onRemoveWire: (wireId: string) => void;
   onRenameWire: (wireId: string, label: string) => void;
+  onAddWireWaypoint: (wireId: string, waypointIndex: number, point: Point) => void;
+  onBeginMoveWireWaypoint: () => void;
+  onMoveWireWaypoint: (wireId: string, waypointIndex: number, point: Point) => void;
+  onRemoveWireWaypoint: (wireId: string, waypointIndex: number) => void;
   onRemoveComponent: (componentId: string) => void;
   onRenameComponent: (componentId: string, label: string) => void;
   onCancelPendingWire: () => void;
@@ -81,6 +93,7 @@ export function CircuitCanvas(props: Props) {
   const [marquee, setMarquee] = useState<Marquee>(null);
   const [resizingText, setResizingText] = useState<ResizingText>(null);
   const [dragConnecting, setDragConnecting] = useState<PinRef | null>(null);
+  const [wireWaypointDrag, setWireWaypointDrag] = useState<WireWaypointDrag>(null);
 
   const suppressNextClick = useRef(false);
   const suppressNextPinClick = useRef(false);
@@ -92,20 +105,21 @@ export function CircuitCanvas(props: Props) {
     () => new Map(layoutComponents.map((component) => [component.id, component])),
     [layoutComponents],
   );
-  const wireRoutes = useMemo(
-    () =>
+  const wireRoutes = useMemo(() => {
+    const routedWires =
       props.wireStyle === 'orthogonal'
-        ? measureProfile(
-            'routing.orthogonal',
-            {
-              components: layoutComponents.length,
-              wires: props.circuit.wires.length,
-            },
-            () => routeCircuitWires(props.circuit.wires, componentById, layoutComponents),
-          )
-        : [],
-    [props.wireStyle, props.circuit.wires, componentById, layoutComponents],
-  );
+        ? props.circuit.wires
+        : props.circuit.wires.filter((wire) => wire.waypoints?.length);
+    if (routedWires.length === 0) return [];
+    return measureProfile(
+      'routing.orthogonal',
+      {
+        components: layoutComponents.length,
+        wires: routedWires.length,
+      },
+      () => routeCircuitWires(routedWires, componentById, layoutComponents),
+    );
+  }, [props.wireStyle, props.circuit.wires, componentById, layoutComponents]);
   const routeByWireId = useMemo(
     () => new Map(wireRoutes.map((route) => [route.wireId, route])),
     [wireRoutes],
@@ -219,6 +233,38 @@ export function CircuitCanvas(props: Props) {
     props.onOpenWireMenu(event.clientX, event.clientY, wireId),
   );
   const handleWireRemove = useEventCallback((wireId: string) => props.onRemoveWire(wireId));
+  const handleWireMouseDown = useEventCallback(
+    (event: MouseEvent<SVGPathElement>, wireId: string) => {
+      if (event.button !== 0 || props.selectedTool !== 'select') return;
+      event.stopPropagation();
+      const startMouse = svgPoint(event);
+      const wire = props.circuit.wires.find((candidate) => candidate.id === wireId);
+      const route = routeByWireId.get(wireId);
+      setWireWaypointDrag({
+        wireId,
+        waypointIndex: waypointInsertionIndex(
+          route?.points ?? [],
+          wire?.waypoints ?? [],
+          startMouse,
+        ),
+        isNew: true,
+        startMouse,
+        recorded: false,
+      });
+    },
+  );
+  const handleWaypointMouseDown = useEventCallback(
+    (event: MouseEvent<SVGCircleElement>, wireId: string, waypointIndex: number) => {
+      if (props.selectedTool !== 'select') return;
+      setWireWaypointDrag({
+        wireId,
+        waypointIndex,
+        isNew: false,
+        startMouse: svgPoint(event),
+        recorded: false,
+      });
+    },
+  );
 
   const handleComponentMouseDown = useEventCallback(
     (event: MouseEvent<SVGGElement>, componentId: string) => {
@@ -326,6 +372,37 @@ export function CircuitCanvas(props: Props) {
           // Só a prévia do fio pendente consome o mousePoint; acompanhar o
           // mouse fora desse caso re-renderizaria o canvas a cada pixel.
           if (props.pendingWire) setMousePoint(point);
+          if (wireWaypointDrag) {
+            const distance =
+              Math.abs(point.x - wireWaypointDrag.startMouse.x) +
+              Math.abs(point.y - wireWaypointDrag.startMouse.y);
+            if (!wireWaypointDrag.recorded && distance <= 4) return;
+
+            if (!wireWaypointDrag.recorded) {
+              if (wireWaypointDrag.isNew) {
+                props.onAddWireWaypoint(
+                  wireWaypointDrag.wireId,
+                  wireWaypointDrag.waypointIndex,
+                  wireWaypointDrag.startMouse,
+                );
+              } else {
+                props.onBeginMoveWireWaypoint();
+              }
+              setWireWaypointDrag({ ...wireWaypointDrag, recorded: true });
+              props.onMoveWireWaypoint(
+                wireWaypointDrag.wireId,
+                wireWaypointDrag.waypointIndex,
+                point,
+              );
+            } else {
+              props.onMoveWireWaypoint(
+                wireWaypointDrag.wireId,
+                wireWaypointDrag.waypointIndex,
+                point,
+              );
+            }
+            return;
+          }
           if (marquee) {
             setMarquee({ ...marquee, end: point });
             return;
@@ -364,6 +441,7 @@ export function CircuitCanvas(props: Props) {
           finishMarquee(marquee);
           setDragging(null);
           setResizingText(null);
+          setWireWaypointDrag(null);
         }}
         onMouseLeave={() => {
           if (dragConnecting) {
@@ -374,6 +452,7 @@ export function CircuitCanvas(props: Props) {
           setDragging(null);
           setResizingText(null);
           setMousePoint(null);
+          setWireWaypointDrag(null);
         }}
         onDragOver={(event) => event.preventDefault()}
         onDrop={(event) => {
@@ -418,6 +497,9 @@ export function CircuitCanvas(props: Props) {
                 onContextMenu={handleWireContextMenu}
                 onRemove={handleWireRemove}
                 onRename={props.onRenameWire}
+                onWireMouseDown={handleWireMouseDown}
+                onWaypointMouseDown={handleWaypointMouseDown}
+                onRemoveWaypoint={props.onRemoveWireWaypoint}
               />
             );
           })}

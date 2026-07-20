@@ -102,6 +102,20 @@ test('PastePreservesTunnelMetadata', () => {
   assert.equal(result.circuit.wires[1].label, 'CLK');
 });
 
+test('PasteOffsetsAndClonesWaypoints', () => {
+  const a = component({ id: 'A1' });
+  const b = component({ id: 'A2', x: 200 });
+  const guided: Wire = { ...wire('W1', 'A1', 'A2'), waypoints: [{ x: 140, y: 160 }] };
+  const circuit = circuitWith([a, b], [guided]);
+
+  const result = pasteClipboard(circuit, { components: [a, b], wires: [guided] }, OFFSET, GRID);
+  const pasted = result.circuit.wires[1];
+
+  assert.deepEqual(pasted.waypoints, [{ x: 140 + OFFSET.x, y: 160 + OFFSET.y }]);
+  assert.notEqual(pasted.waypoints, guided.waypoints, 'A lista de guias deve ser clonada');
+  assert.notEqual(pasted.waypoints?.[0], guided.waypoints?.[0], 'Cada guia deve ser clonada');
+});
+
 test('PasteGeneratesWireIdsUniqueAgainstExistingOnes', () => {
   const a = component({ id: 'A1' });
   const b = component({ id: 'A2', x: 200 });

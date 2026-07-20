@@ -1159,6 +1159,22 @@ button:disabled {
   font-weight: 900;
   outline: none;
 }
+.wire-waypoint {
+  fill: #fff;
+  stroke: var(--brand-strong);
+  stroke-width: 3;
+  cursor: grab;
+  outline: none;
+}
+.wire-waypoint:hover,
+.wire-waypoint:focus {
+  fill: var(--brand);
+  stroke: #fff;
+  stroke-width: 4;
+}
+.wire-waypoint:active {
+  cursor: grabbing;
+}
 .pending-wire-preview {
   pointer-events: none;
 }

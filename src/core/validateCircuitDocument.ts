@@ -52,6 +52,10 @@ function isPinRef(value: unknown): value is PinRef {
   );
 }
 
+function isPoint(value: unknown): boolean {
+  return isRecord(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+}
+
 function isWire(value: unknown): value is Wire {
   return (
     isRecord(value) &&
@@ -60,7 +64,9 @@ function isWire(value: unknown): value is Wire {
     isPinRef(value.from) &&
     isPinRef(value.to) &&
     (value.display === undefined || value.display === 'wire' || value.display === 'tunnel') &&
-    (value.label === undefined || typeof value.label === 'string')
+    (value.label === undefined || typeof value.label === 'string') &&
+    (value.waypoints === undefined ||
+      (Array.isArray(value.waypoints) && value.waypoints.every(isPoint)))
   );
 }
 

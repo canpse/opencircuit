@@ -86,6 +86,10 @@ function renderCircuit(
       onPinClick={() => undefined}
       onRemoveWire={() => undefined}
       onRenameWire={() => undefined}
+      onAddWireWaypoint={() => undefined}
+      onBeginMoveWireWaypoint={() => undefined}
+      onMoveWireWaypoint={() => undefined}
+      onRemoveWireWaypoint={() => undefined}
       onRemoveComponent={() => undefined}
       onRenameComponent={() => undefined}
       onCancelPendingWire={() => undefined}
