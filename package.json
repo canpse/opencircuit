@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "start": "node server/index.mjs",
     "build": "npm run typecheck && vite build",
     "test": "vitest run",
     "profile": "node scripts/run-profile.mjs",

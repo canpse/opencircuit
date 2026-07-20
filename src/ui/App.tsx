@@ -18,8 +18,9 @@ import { useWireStylePreference } from './hooks/useWireStylePreference';
 import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
+import { RemoteCircuitsDialog } from './dialogs/RemoteCircuitsDialog';
+import { ConflictDialog } from './dialogs/ConflictDialog';
 import { DocumentTabs } from './tabs/DocumentTabs';
-import { supportsFileSystemAccess } from '../state/fileSystem';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
@@ -51,24 +52,28 @@ export function App() {
     cancelPendingClose,
     saveActiveDocument,
     saveActiveDocumentAs,
-    openDocumentsFromPicker,
-    openRecentDocument,
-    recentFiles,
-    linkedDocumentIds,
+    downloadActiveDocument,
+    remoteDocumentIds,
     renameDocument,
     loadExample,
     importJson,
+    remoteCircuits,
+    remoteBrowserOpen,
+    remoteLoading,
+    openRemoteBrowser,
+    closeRemoteBrowser,
+    refreshRemoteCircuits,
+    openRemoteDocument,
+    deleteRemoteDocument,
+    activeSyncState,
+    conflict,
+    closeConflict,
+    reloadConflict,
+    saveConflictAsCopy,
   } = useWorkspaceManager({
     onMessage: setMessage,
   });
 
-  function openDocuments() {
-    if (supportsFileSystemAccess()) {
-      void openDocumentsFromPicker();
-      return;
-    }
-    fileInputRef.current?.click();
-  }
   const {
     canUndo,
     canRedo,
@@ -177,7 +182,7 @@ export function App() {
     selection,
     pendingWire,
     contextMenu,
-    dialogOpen: pendingCloseDocument !== null,
+    dialogOpen: pendingCloseDocument !== null || remoteBrowserOpen || conflict !== null,
     hasSelection,
     onCancelContextMenu: closeContextMenu,
     onCancelPendingWire: () => setPendingWire(null),
@@ -187,7 +192,7 @@ export function App() {
     onRedo: redo,
     onSave: saveActiveDocument,
     onSaveAs: saveActiveDocumentAs,
-    onOpen: openDocuments,
+    onOpen: openRemoteBrowser,
     onRemoveSelection: removeSelection,
     onCopy,
     onPaste,
@@ -272,11 +277,11 @@ export function App() {
         autoClockRunning={autoClockRunning}
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
-        recentFiles={recentFiles}
-        onOpen={openDocuments}
-        onOpenRecent={(recentId) => void openRecentDocument(recentId)}
+        onOpen={openRemoteBrowser}
         onSave={saveActiveDocument}
         onSaveAs={saveActiveDocumentAs}
+        onDownloadJson={downloadActiveDocument}
+        onImportClick={() => fileInputRef.current?.click()}
         onExportImage={exportImage}
         onLoadExample={loadExample}
         onUndo={undo}
@@ -300,7 +305,7 @@ export function App() {
           <DocumentTabs
             documents={documents}
             activeDocumentId={activeDocumentId}
-            linkedDocumentIds={linkedDocumentIds}
+            remoteDocumentIds={remoteDocumentIds}
             onSelect={selectDocument}
             onRequestClose={requestCloseDocument}
             onRename={renameDocument}
@@ -425,7 +430,8 @@ export function App() {
       <footer className="statusbar app-footer">
         <span>{message}</span>
         <span>
-          {circuit.components.length} componentes · {circuit.wires.length} fios
+          {syncLabel(activeSyncState)} · {circuit.components.length} componentes ·{' '}
+          {circuit.wires.length} fios
         </span>
       </footer>
 
@@ -435,6 +441,28 @@ export function App() {
           onSave={savePendingCloseDocument}
           onDiscard={discardPendingCloseDocument}
           onCancel={cancelPendingClose}
+        />
+      )}
+
+      {remoteBrowserOpen && (
+        <RemoteCircuitsDialog
+          circuits={remoteCircuits}
+          loading={remoteLoading}
+          onOpen={openRemoteDocument}
+          onDelete={deleteRemoteDocument}
+          onRefresh={refreshRemoteCircuits}
+          onClose={closeRemoteBrowser}
+        />
+      )}
+
+      {conflict && (
+        <ConflictDialog
+          documentName={
+            documents.find((item) => item.id === conflict.documentId)?.name ?? 'circuito'
+          }
+          onReload={reloadConflict}
+          onSaveCopy={saveConflictAsCopy}
+          onClose={closeConflict}
         />
       )}
 
@@ -456,4 +484,15 @@ export function App() {
       )}
     </main>
   );
+}
+
+function syncLabel(state: import('./hooks/useWorkspaceManager').RemoteSyncState): string {
+  return {
+    idle: 'rascunho local',
+    saving: 'salvando…',
+    saved: 'salvo',
+    offline: 'offline',
+    error: 'erro ao salvar',
+    conflict: 'conflito',
+  }[state];
 }

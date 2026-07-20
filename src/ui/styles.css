@@ -581,6 +581,39 @@ button:disabled {
   background: linear-gradient(#3b8ee6, #1769b7);
 }
 
+.remote-circuits-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 48px));
+  overflow: auto;
+}
+
+.remote-circuit-list {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.remote-circuit-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid rgba(91, 113, 128, 0.22);
+  border-radius: 6px;
+}
+
+.remote-circuit-open {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+  text-align: left;
+}
+
+.remote-circuit-open span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .editor-panel {
   min-height: 0;
   overflow: hidden;
