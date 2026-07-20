@@ -11,13 +11,11 @@ export type WorkspaceDocument = {
   circuit: CircuitDocument;
   exampleId: string | null;
   saved: boolean;
-  // Já teve alguma versão gravada/importada de arquivo. Opcional porque
-  // workspaces persistidos antes do campo existir não o têm.
-  everSaved?: boolean;
+  everSaved: boolean;
 };
 
 export type WorkspaceState = {
-  version: 1;
+  version: 2;
   activeDocumentId: string;
   documents: WorkspaceDocument[];
 };
@@ -25,7 +23,7 @@ export type WorkspaceState = {
 export function createInitialWorkspace(): WorkspaceState {
   const id = 'doc-1';
   return {
-    version: 1,
+    version: 2,
     activeDocumentId: id,
     documents: [
       {
@@ -40,26 +38,41 @@ export function createInitialWorkspace(): WorkspaceState {
   };
 }
 
+// Aceita workspaces v1 (sem everSaved) e v2; devolve sempre v2 ou null quando
+// o dado persistido não é reaproveitável.
+export function migrateWorkspace(parsed: unknown): WorkspaceState | null {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const candidate = parsed as {
+    version?: unknown;
+    activeDocumentId?: unknown;
+    documents?: unknown;
+  };
+  if (candidate.version !== 1 && candidate.version !== 2) return null;
+  if (typeof candidate.activeDocumentId !== 'string') return null;
+  if (!Array.isArray(candidate.documents) || candidate.documents.length === 0) return null;
+
+  const documents: WorkspaceDocument[] = [];
+  for (const raw of candidate.documents) {
+    if (!isStoredWorkspaceDocument(raw)) return null;
+    // v1 não tinha everSaved; um documento marcado como salvo já teve versão
+    // em disco, então herda esse fato.
+    documents.push({ ...raw, everSaved: raw.everSaved ?? raw.saved });
+  }
+  if (new Set(documents.map((document) => document.id)).size !== documents.length) return null;
+
+  const activeDocumentId = documents.some((document) => document.id === candidate.activeDocumentId)
+    ? candidate.activeDocumentId
+    : documents[0].id;
+
+  return { version: 2, activeDocumentId, documents };
+}
+
 export function loadWorkspace(): WorkspaceState {
   try {
     const raw = localStorage.getItem(WORKSPACE_STORAGE_KEY);
     if (!raw) return createInitialWorkspace();
-    const parsed = JSON.parse(raw) as WorkspaceState;
-    if (
-      parsed.version === 1 &&
-      typeof parsed.activeDocumentId === 'string' &&
-      Array.isArray(parsed.documents) &&
-      parsed.documents.length > 0 &&
-      parsed.documents.every(isWorkspaceDocument) &&
-      new Set(parsed.documents.map((document) => document.id)).size === parsed.documents.length
-    ) {
-      const activeDocumentId = parsed.documents.some(
-        (document) => document.id === parsed.activeDocumentId,
-      )
-        ? parsed.activeDocumentId
-        : parsed.documents[0].id;
-      return { ...parsed, activeDocumentId };
-    }
+    const migrated = migrateWorkspace(JSON.parse(raw));
+    if (migrated) return migrated;
   } catch {
     // Fall back below.
   }
@@ -102,7 +115,7 @@ export function ensureJsonExtension(name: string): string {
 export function isDocumentDirty(document: WorkspaceDocument): boolean {
   if (document.saved) return false;
   if (document.circuit.components.length > 0 || document.circuit.wires.length > 0) return true;
-  return document.everSaved === true;
+  return document.everSaved;
 }
 
 export function createEmptyCircuit(): CircuitDocument {
@@ -120,7 +133,9 @@ export function createUntitledDocument(index: number): WorkspaceDocument {
   };
 }
 
-function isWorkspaceDocument(value: unknown): value is WorkspaceDocument {
+type StoredWorkspaceDocument = Omit<WorkspaceDocument, 'everSaved'> & { everSaved?: boolean };
+
+function isStoredWorkspaceDocument(value: unknown): value is StoredWorkspaceDocument {
   if (typeof value !== 'object' || value === null) return false;
   const document = value as Partial<WorkspaceDocument>;
   return Boolean(

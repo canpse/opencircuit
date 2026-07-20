@@ -27,7 +27,7 @@ function circuitWith(components: number, wires: number): CircuitDocument {
 function documentWith(
   saved: boolean,
   circuit: CircuitDocument,
-  everSaved?: boolean,
+  everSaved: boolean,
 ): WorkspaceDocument {
   return { id: 'doc-1', name: 'teste.json', circuit, exampleId: null, saved, everSaved };
 }
@@ -50,10 +50,6 @@ test('DocumentoNaoSalvoApenasComFiosEstaSujo', () => {
 
 test('DocumentoJaSalvoQueFoiEsvaziadoEstaSujo', () => {
   assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0), true)), true);
-});
-
-test('DocumentoLegadoSemEverSavedVazioNaoEstaSujo', () => {
-  assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0))), false);
 });
 
 test('EnsureJsonExtensionAcrescentaSufixoQuandoFalta', () => {

@@ -19,6 +19,7 @@ interface Props {
   fileInputRef: RefObject<HTMLInputElement | null>;
   onOpen: () => void;
   onSave: () => void;
+  onSaveAs: () => void;
   onExportImage: (format: CircuitImageFormat) => void;
   onLoadExample: (exampleId: string) => void;
   onUndo: () => void;
@@ -43,6 +44,7 @@ export function CommandBar({
   fileInputRef,
   onOpen,
   onSave,
+  onSaveAs,
   onExportImage,
   onLoadExample,
   onUndo,
@@ -57,8 +59,15 @@ export function CommandBar({
 }: Props) {
   return (
     <div className="commandbar">
-      <button onClick={onOpen}>Abrir</button>
-      <button onClick={onSave}>Salvar</button>
+      <button onClick={onOpen} title="Abrir arquivo (Ctrl+O)">
+        Abrir
+      </button>
+      <button onClick={onSave} title="Salvar (Ctrl+S)">
+        Salvar
+      </button>
+      <button onClick={onSaveAs} title="Salvar como (Ctrl+Shift+S)">
+        Salvar como
+      </button>
       <select
         className="examples-select"
         value=""

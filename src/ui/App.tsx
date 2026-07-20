@@ -19,6 +19,7 @@ import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
 import { DocumentTabs } from './tabs/DocumentTabs';
+import { supportsFileSystemAccess } from '../state/fileSystem';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
@@ -49,12 +50,23 @@ export function App() {
     discardPendingCloseDocument,
     cancelPendingClose,
     saveActiveDocument,
+    saveActiveDocumentAs,
+    openDocumentsFromPicker,
+    linkedDocumentIds,
     renameDocument,
     loadExample,
     importJson,
   } = useWorkspaceManager({
     onMessage: setMessage,
   });
+
+  function openDocuments() {
+    if (supportsFileSystemAccess()) {
+      void openDocumentsFromPicker();
+      return;
+    }
+    fileInputRef.current?.click();
+  }
   const {
     canUndo,
     canRedo,
@@ -164,6 +176,8 @@ export function App() {
     onUndo: undo,
     onRedo: redo,
     onSave: saveActiveDocument,
+    onSaveAs: saveActiveDocumentAs,
+    onOpen: openDocuments,
     onRemoveSelection: removeSelection,
     onCopy,
     onPaste,
@@ -248,8 +262,9 @@ export function App() {
         autoClockRunning={autoClockRunning}
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
-        onOpen={() => fileInputRef.current?.click()}
+        onOpen={openDocuments}
         onSave={saveActiveDocument}
+        onSaveAs={saveActiveDocumentAs}
         onExportImage={exportImage}
         onLoadExample={loadExample}
         onUndo={undo}
@@ -273,6 +288,7 @@ export function App() {
           <DocumentTabs
             documents={documents}
             activeDocumentId={activeDocumentId}
+            linkedDocumentIds={linkedDocumentIds}
             onSelect={selectDocument}
             onRequestClose={requestCloseDocument}
             onRename={renameDocument}
