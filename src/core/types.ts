@@ -53,6 +53,8 @@ export interface Wire {
   id: string;
   from: PinRef;
   to: PinRef;
+  display?: 'wire' | 'tunnel';
+  label?: string;
 }
 
 export interface CircuitDocument {

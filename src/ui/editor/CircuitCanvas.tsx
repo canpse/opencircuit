@@ -59,6 +59,7 @@ interface Props {
   onSetButtonPressed: (componentId: string, pressed: boolean) => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
   onRemoveWire: (wireId: string) => void;
+  onRenameWire: (wireId: string, label: string) => void;
   onRemoveComponent: (componentId: string) => void;
   onRenameComponent: (componentId: string, label: string) => void;
   onCancelPendingWire: () => void;
@@ -214,9 +215,8 @@ export function CircuitCanvas(props: Props) {
   // por ID: sem arrow functions novas a cada render dentro dos .map(), o
   // React.memo dos filhos passa a bloquear reconciliações de verdade.
   const handleWireSelect = useEventCallback((wireId: string) => props.onSelectWire(wireId));
-  const handleWireContextMenu = useEventCallback(
-    (event: MouseEvent<SVGPathElement>, wireId: string) =>
-      props.onOpenWireMenu(event.clientX, event.clientY, wireId),
+  const handleWireContextMenu = useEventCallback((event: MouseEvent<SVGElement>, wireId: string) =>
+    props.onOpenWireMenu(event.clientX, event.clientY, wireId),
   );
   const handleWireRemove = useEventCallback((wireId: string) => props.onRemoveWire(wireId));
 
@@ -417,6 +417,7 @@ export function CircuitCanvas(props: Props) {
                 onSelect={handleWireSelect}
                 onContextMenu={handleWireContextMenu}
                 onRemove={handleWireRemove}
+                onRename={props.onRenameWire}
               />
             );
           })}

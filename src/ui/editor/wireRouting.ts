@@ -63,19 +63,21 @@ export function routeCircuitWires(
   componentById: Map<string, LogicComponent>,
   components: LogicComponent[],
 ): WireRoute[] {
-  const routes = wires.map((wire, index) => {
-    const from = componentById.get(wire.from.componentId);
-    const to = componentById.get(wire.to.componentId);
-    if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
-    const start = getPinPosition(from, wire.from.pinId);
-    const end = getPinPosition(to, wire.to.pinId);
-    const ignore = new Set([from.id, to.id]);
-    const points =
-      from.id === to.id
-        ? selfLoopRoute(from, start, end, index)
-        : routeBetweenPoints(start, end, components, ignore, index);
-    return { wireId: wire.id, points: mergeCollinearPoints(points), jumps: [] };
-  });
+  const routes = wires
+    .filter((wire) => wire.display !== 'tunnel')
+    .map((wire, index) => {
+      const from = componentById.get(wire.from.componentId);
+      const to = componentById.get(wire.to.componentId);
+      if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
+      const start = getPinPosition(from, wire.from.pinId);
+      const end = getPinPosition(to, wire.to.pinId);
+      const ignore = new Set([from.id, to.id]);
+      const points =
+        from.id === to.id
+          ? selfLoopRoute(from, start, end, index)
+          : routeBetweenPoints(start, end, components, ignore, index);
+      return { wireId: wire.id, points: mergeCollinearPoints(points), jumps: [] };
+    });
 
   const spread = spreadWireCorridors(routes);
 

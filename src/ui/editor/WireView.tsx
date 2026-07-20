@@ -1,4 +1,4 @@
-import { memo, type MouseEvent } from 'react';
+import { memo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { getPinPosition } from '../../core/catalog';
 import type { LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import {
@@ -23,6 +23,7 @@ export const WireView = memo(function WireView({
   onSelect,
   onContextMenu,
   onRemove,
+  onRename,
 }: {
   wire: Wire;
   route: WireRoute | undefined;
@@ -32,9 +33,12 @@ export const WireView = memo(function WireView({
   active: boolean;
   selected: boolean;
   onSelect: (wireId: string) => void;
-  onContextMenu: (event: MouseEvent<SVGPathElement>, wireId: string) => void;
+  onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onRemove: (wireId: string) => void;
+  onRename: (wireId: string, label: string) => void;
 }) {
+  const [editingEnd, setEditingEnd] = useState<'from' | 'to' | null>(null);
+  const [draftLabel, setDraftLabel] = useState('');
   const start = getPinPosition(fromComponent, wire.from.pinId);
   const end = getPinPosition(toComponent, wire.to.pinId);
   const points =
@@ -48,6 +52,84 @@ export const WireView = memo(function WireView({
       : fromComponent.id === toComponent.id
         ? bezierPathFromPoints(points)
         : bezierPathWithPinStubs(start, end);
+
+  if (wire.display === 'tunnel') {
+    const label = wire.label || 'Túnel';
+    const wireClass = `wire tunnel-stub ${active ? 'on' : ''} ${selected ? 'selected' : ''}`;
+
+    const startEditing = (event: MouseEvent<SVGGElement>, endpoint: 'from' | 'to') => {
+      event.preventDefault();
+      event.stopPropagation();
+      setDraftLabel(label);
+      setEditingEnd(endpoint);
+    };
+
+    const commitEditing = () => {
+      if (!editingEnd) return;
+      const nextLabel = draftLabel.trim();
+      if (nextLabel) onRename(wire.id, nextLabel);
+      setEditingEnd(null);
+    };
+
+    const onEditorKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.currentTarget.blur();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setEditingEnd(null);
+      }
+    };
+
+    return (
+      <g
+        className="wire-tunnel"
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(wire.id);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onContextMenu(event, wire.id);
+        }}
+      >
+        <g onDoubleClick={(event) => startEditing(event, 'from')}>
+          <path className={wireClass} d={`M ${start.x} ${start.y} L ${start.x + 32} ${start.y}`} />
+          <text className="tunnel-label" x={start.x + 38} y={start.y + 4} textAnchor="start">
+            ▸ {label}
+          </text>
+        </g>
+        <g onDoubleClick={(event) => startEditing(event, 'to')}>
+          <path className={wireClass} d={`M ${end.x - 32} ${end.y} L ${end.x} ${end.y}`} />
+          <text className="tunnel-label" x={end.x - 38} y={end.y + 4} textAnchor="end">
+            {label} ▸
+          </text>
+        </g>
+        {editingEnd && (
+          <foreignObject
+            className="tunnel-label-editor-object"
+            x={editingEnd === 'from' ? start.x + 34 : end.x - 154}
+            y={(editingEnd === 'from' ? start.y : end.y) - 17}
+            width="120"
+            height="34"
+          >
+            <input
+              className="tunnel-label-editor"
+              value={draftLabel}
+              autoFocus
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) => setDraftLabel(event.target.value)}
+              onKeyDown={onEditorKeyDown}
+              onBlur={commitEditing}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+            />
+          </foreignObject>
+        )}
+      </g>
+    );
+  }
 
   return (
     <path

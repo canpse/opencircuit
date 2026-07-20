@@ -21,7 +21,7 @@ export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
       memory: component.memory ? { ...component.memory } : undefined,
     })),
     wires: circuit.wires.map((wire) => ({
-      id: wire.id,
+      ...wire,
       from: { ...wire.from },
       to: { ...wire.to },
     })),
@@ -89,6 +89,7 @@ export function pasteClipboard(
       usedWireIds.add(id);
       wireIndex += 1;
       return {
+        ...wire,
         id,
         from: { ...wire.from, componentId: idMap.get(wire.from.componentId)! },
         to: { ...wire.to, componentId: idMap.get(wire.to.componentId)! },
