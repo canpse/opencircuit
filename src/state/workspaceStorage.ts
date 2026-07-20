@@ -82,6 +82,13 @@ export function saveWorkspace(workspace: WorkspaceState): boolean {
   }
 }
 
+// Sujo = tem conteúdo que ainda não foi salvo em arquivo. Documentos vazios
+// nunca contam como sujos: fechar uma aba vazia não perde nada.
+export function isDocumentDirty(document: WorkspaceDocument): boolean {
+  if (document.saved) return false;
+  return document.circuit.components.length > 0 || document.circuit.wires.length > 0;
+}
+
 export function createEmptyCircuit(): CircuitDocument {
   return { version: 1, components: [], wires: [] };
 }

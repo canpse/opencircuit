@@ -522,6 +522,51 @@ button:disabled {
   background: transparent;
   box-shadow: none;
 }
+.document-tab-dirty {
+  flex: 0 0 auto;
+  color: var(--brand-strong);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(29, 43, 52, 0.35);
+}
+.dialog {
+  width: 400px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--panel-strong);
+  box-shadow: var(--shadow);
+}
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.dialog p {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dialog-actions .dialog-danger {
+  color: #fff;
+  background: linear-gradient(#d4685e, #b34237);
+}
+.dialog-actions .dialog-primary {
+  color: #fff;
+  background: linear-gradient(#3b8ee6, #1769b7);
+}
 
 .editor-panel {
   min-height: 0;

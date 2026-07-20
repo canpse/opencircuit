@@ -5,6 +5,7 @@ import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
 import { downloadJson } from '../../state/storage';
 import {
   createUntitledDocument,
+  isDocumentDirty,
   loadWorkspace,
   type WorkspaceDocument,
 } from '../../state/workspaceStorage';
@@ -16,6 +17,7 @@ interface Options {
 
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
+  const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
 
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
@@ -23,6 +25,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     documents.find((document) => document.id === activeDocumentId) ?? documents[0];
   const circuit = activeDocument.circuit;
   const currentExampleId = activeDocument.exampleId;
+  const pendingCloseDocument = documents.find((document) => document.id === pendingCloseId) ?? null;
 
   const setDocuments = useCallback((action: SetStateAction<WorkspaceDocument[]>) => {
     setWorkspace((current) => {
@@ -51,6 +54,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
           if (document.id !== activeDocumentId) return document;
           const nextCircuit =
             typeof action === 'function' ? action(document.circuit) : (action as CircuitDocument);
+          if (nextCircuit === document.circuit) return document;
           return { ...document, circuit: nextCircuit, saved: false };
         }),
       );
@@ -86,6 +90,34 @@ export function useWorkspaceManager({ onMessage }: Options) {
     onMessage(`Novo arquivo criado: ${document.name}.`);
   }
 
+  function requestCloseDocument(documentId: string) {
+    const document = documents.find((candidate) => candidate.id === documentId);
+    if (!document) return;
+    if (isDocumentDirty(document)) {
+      setPendingCloseId(documentId);
+      return;
+    }
+    closeDocument(documentId);
+  }
+
+  function savePendingCloseDocument() {
+    if (!pendingCloseDocument) return;
+    setPendingCloseId(null);
+    if (saveDocument(pendingCloseDocument)) {
+      closeDocument(pendingCloseDocument.id);
+    }
+  }
+
+  function discardPendingCloseDocument() {
+    if (!pendingCloseDocument) return;
+    setPendingCloseId(null);
+    closeDocument(pendingCloseDocument.id);
+  }
+
+  function cancelPendingClose() {
+    setPendingCloseId(null);
+  }
+
   function closeDocument(documentId: string) {
     const closingIndex = documents.findIndex((document) => document.id === documentId);
     const fallback = documents[closingIndex + 1] ?? documents[closingIndex - 1] ?? documents[0];
@@ -109,23 +141,26 @@ export function useWorkspaceManager({ onMessage }: Options) {
     onMessage('Arquivo fechado.');
   }
 
-  function saveActiveDocument() {
-    const suggestedName = activeDocument.name.endsWith('.json')
-      ? activeDocument.name
-      : `${activeDocument.name}.json`;
+  function saveDocument(target: WorkspaceDocument): boolean {
+    const suggestedName = target.name.endsWith('.json') ? target.name : `${target.name}.json`;
     const chosenName = window.prompt('Nome do arquivo para salvar:', suggestedName);
     if (!chosenName) {
       onMessage('Salvamento cancelado.');
-      return;
+      return false;
     }
     const filename = chosenName.endsWith('.json') ? chosenName : `${chosenName}.json`;
-    downloadJson(filename, circuit);
+    downloadJson(filename, target.circuit);
     setDocuments((currentDocuments) =>
       currentDocuments.map((document) =>
-        document.id === activeDocumentId ? { ...document, name: filename, saved: true } : document,
+        document.id === target.id ? { ...document, name: filename, saved: true } : document,
       ),
     );
     onMessage(`Arquivo salvo: ${filename}.`);
+    return true;
+  }
+
+  function saveActiveDocument() {
+    saveDocument(activeDocument);
   }
 
   function loadExample(exampleId: string) {
@@ -183,7 +218,11 @@ export function useWorkspaceManager({ onMessage }: Options) {
     setActiveExampleId,
     selectDocument,
     createNewDocument,
-    closeDocument,
+    requestCloseDocument,
+    pendingCloseDocument,
+    savePendingCloseDocument,
+    discardPendingCloseDocument,
+    cancelPendingClose,
     saveActiveDocument,
     loadExample,
     importJson,
