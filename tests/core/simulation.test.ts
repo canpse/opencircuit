@@ -593,6 +593,27 @@ function testCircuitDocumentValidationRejectsInvalidWire() {
   );
 }
 
+function testCircuitDocumentValidationAcceptsTunnelMetadata() {
+  const circuit = validDocument();
+  const tunnel = { ...circuit.wires[0], display: 'tunnel' as const, label: 'CLK' };
+
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [tunnel] }),
+    true,
+    'Metadados opcionais de túnel devem manter o formato v1 válido',
+  );
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [{ ...tunnel, display: 'hidden' }] }),
+    false,
+    'Modo de exibição desconhecido deve ser rejeitado',
+  );
+  assert.equal(
+    isCircuitDocument({ ...circuit, wires: [{ ...tunnel, label: 123 }] }),
+    false,
+    'Rótulo de túnel precisa ser texto',
+  );
+}
+
 function testCircuitDocumentValidationRejectsConflictingIdsAndInputs() {
   const circuit = validDocument();
   const duplicateComponent = { ...circuit.components[0] };
@@ -654,6 +675,7 @@ const tests = [
   testCircuitDocumentValidationAcceptsValidCircuit,
   testCircuitDocumentValidationRejectsUnknownComponent,
   testCircuitDocumentValidationRejectsInvalidWire,
+  testCircuitDocumentValidationAcceptsTunnelMetadata,
   testCircuitDocumentValidationRejectsConflictingIdsAndInputs,
   testBundledCircuitDocumentsAreValid,
 ];

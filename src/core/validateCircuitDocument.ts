@@ -58,7 +58,9 @@ function isWire(value: unknown): value is Wire {
     typeof value.id === 'string' &&
     value.id.length > 0 &&
     isPinRef(value.from) &&
-    isPinRef(value.to)
+    isPinRef(value.to) &&
+    (value.display === undefined || value.display === 'wire' || value.display === 'tunnel') &&
+    (value.label === undefined || typeof value.label === 'string')
   );
 }
 

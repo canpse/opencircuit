@@ -90,6 +90,18 @@ test('PasteRewiresClonesToNewComponentIds', () => {
   assert.equal(pastedWire.to.pinId, 'in1', 'Pino de destino deve ser preservado');
 });
 
+test('PastePreservesTunnelMetadata', () => {
+  const a = component({ id: 'A1' });
+  const b = component({ id: 'A2', x: 200 });
+  const tunnel: Wire = { ...wire('W1', 'A1', 'A2'), display: 'tunnel', label: 'CLK' };
+  const circuit = circuitWith([a, b], [tunnel]);
+
+  const result = pasteClipboard(circuit, { components: [a, b], wires: [tunnel] }, OFFSET, GRID);
+
+  assert.equal(result.circuit.wires[1].display, 'tunnel');
+  assert.equal(result.circuit.wires[1].label, 'CLK');
+});
+
 test('PasteGeneratesWireIdsUniqueAgainstExistingOnes', () => {
   const a = component({ id: 'A1' });
   const b = component({ id: 'A2', x: 200 });

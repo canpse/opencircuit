@@ -92,6 +92,8 @@ export function App() {
     removeSelection,
     cancelPendingWire,
     removeWire,
+    toggleWireDisplay,
+    renameWire,
     removeComponent,
     renameComponent,
     resizeTextComponent,
@@ -117,6 +119,7 @@ export function App() {
     openWireMenu,
     addComponentFromContextMenu,
     renameContextTarget,
+    toggleWireContextTarget,
     removeContextTarget,
   } = useContextMenuManager({
     selection,
@@ -129,6 +132,7 @@ export function App() {
     removeSelection,
     removeComponent,
     removeWire,
+    toggleWireDisplay,
     setRenameRequest,
   });
 
@@ -313,6 +317,7 @@ export function App() {
                 onSetButtonPressed={setButtonPressed}
                 onPinClick={onPinClick}
                 onRemoveWire={removeWire}
+                onRenameWire={renameWire}
                 onRemoveComponent={removeComponent}
                 onRenameComponent={renameComponent}
                 onCancelPendingWire={cancelPendingWire}
@@ -427,6 +432,13 @@ export function App() {
           selection={selection}
           onAddComponent={addComponentFromContextMenu}
           onRename={renameContextTarget}
+          onToggleWireDisplay={toggleWireContextTarget}
+          wireIsTunnel={
+            contextMenu.kind === 'wire' &&
+            circuit.wires.some(
+              (wire) => wire.id === contextMenu.wireId && wire.display === 'tunnel',
+            )
+          }
           onRemove={removeContextTarget}
         />
       )}

@@ -128,6 +128,30 @@ test('RotaRetaSemInteriorNaoMuda', () => {
   assert.deepEqual(spreadA.points, a.points);
 });
 
+test('RoteamentoIgnoraFiosExibidosComoTunel', () => {
+  const source: LogicComponent = { id: 'IN', type: 'input', x: 0, y: 0 };
+  const target: LogicComponent = { id: 'LED', type: 'led', x: 300, y: 0 };
+  const components = [source, target];
+  const wires: Wire[] = [
+    {
+      id: 'T1',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'LED', pinId: 'in' },
+      display: 'tunnel',
+      label: 'CLK',
+    },
+  ];
+
+  assert.deepEqual(
+    routeCircuitWires(
+      wires,
+      new Map(components.map((component) => [component.id, component])),
+      components,
+    ),
+    [],
+  );
+});
+
 test('MergeCollinearRemovePontosRedundantes', () => {
   const merged = mergeCollinearPoints([
     { x: 0, y: 0 },

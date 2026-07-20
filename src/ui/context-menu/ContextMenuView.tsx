@@ -13,12 +13,16 @@ export function ContextMenuView({
   selection,
   onAddComponent,
   onRename,
+  onToggleWireDisplay,
+  wireIsTunnel,
   onRemove,
 }: {
   menu: NonNullable<ContextMenu>;
   selection: Selection;
   onAddComponent: (type: GateType) => void;
   onRename: () => void;
+  onToggleWireDisplay: () => void;
+  wireIsTunnel: boolean;
   onRemove: () => void;
 }) {
   const selectedCount = selection.componentIds.length + selection.wireIds.length;
@@ -46,6 +50,11 @@ export function ContextMenuView({
           {menu.kind === 'component' && (
             <button onClick={onRename} role="menuitem">
               Renomear
+            </button>
+          )}
+          {menu.kind === 'wire' && (
+            <button onClick={onToggleWireDisplay} role="menuitem">
+              {wireIsTunnel ? 'Mostrar como fio' : 'Converter em túnel'}
             </button>
           )}
           <button disabled={!canRemove} onClick={onRemove} role="menuitem">

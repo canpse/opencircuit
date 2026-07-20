@@ -185,6 +185,50 @@ export function useCircuitEditor({
     onMessage('Fio removido.');
   }
 
+  function toggleWireDisplay(wireId: string) {
+    const currentWire = circuit.wires.find((wire) => wire.id === wireId);
+    if (!currentWire) return;
+    const showAsTunnel = currentWire.display !== 'tunnel';
+    const usedLabels = new Set(
+      circuit.wires
+        .filter((wire) => wire.id !== wireId && wire.label)
+        .map((wire) => wire.label!.toLocaleUpperCase()),
+    );
+    let generatedLabel = 'T1';
+    for (let index = 1; usedLabels.has(generatedLabel); index += 1) {
+      generatedLabel = `T${index + 1}`;
+    }
+
+    rememberCircuit();
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.map((wire) =>
+        wire.id === wireId
+          ? {
+              ...wire,
+              display: showAsTunnel ? 'tunnel' : 'wire',
+              label: showAsTunnel ? wire.label || generatedLabel : wire.label,
+            }
+          : wire,
+      ),
+    }));
+    onMessage(showAsTunnel ? 'Fio convertido em túnel.' : 'Túnel mostrado como fio.');
+  }
+
+  function renameWire(wireId: string, label: string) {
+    const nextLabel = label.trim();
+    const currentWire = circuit.wires.find((wire) => wire.id === wireId);
+    if (!currentWire || !nextLabel || currentWire.label === nextLabel) return;
+    rememberCircuit();
+    setCircuit((current) => ({
+      ...current,
+      wires: current.wires.map((wire) =>
+        wire.id === wireId ? { ...wire, label: nextLabel } : wire,
+      ),
+    }));
+    onMessage(`Túnel renomeado para ${nextLabel}.`);
+  }
+
   function removeComponent(componentId: string) {
     rememberCircuit();
     setCircuit((current) => ({
@@ -276,6 +320,8 @@ export function useCircuitEditor({
     removeSelection,
     cancelPendingWire,
     removeWire,
+    toggleWireDisplay,
+    renameWire,
     removeComponent,
     renameComponent,
     resizeTextComponent,

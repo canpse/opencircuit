@@ -1129,6 +1129,36 @@ button:disabled {
   pointer-events: none;
   opacity: 0.85;
 }
+.wire-tunnel:hover .tunnel-stub {
+  stroke-width: 7;
+}
+.tunnel-label {
+  fill: var(--line-off);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: text;
+  user-select: none;
+}
+.wire-tunnel:hover .tunnel-label,
+.wire-tunnel:has(.tunnel-stub.selected) .tunnel-label {
+  fill: var(--brand-strong);
+}
+.wire-tunnel:has(.tunnel-stub.on) .tunnel-label {
+  fill: #a76500;
+}
+.tunnel-label-editor {
+  box-sizing: border-box;
+  width: 100%;
+  height: 30px;
+  border: 2px solid var(--brand);
+  border-radius: 8px;
+  padding: 0 7px;
+  color: var(--ink);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  outline: none;
+}
 .pending-wire-preview {
   pointer-events: none;
 }
