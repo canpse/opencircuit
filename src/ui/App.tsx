@@ -17,6 +17,8 @@ import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
 import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
+import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
+import { isDocumentDirty } from '../state/workspaceStorage';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
@@ -41,7 +43,11 @@ export function App() {
     setCircuit,
     selectDocument,
     createNewDocument,
-    closeDocument,
+    requestCloseDocument,
+    pendingCloseDocument,
+    savePendingCloseDocument,
+    discardPendingCloseDocument,
+    cancelPendingClose,
     saveActiveDocument,
     loadExample,
     importJson,
@@ -148,6 +154,7 @@ export function App() {
     selection,
     pendingWire,
     contextMenu,
+    dialogOpen: pendingCloseDocument !== null,
     hasSelection,
     onCancelContextMenu: closeContextMenu,
     onCancelPendingWire: () => setPendingWire(null),
@@ -276,12 +283,21 @@ export function App() {
                 <button className="document-tab-title" onClick={() => selectDocument(document.id)}>
                   {document.name}
                 </button>
+                {isDocumentDirty(document) && (
+                  <span
+                    className="document-tab-dirty"
+                    title="Mudanças não salvas"
+                    aria-label="Mudanças não salvas"
+                  >
+                    •
+                  </span>
+                )}
                 <button
                   className="document-tab-close"
                   aria-label={`Fechar ${document.name}`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    closeDocument(document.id);
+                    requestCloseDocument(document.id);
                   }}
                 >
                   ×
@@ -409,6 +425,15 @@ export function App() {
           {circuit.components.length} componentes · {circuit.wires.length} fios
         </span>
       </footer>
+
+      {pendingCloseDocument && (
+        <ConfirmCloseDialog
+          documentName={pendingCloseDocument.name}
+          onSave={savePendingCloseDocument}
+          onDiscard={discardPendingCloseDocument}
+          onCancel={cancelPendingClose}
+        />
+      )}
 
       {contextMenu && (
         <ContextMenuView

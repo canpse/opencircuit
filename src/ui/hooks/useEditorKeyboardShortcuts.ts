@@ -8,6 +8,7 @@ interface Options {
   selection: Selection;
   pendingWire: unknown;
   contextMenu: ContextMenu;
+  dialogOpen: boolean;
   hasSelection: (selection: Selection) => boolean;
   onCancelContextMenu: () => void;
   onCancelPendingWire: () => void;
@@ -25,6 +26,7 @@ export function useEditorKeyboardShortcuts({
   selection,
   pendingWire,
   contextMenu,
+  dialogOpen,
   hasSelection,
   onCancelContextMenu,
   onCancelPendingWire,
@@ -39,6 +41,7 @@ export function useEditorKeyboardShortcuts({
 }: Options) {
   useEffect(() => {
     function onSpaceDown(event: KeyboardEvent) {
+      if (dialogOpen) return;
       if (event.code !== 'Space' || event.repeat || isEditingText(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -54,10 +57,12 @@ export function useEditorKeyboardShortcuts({
     return () => {
       window.removeEventListener('keydown', onSpaceDown, true);
     };
-  }, [onMessage, onSelectTool]);
+  }, [dialogOpen, onMessage, onSelectTool]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      // Com um diálogo modal aberto, o teclado pertence ao diálogo.
+      if (dialogOpen) return;
       if (isEditingText(event.target)) return;
 
       if (event.key === 'Escape') {
@@ -124,6 +129,7 @@ export function useEditorKeyboardShortcuts({
     };
   }, [
     contextMenu,
+    dialogOpen,
     hasSelection,
     onCancelContextMenu,
     onCancelPendingWire,

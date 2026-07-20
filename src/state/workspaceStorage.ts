@@ -11,6 +11,9 @@ export type WorkspaceDocument = {
   circuit: CircuitDocument;
   exampleId: string | null;
   saved: boolean;
+  // Já teve alguma versão gravada/importada de arquivo. Opcional porque
+  // workspaces persistidos antes do campo existir não o têm.
+  everSaved?: boolean;
 };
 
 export type WorkspaceState = {
@@ -25,7 +28,14 @@ export function createInitialWorkspace(): WorkspaceState {
     version: 1,
     activeDocumentId: id,
     documents: [
-      { id, name: 'circuito_logico.json', circuit: loadCircuit(), exampleId: null, saved: true },
+      {
+        id,
+        name: 'circuito_logico.json',
+        circuit: loadCircuit(),
+        exampleId: null,
+        saved: true,
+        everSaved: true,
+      },
     ],
   };
 }
@@ -82,6 +92,15 @@ export function saveWorkspace(workspace: WorkspaceState): boolean {
   }
 }
 
+// Sujo = tem mudanças que ainda não foram salvas em arquivo. Uma aba vazia que
+// nunca foi salva não conta: fechá-la não perde nada. Já uma aba vazia de um
+// documento que teve versão salva conta — o "apaguei tudo" é uma mudança.
+export function isDocumentDirty(document: WorkspaceDocument): boolean {
+  if (document.saved) return false;
+  if (document.circuit.components.length > 0 || document.circuit.wires.length > 0) return true;
+  return document.everSaved === true;
+}
+
 export function createEmptyCircuit(): CircuitDocument {
   return { version: 1, components: [], wires: [] };
 }
@@ -93,6 +112,7 @@ export function createUntitledDocument(index: number): WorkspaceDocument {
     circuit: createEmptyCircuit(),
     exampleId: null,
     saved: false,
+    everSaved: false,
   };
 }
 
@@ -105,6 +125,7 @@ function isWorkspaceDocument(value: unknown): value is WorkspaceDocument {
     typeof document.name === 'string' &&
     isCircuitDocument(document.circuit) &&
     (document.exampleId === null || typeof document.exampleId === 'string') &&
-    typeof document.saved === 'boolean',
+    typeof document.saved === 'boolean' &&
+    (document.everSaved === undefined || typeof document.everSaved === 'boolean'),
   );
 }
