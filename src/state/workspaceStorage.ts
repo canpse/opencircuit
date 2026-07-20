@@ -12,6 +12,8 @@ export type WorkspaceDocument = {
   exampleId: string | null;
   saved: boolean;
   everSaved: boolean;
+  remoteId?: string | null;
+  revision?: number | null;
 };
 
 export type WorkspaceState = {
@@ -33,6 +35,8 @@ export function createInitialWorkspace(): WorkspaceState {
         exampleId: null,
         saved: true,
         everSaved: true,
+        remoteId: null,
+        revision: null,
       },
     ],
   };
@@ -56,7 +60,12 @@ export function migrateWorkspace(parsed: unknown): WorkspaceState | null {
     if (!isStoredWorkspaceDocument(raw)) return null;
     // v1 não tinha everSaved; um documento marcado como salvo já teve versão
     // em disco, então herda esse fato.
-    documents.push({ ...raw, everSaved: raw.everSaved ?? raw.saved });
+    documents.push({
+      ...raw,
+      everSaved: raw.everSaved ?? raw.saved,
+      remoteId: raw.remoteId ?? null,
+      revision: raw.revision ?? null,
+    });
   }
   if (new Set(documents.map((document) => document.id)).size !== documents.length) return null;
 
@@ -130,10 +139,14 @@ export function createUntitledDocument(index: number): WorkspaceDocument {
     exampleId: null,
     saved: false,
     everSaved: false,
+    remoteId: null,
+    revision: null,
   };
 }
 
-type StoredWorkspaceDocument = Omit<WorkspaceDocument, 'everSaved'> & { everSaved?: boolean };
+type StoredWorkspaceDocument = Omit<WorkspaceDocument, 'everSaved'> & {
+  everSaved?: boolean;
+};
 
 function isStoredWorkspaceDocument(value: unknown): value is StoredWorkspaceDocument {
   if (typeof value !== 'object' || value === null) return false;
@@ -145,6 +158,12 @@ function isStoredWorkspaceDocument(value: unknown): value is StoredWorkspaceDocu
     isCircuitDocument(document.circuit) &&
     (document.exampleId === null || typeof document.exampleId === 'string') &&
     typeof document.saved === 'boolean' &&
-    (document.everSaved === undefined || typeof document.everSaved === 'boolean'),
+    (document.everSaved === undefined || typeof document.everSaved === 'boolean') &&
+    (document.remoteId === undefined ||
+      document.remoteId === null ||
+      typeof document.remoteId === 'string') &&
+    (document.revision === undefined ||
+      document.revision === null ||
+      (Number.isSafeInteger(document.revision) && Number(document.revision) > 0)),
   );
 }

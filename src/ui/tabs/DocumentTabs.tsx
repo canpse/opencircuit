@@ -5,7 +5,7 @@ import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
 interface Props {
   documents: WorkspaceDocument[];
   activeDocumentId: string;
-  linkedDocumentIds: ReadonlySet<string>;
+  remoteDocumentIds: ReadonlySet<string>;
   onSelect: (documentId: string) => void;
   onRequestClose: (documentId: string) => void;
   onRename: (documentId: string, name: string) => void;
@@ -15,7 +15,7 @@ interface Props {
 export function DocumentTabs({
   documents,
   activeDocumentId,
-  linkedDocumentIds,
+  remoteDocumentIds,
   onSelect,
   onRequestClose,
   onRename,
@@ -72,15 +72,14 @@ export function DocumentTabs({
             <button
               className="document-tab-title"
               title={
-                linkedDocumentIds.has(document.id)
-                  ? 'O nome segue o arquivo vinculado — use Salvar como para trocar'
+                remoteDocumentIds.has(document.id)
+                  ? 'Salvo no servidor — duplo clique para renomear'
                   : 'Duplo clique para renomear'
               }
               onClick={() => onSelect(document.id)}
-              onDoubleClick={
-                linkedDocumentIds.has(document.id) ? undefined : () => startEditing(document)
-              }
+              onDoubleClick={() => startEditing(document)}
             >
+              {remoteDocumentIds.has(document.id) ? '☁ ' : ''}
               {document.name}
             </button>
           )}

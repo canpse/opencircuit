@@ -17,11 +17,11 @@ interface Props {
   autoClockRunning: boolean;
   autoClockIntervalMs: number;
   fileInputRef: RefObject<HTMLInputElement | null>;
-  recentFiles: ReadonlyArray<{ id: string; name: string }>;
   onOpen: () => void;
-  onOpenRecent: (recentId: string) => void;
   onSave: () => void;
   onSaveAs: () => void;
+  onDownloadJson: () => void;
+  onImportClick: () => void;
   onExportImage: (format: CircuitImageFormat) => void;
   onLoadExample: (exampleId: string) => void;
   onUndo: () => void;
@@ -44,11 +44,11 @@ export function CommandBar({
   autoClockRunning,
   autoClockIntervalMs,
   fileInputRef,
-  recentFiles,
   onOpen,
-  onOpenRecent,
   onSave,
   onSaveAs,
+  onDownloadJson,
+  onImportClick,
   onExportImage,
   onLoadExample,
   onUndo,
@@ -64,32 +64,21 @@ export function CommandBar({
   return (
     <div className="commandbar">
       <button onClick={onOpen} title="Abrir arquivo (Ctrl+O)">
-        Abrir
+        Meus circuitos
       </button>
-      {recentFiles.length > 0 && (
-        <select
-          className="examples-select"
-          value=""
-          onChange={(event) => onOpenRecent(event.target.value)}
-          aria-label="Abrir arquivo recente"
-          title="Reabre um arquivo local usado recentemente."
-        >
-          <option value="" disabled>
-            Recentes
-          </option>
-          {recentFiles.map((file) => (
-            <option key={file.id} value={file.id}>
-              {file.name}
-            </option>
-          ))}
-        </select>
-      )}
       <button onClick={onSave} title="Salvar (Ctrl+S)">
         Salvar
       </button>
       <button onClick={onSaveAs} title="Salvar como (Ctrl+Shift+S)">
         Salvar como
       </button>
+      <button
+        onClick={onDownloadJson}
+        title="Exporta uma cópia local sem alterar o documento salvo"
+      >
+        Baixar JSON
+      </button>
+      <button onClick={onImportClick}>Importar JSON</button>
       <select
         className="examples-select"
         value=""

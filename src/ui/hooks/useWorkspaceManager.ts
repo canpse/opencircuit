@@ -1,7 +1,13 @@
-import { ChangeEvent, useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react';
+import { ChangeEvent, useCallback, useMemo, useState, type SetStateAction } from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isCircuitDocument } from '../../core/validateCircuitDocument';
-import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
+import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
+import {
+  circuitApi,
+  CircuitApiError,
+  type StoredCircuit,
+  type StoredCircuitSummary,
+} from '../../state/circuitApi';
 import { downloadJson } from '../../state/storage';
 import {
   createUntitledDocument,
@@ -10,102 +16,45 @@ import {
   loadWorkspace,
   type WorkspaceDocument,
 } from '../../state/workspaceStorage';
-import {
-  ensureWritePermission,
-  ensureReadPermission,
-  loadFileHandles,
-  loadRecentFiles,
-  pickFileToSave,
-  pickFilesToOpen,
-  rememberRecentFile,
-  removeRecentFile,
-  removeFileHandle,
-  serializeCircuit,
-  storeFileHandle,
-  supportsFileSystemAccess,
-  writeTextToHandle,
-  type RecentFile,
-} from '../../state/fileSystem';
-import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
+import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
 
 interface Options {
   onMessage: (message: string) => void;
 }
 
+export type RemoteSyncState = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'conflict';
+
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
-  const [linkedFiles, setLinkedFiles] = useState<ReadonlyMap<string, FileSystemFileHandle>>(
+  const [remoteCircuits, setRemoteCircuits] = useState<StoredCircuitSummary[]>([]);
+  const [remoteBrowserOpen, setRemoteBrowserOpen] = useState(false);
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [syncStates, setSyncStates] = useState<ReadonlyMap<string, RemoteSyncState>>(
     () => new Map(),
   );
-  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
+  const [conflict, setConflict] = useState<{ documentId: string; remote: StoredCircuit } | null>(
+    null,
+  );
 
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
-  const activeDocument =
-    documents.find((document) => document.id === activeDocumentId) ?? documents[0];
+  const activeDocument = documents.find((item) => item.id === activeDocumentId) ?? documents[0];
   const circuit = activeDocument.circuit;
   const currentExampleId = activeDocument.exampleId;
-  const pendingCloseDocument = documents.find((document) => document.id === pendingCloseId) ?? null;
-  const linkedDocumentIds = useMemo(() => new Set(linkedFiles.keys()), [linkedFiles]);
-
-  // Restaura os vínculos com arquivo da sessão anterior. A permissão de
-  // escrita é revalidada só na hora de salvar (requestPermission exige gesto
-  // do usuário); handles de documentos que não existem mais são limpos.
-  useEffect(() => {
-    if (!supportsFileSystemAccess()) return;
-    let cancelled = false;
-    const knownIds = new Set(workspace.documents.map((document) => document.id));
-    void Promise.all([loadFileHandles(), loadRecentFiles()]).then(([stored, recent]) => {
-      if (cancelled) return;
-      const restored = new Map<string, FileSystemFileHandle>();
-      for (const [documentId, handle] of stored) {
-        if (knownIds.has(documentId)) {
-          restored.set(documentId, handle);
-        } else {
-          void removeFileHandle(documentId);
-        }
-      }
-      if (restored.size > 0) setLinkedFiles(restored);
-      setRecentFiles(recent);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // Roda uma única vez com o workspace carregado na montagem.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function linkFile(documentId: string, handle: FileSystemFileHandle) {
-    setLinkedFiles((current) => {
-      const next = new Map(current);
-      next.set(documentId, handle);
-      return next;
-    });
-    void storeFileHandle(documentId, handle);
-    void rememberRecentFile(handle).then(setRecentFiles);
-  }
-
-  function unlinkFile(documentId: string) {
-    setLinkedFiles((current) => {
-      if (!current.has(documentId)) return current;
-      const next = new Map(current);
-      next.delete(documentId);
-      return next;
-    });
-    void removeFileHandle(documentId);
-  }
+  const pendingCloseDocument = documents.find((item) => item.id === pendingCloseId) ?? null;
+  const remoteDocumentIds = useMemo(
+    () => new Set(documents.filter((item) => item.remoteId).map((item) => item.id)),
+    [documents],
+  );
 
   const setDocuments = useCallback((action: SetStateAction<WorkspaceDocument[]>) => {
     setWorkspace((current) => {
       const nextDocuments = typeof action === 'function' ? action(current.documents) : action;
-      const activeStillExists = nextDocuments.some(
-        (document) => document.id === current.activeDocumentId,
-      );
       return {
         ...current,
         documents: nextDocuments,
-        activeDocumentId: activeStillExists
+        activeDocumentId: nextDocuments.some((item) => item.id === current.activeDocumentId)
           ? current.activeDocumentId
           : (nextDocuments[0]?.id ?? current.activeDocumentId),
       };
@@ -118,13 +67,13 @@ export function useWorkspaceManager({ onMessage }: Options) {
 
   const setCircuit = useCallback(
     (action: SetStateAction<CircuitDocument>) => {
-      setDocuments((currentDocuments) =>
-        currentDocuments.map((document) => {
+      setDocuments((current) =>
+        current.map((document) => {
           if (document.id !== activeDocumentId) return document;
-          const nextCircuit =
-            typeof action === 'function' ? action(document.circuit) : (action as CircuitDocument);
-          if (nextCircuit === document.circuit) return document;
-          return { ...document, circuit: nextCircuit, saved: false };
+          const next = typeof action === 'function' ? action(document.circuit) : action;
+          return next === document.circuit
+            ? document
+            : { ...document, circuit: next, saved: false };
         }),
       );
     },
@@ -133,39 +82,38 @@ export function useWorkspaceManager({ onMessage }: Options) {
 
   const setActiveExampleId = useCallback(
     (exampleId: string | null) => {
-      setDocuments((currentDocuments) =>
-        currentDocuments.map((document) =>
-          document.id === activeDocumentId ? { ...document, exampleId } : document,
-        ),
+      setDocuments((current) =>
+        current.map((item) => (item.id === activeDocumentId ? { ...item, exampleId } : item)),
       );
     },
     [activeDocumentId, setDocuments],
   );
 
+  function setSyncState(documentId: string, state: RemoteSyncState) {
+    setSyncStates((current) => new Map(current).set(documentId, state));
+  }
+
   function selectDocument(documentId: string) {
-    if (documentId === activeDocumentId) return;
-    setActiveDocumentId(documentId);
-    onMessage('Arquivo alternado.');
+    if (documentId !== activeDocumentId) {
+      setActiveDocumentId(documentId);
+      onMessage('Circuito alternado.');
+    }
   }
 
   function createNewDocument() {
-    const index = documents.length + 1;
-    const document = createUntitledDocument(index);
-    setDocuments((currentDocuments) => [
-      ...currentDocuments,
+    const document = createUntitledDocument(documents.length + 1);
+    setDocuments((current) => [
+      ...current,
       { ...document, circuit: normalizeCircuitForEditor(cloneCircuit(document.circuit)) },
     ]);
     setActiveDocumentId(document.id);
-    onMessage(`Novo arquivo criado: ${document.name}.`);
+    onMessage(`Novo circuito criado: ${document.name}.`);
   }
 
   function requestCloseDocument(documentId: string) {
-    const document = documents.find((candidate) => candidate.id === documentId);
+    const document = documents.find((item) => item.id === documentId);
     if (!document) return;
-    if (isDocumentDirty(document)) {
-      setPendingCloseId(documentId);
-      return;
-    }
+    if (isDocumentDirty(document)) return setPendingCloseId(documentId);
     closeDocument(documentId);
   }
 
@@ -173,15 +121,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
     const target = pendingCloseDocument;
     if (!target) return;
     setPendingCloseId(null);
-    if (await saveDocument(target)) {
-      closeDocument(target.id);
-    }
+    if (await saveDocument(target)) closeDocument(target.id);
   }
 
   function discardPendingCloseDocument() {
     if (!pendingCloseDocument) return;
+    const id = pendingCloseDocument.id;
     setPendingCloseId(null);
-    closeDocument(pendingCloseDocument.id);
+    closeDocument(id);
   }
 
   function cancelPendingClose() {
@@ -189,190 +136,201 @@ export function useWorkspaceManager({ onMessage }: Options) {
   }
 
   function closeDocument(documentId: string) {
-    unlinkFile(documentId);
-    const closingIndex = documents.findIndex((document) => document.id === documentId);
-    const fallback = documents[closingIndex + 1] ?? documents[closingIndex - 1] ?? documents[0];
-
+    const index = documents.findIndex((item) => item.id === documentId);
+    const fallback = documents[index + 1] ?? documents[index - 1];
     if (documents.length === 1) {
       const replacement = createUntitledDocument(1);
       setDocuments([
         { ...replacement, circuit: normalizeCircuitForEditor(cloneCircuit(replacement.circuit)) },
       ]);
       setActiveDocumentId(replacement.id);
-      onMessage('Arquivo fechado. Nova aba vazia aberta.');
+      onMessage('Circuito fechado. Nova aba vazia aberta.');
       return;
     }
-
-    setDocuments((currentDocuments) =>
-      currentDocuments.filter((document) => document.id !== documentId),
-    );
-    if (documentId === activeDocumentId) {
-      setActiveDocumentId(fallback.id);
-    }
-    onMessage('Arquivo fechado.');
+    setDocuments((current) => current.filter((item) => item.id !== documentId));
+    if (documentId === activeDocumentId && fallback) setActiveDocumentId(fallback.id);
+    onMessage('Circuito fechado.');
   }
 
-  function markDocumentSaved(documentId: string, name: string) {
-    setDocuments((currentDocuments) =>
-      currentDocuments.map((document) =>
-        document.id === documentId ? { ...document, name, saved: true, everSaved: true } : document,
+  function applySavedRemote(target: WorkspaceDocument, stored: StoredCircuit) {
+    setDocuments((current) =>
+      current.map((document) =>
+        document.id === target.id
+          ? {
+              ...document,
+              name: stored.name,
+              remoteId: stored.id,
+              revision: stored.revision,
+              saved: document.circuit === target.circuit,
+              everSaved: true,
+            }
+          : document,
       ),
     );
+    setSyncState(target.id, 'saved');
   }
 
-  // Com vínculo, sobrescreve o arquivo em silêncio; sem vínculo (ou quando o
-  // vínculo morreu) vira "Salvar como". Devolve se o conteúdo foi gravado.
   async function saveDocument(target: WorkspaceDocument): Promise<boolean> {
-    const handle = linkedFiles.get(target.id);
-    if (!supportsFileSystemAccess() || !handle) return saveDocumentAs(target);
-
-    if (!(await ensureWritePermission(handle))) {
-      onMessage('Sem permissão para gravar no arquivo vinculado. Escolha onde salvar.');
-      return saveDocumentAs(target);
-    }
+    setSyncState(target.id, 'saving');
     try {
-      await writeTextToHandle(handle, serializeCircuit(target.circuit));
-    } catch {
-      // Arquivo movido ou apagado: o vínculo morreu.
-      unlinkFile(target.id);
-      onMessage('O arquivo vinculado não está mais acessível. Escolha onde salvar.');
-      return saveDocumentAs(target);
+      const stored =
+        target.remoteId && target.revision
+          ? await circuitApi.update(target.remoteId, target.name, target.circuit, target.revision)
+          : await circuitApi.create(target.name, target.circuit);
+      applySavedRemote(target, stored);
+      onMessage(`Circuito salvo no servidor: ${stored.name}.`);
+      return true;
+    } catch (error) {
+      handleSaveError(target.id, error);
+      return false;
     }
-    markDocumentSaved(target.id, handle.name);
-    onMessage(`Arquivo salvo: ${handle.name}.`);
-    return true;
+  }
+
+  function handleSaveError(documentId: string, error: unknown) {
+    if (error instanceof CircuitApiError && error.status === 409 && error.remote) {
+      setConflict({ documentId, remote: error.remote });
+      setSyncState(documentId, 'conflict');
+      onMessage('Conflito: há uma versão mais nova no servidor.');
+      return;
+    }
+    const offline = error instanceof CircuitApiError && error.status === 0;
+    setSyncState(documentId, offline ? 'offline' : 'error');
+    onMessage(error instanceof Error ? error.message : 'Não foi possível salvar.');
   }
 
   async function saveDocumentAs(target: WorkspaceDocument): Promise<boolean> {
-    const filename = ensureJsonExtension(target.name);
-
-    if (!supportsFileSystemAccess()) {
-      // Fallback (Firefox/Safari): download direto com o nome da aba.
-      downloadJson(filename, target.circuit);
-      markDocumentSaved(target.id, filename);
-      onMessage(`Arquivo salvo: ${filename}.`);
-      return true;
-    }
-
-    const handle = await pickFileToSave(filename);
-    if (!handle) {
-      onMessage('Salvamento cancelado.');
+    const suggested = target.name.replace(/\.json$/i, '');
+    const name = window.prompt('Nome do novo circuito:', suggested)?.trim();
+    if (!name) {
+      onMessage('Salvar como cancelado.');
       return false;
     }
+    setSyncState(target.id, 'saving');
     try {
-      await writeTextToHandle(handle, serializeCircuit(target.circuit));
-    } catch {
-      onMessage('Não foi possível gravar o arquivo.');
+      const stored = await circuitApi.create(name, target.circuit);
+      applySavedRemote(target, stored);
+      onMessage(`Nova cópia salva: ${stored.name}.`);
+      return true;
+    } catch (error) {
+      handleSaveError(target.id, error);
       return false;
     }
-    linkFile(target.id, handle);
-    markDocumentSaved(target.id, handle.name);
-    onMessage(`Arquivo salvo: ${handle.name}.`);
-    return true;
   }
 
   function saveActiveDocument() {
     void saveDocument(activeDocument);
   }
-
   function saveActiveDocumentAs() {
     void saveDocumentAs(activeDocument);
   }
+  function downloadActiveDocument() {
+    const filename = ensureJsonExtension(activeDocument.name);
+    downloadJson(filename, activeDocument.circuit);
+    onMessage(`JSON baixado: ${filename}.`);
+  }
 
-  // Abre via showOpenFilePicker e vincula cada arquivo à sua nova aba. O
-  // fallback sem a API (input type=file) continua sendo o importJson.
-  async function openDocumentsFromPicker() {
-    const handles = await pickFilesToOpen();
-    if (handles.length === 0) return;
-
-    const opened: WorkspaceDocument[] = [];
-    for (const [index, handle] of handles.entries()) {
-      try {
-        const file = await handle.getFile();
-        const parsed: unknown = JSON.parse(await file.text());
-        if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
-        const document: WorkspaceDocument = {
-          id: `doc-${Date.now()}-${index}`,
-          name: file.name,
-          circuit: normalizeCircuitForEditor(parsed),
-          exampleId: null,
-          saved: true,
-          everSaved: true,
-        };
-        opened.push(document);
-        linkFile(document.id, handle);
-      } catch {
-        onMessage(`Não foi possível abrir ${handle.name}.`);
-      }
-    }
-    if (opened.length === 0) return;
-
-    setDocuments((currentDocuments) => [...currentDocuments, ...opened]);
-    setActiveDocumentId(opened[opened.length - 1].id);
-    if (opened.length === 1) {
-      onMessage(`Arquivo aberto: ${opened[0].name}.`);
-    } else {
-      onMessage(`${opened.length} arquivos abertos.`);
+  async function refreshRemoteCircuits(open = false) {
+    if (open) setRemoteBrowserOpen(true);
+    setRemoteLoading(true);
+    try {
+      setRemoteCircuits(await circuitApi.list());
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível listar os circuitos.');
+    } finally {
+      setRemoteLoading(false);
     }
   }
 
-  async function openRecentDocument(recentId: string) {
-    const recent = recentFiles.find((entry) => entry.id === recentId);
-    if (!recent) return;
-    if (!(await ensureReadPermission(recent.handle))) {
-      onMessage('Sem permissão para abrir esse arquivo recente.');
+  async function openRemoteDocument(remoteId: string) {
+    const alreadyOpen = documents.find((item) => item.remoteId === remoteId);
+    if (alreadyOpen) {
+      setActiveDocumentId(alreadyOpen.id);
+      setRemoteBrowserOpen(false);
+      onMessage(`Circuito já aberto: ${alreadyOpen.name}.`);
       return;
     }
-
     try {
-      const file = await recent.handle.getFile();
-      const parsed: unknown = JSON.parse(await file.text());
-      if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
+      const stored = await circuitApi.get(remoteId);
       const document: WorkspaceDocument = {
         id: `doc-${Date.now()}`,
-        name: file.name,
-        circuit: normalizeCircuitForEditor(parsed),
+        name: stored.name,
+        circuit: normalizeCircuitForEditor(stored.circuit),
         exampleId: null,
         saved: true,
         everSaved: true,
+        remoteId: stored.id,
+        revision: stored.revision,
       };
-      setDocuments((currentDocuments) => [...currentDocuments, document]);
+      setDocuments((current) => [...current, document]);
       setActiveDocumentId(document.id);
-      linkFile(document.id, recent.handle);
-      onMessage(`Arquivo recente aberto: ${file.name}.`);
-    } catch {
-      setRecentFiles(await removeRecentFile(recent.id));
-      onMessage('O arquivo recente não está mais acessível ou tem formato inválido.');
+      setSyncState(document.id, 'saved');
+      setRemoteBrowserOpen(false);
+      onMessage(`Circuito aberto: ${stored.name}.`);
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível abrir o circuito.');
     }
   }
 
-  function renameDocument(documentId: string, name: string) {
+  async function deleteRemoteDocument(remoteId: string) {
+    const summary = remoteCircuits.find((item) => item.id === remoteId);
+    if (!summary || !window.confirm(`Excluir “${summary.name}” do servidor?`)) return;
+    try {
+      await circuitApi.delete(remoteId);
+      setRemoteCircuits((current) => current.filter((item) => item.id !== remoteId));
+      setDocuments((current) =>
+        current.map((item) =>
+          item.remoteId === remoteId
+            ? { ...item, remoteId: null, revision: null, saved: false }
+            : item,
+        ),
+      );
+      onMessage(`Circuito excluído: ${summary.name}. A aba local foi preservada como rascunho.`);
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível excluir o circuito.');
+    }
+  }
+
+  async function renameDocument(documentId: string, name: string) {
     const trimmed = name.trim();
-    const current = documents.find((document) => document.id === documentId);
+    const current = documents.find((item) => item.id === documentId);
     if (!current || !trimmed || trimmed === current.name) return;
-    // Com vínculo o nome segue o arquivo; renomear é só para abas soltas.
-    if (linkedDocumentIds.has(documentId)) return;
-    setDocuments((currentDocuments) =>
-      currentDocuments.map((document) =>
-        document.id === documentId ? { ...document, name: trimmed } : document,
-      ),
-    );
-    onMessage(`Arquivo renomeado: ${trimmed}.`);
+    if (!current.remoteId || !current.revision) {
+      setDocuments((items) =>
+        items.map((item) => (item.id === documentId ? { ...item, name: trimmed } : item)),
+      );
+      onMessage(`Circuito renomeado: ${trimmed}.`);
+      return;
+    }
+    setSyncState(documentId, 'saving');
+    try {
+      const stored = await circuitApi.update(
+        current.remoteId,
+        trimmed,
+        current.circuit,
+        current.revision,
+      );
+      applySavedRemote(current, stored);
+      onMessage(`Circuito renomeado: ${trimmed}.`);
+    } catch (error) {
+      handleSaveError(documentId, error);
+    }
   }
 
   function loadExample(exampleId: string) {
-    const example = CIRCUIT_EXAMPLES.find((candidate) => candidate.id === exampleId);
+    const example = CIRCUIT_EXAMPLES.find((item) => item.id === exampleId);
     if (!example) return;
     const id = `doc-${Date.now()}`;
-    setDocuments((currentDocuments) => [
-      ...currentDocuments,
+    setDocuments((current) => [
+      ...current,
       {
         id,
-        name: `${example.name}.json`,
+        name: example.name,
         circuit: normalizeCircuitForEditor(cloneCircuit(example.circuit)),
         exampleId: example.id,
         saved: false,
         everSaved: false,
+        remoteId: null,
+        revision: null,
       },
     ]);
     setActiveDocumentId(id);
@@ -388,22 +346,54 @@ export function useWorkspaceManager({ onMessage }: Options) {
         const parsed: unknown = JSON.parse(text);
         if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
         const id = `doc-${Date.now()}`;
-        setDocuments((currentDocuments) => [
-          ...currentDocuments,
+        setDocuments((current) => [
+          ...current,
           {
             id,
-            name: file.name || `importado_${currentDocuments.length + 1}.json`,
+            name: file.name || `importado_${current.length + 1}.json`,
             circuit: normalizeCircuitForEditor(parsed),
             exampleId: null,
-            saved: true,
-            everSaved: true,
+            saved: false,
+            everSaved: false,
+            remoteId: null,
+            revision: null,
           },
         ]);
         setActiveDocumentId(id);
-        onMessage('Circuito importado em nova aba.');
+        onMessage('JSON importado como cópia ainda não salva.');
       })
       .catch(() => onMessage('Não foi possível importar esse JSON.'));
     event.target.value = '';
+  }
+
+  function reloadConflict() {
+    if (!conflict) return;
+    const { documentId, remote } = conflict;
+    setDocuments((current) =>
+      current.map((item) =>
+        item.id === documentId
+          ? {
+              ...item,
+              name: remote.name,
+              circuit: normalizeCircuitForEditor(remote.circuit),
+              remoteId: remote.id,
+              revision: remote.revision,
+              saved: true,
+              everSaved: true,
+            }
+          : item,
+      ),
+    );
+    setSyncState(documentId, 'saved');
+    setConflict(null);
+    onMessage('Versão mais nova do servidor carregada.');
+  }
+
+  function saveConflictAsCopy() {
+    if (!conflict) return;
+    const target = documents.find((item) => item.id === conflict.documentId);
+    setConflict(null);
+    if (target) void saveDocumentAs({ ...target, remoteId: null, revision: null });
   }
 
   return {
@@ -424,12 +414,23 @@ export function useWorkspaceManager({ onMessage }: Options) {
     cancelPendingClose,
     saveActiveDocument,
     saveActiveDocumentAs,
-    openDocumentsFromPicker,
-    openRecentDocument,
-    recentFiles,
-    linkedDocumentIds,
+    downloadActiveDocument,
+    remoteDocumentIds,
     renameDocument,
     loadExample,
     importJson,
+    remoteCircuits,
+    remoteBrowserOpen,
+    remoteLoading,
+    openRemoteBrowser: () => void refreshRemoteCircuits(true),
+    closeRemoteBrowser: () => setRemoteBrowserOpen(false),
+    refreshRemoteCircuits: () => void refreshRemoteCircuits(),
+    openRemoteDocument: (id: string) => void openRemoteDocument(id),
+    deleteRemoteDocument: (id: string) => void deleteRemoteDocument(id),
+    activeSyncState: syncStates.get(activeDocumentId) ?? 'idle',
+    conflict,
+    closeConflict: () => setConflict(null),
+    reloadConflict,
+    saveConflictAsCopy,
   };
 }

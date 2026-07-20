@@ -16,6 +16,20 @@ npm ci
 npm run dev
 ```
 
+O servidor de desenvolvimento também disponibiliza a API em `/api/circuits` e grava os dados em
+`data/opencircuit.sqlite`. Cada navegador recebe uma identidade local persistente e isolada. O
+header `X-OpenCircuit-User` deve ser preenchido por uma camada de autenticação confiável antes de
+uma implantação pública; ele não deve ser aceito diretamente de clientes na internet.
+
+Para executar o build de produção com o servidor Node:
+
+```bash
+npm run build
+npm start
+```
+
+Use `PORT` para trocar a porta e `OPENCIRCUIT_DB` para escolher o arquivo SQLite.
+
 O Vite informa a URL local ao iniciar. Para validar a mesma sequência executada na integração
 contínua:
 
