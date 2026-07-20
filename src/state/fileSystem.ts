@@ -22,6 +22,7 @@ interface OpenFilePickerOptions {
 
 declare global {
   interface FileSystemFileHandle {
+    isSameEntry?(other: FileSystemFileHandle): Promise<boolean>;
     queryPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
     requestPermission?(descriptor?: FileSystemHandlePermissionDescriptor): Promise<PermissionState>;
   }
@@ -80,12 +81,29 @@ export async function ensureWritePermission(handle: FileSystemFileHandle): Promi
   return ((await handle.requestPermission?.(descriptor)) ?? 'denied') === 'granted';
 }
 
+export async function ensureReadPermission(handle: FileSystemFileHandle): Promise<boolean> {
+  const descriptor: FileSystemHandlePermissionDescriptor = { mode: 'read' };
+  const state = (await handle.queryPermission?.(descriptor)) ?? 'granted';
+  if (state === 'granted') return true;
+  if (state === 'denied') return false;
+  return ((await handle.requestPermission?.(descriptor)) ?? 'denied') === 'granted';
+}
+
 // Handles de arquivo não são serializáveis em localStorage; vivem em IndexedDB
 // com o id do documento como chave. Toda falha aqui é silenciosa: o vínculo
 // passa a valer só para a sessão atual, e o save degrada para "Salvar como".
 const DB_NAME = 'opencircuit.files';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'handles';
+const RECENT_STORE_NAME = 'recent-files';
+const MAX_RECENT_FILES = 10;
+
+export type RecentFile = {
+  id: string;
+  name: string;
+  handle: FileSystemFileHandle;
+  lastOpenedAt: number;
+};
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -94,6 +112,9 @@ function openDatabase(): Promise<IDBDatabase> {
       if (!request.result.objectStoreNames.contains(STORE_NAME)) {
         request.result.createObjectStore(STORE_NAME);
       }
+      if (!request.result.objectStoreNames.contains(RECENT_STORE_NAME)) {
+        request.result.createObjectStore(RECENT_STORE_NAME, { keyPath: 'id' });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('IndexedDB indisponível'));
@@ -101,13 +122,14 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 async function withStore<T>(
+  storeName: string,
   mode: IDBTransactionMode,
   run: (store: IDBObjectStore) => IDBRequest<T>,
 ): Promise<T> {
   const db = await openDatabase();
   try {
     return await new Promise<T>((resolve, reject) => {
-      const request = run(db.transaction(STORE_NAME, mode).objectStore(STORE_NAME));
+      const request = run(db.transaction(storeName, mode).objectStore(storeName));
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error ?? new Error('Operação IndexedDB falhou'));
     });
@@ -121,7 +143,7 @@ export async function storeFileHandle(
   handle: FileSystemFileHandle,
 ): Promise<void> {
   try {
-    await withStore('readwrite', (store) => store.put(handle, documentId));
+    await withStore(STORE_NAME, 'readwrite', (store) => store.put(handle, documentId));
   } catch {
     // Vínculo vale só para a sessão atual.
   }
@@ -129,7 +151,7 @@ export async function storeFileHandle(
 
 export async function removeFileHandle(documentId: string): Promise<void> {
   try {
-    await withStore('readwrite', (store) => store.delete(documentId));
+    await withStore(STORE_NAME, 'readwrite', (store) => store.delete(documentId));
   } catch {
     // Nada a limpar.
   }
@@ -163,4 +185,66 @@ export async function loadFileHandles(): Promise<Map<string, FileSystemFileHandl
     // Sem handles persistidos.
   }
   return handles;
+}
+
+export async function loadRecentFiles(): Promise<RecentFile[]> {
+  try {
+    const entries = await withStore<RecentFile[]>(RECENT_STORE_NAME, 'readonly', (store) =>
+      store.getAll(),
+    );
+    return entries.sort((left, right) => right.lastOpenedAt - left.lastOpenedAt);
+  } catch {
+    return [];
+  }
+}
+
+async function handlesMatch(
+  left: FileSystemFileHandle,
+  right: FileSystemFileHandle,
+): Promise<boolean> {
+  try {
+    return (await left.isSameEntry?.(right)) ?? left === right;
+  } catch {
+    return false;
+  }
+}
+
+export async function rememberRecentFile(handle: FileSystemFileHandle): Promise<RecentFile[]> {
+  const current = await loadRecentFiles();
+  let previous: RecentFile | undefined;
+  for (const entry of current) {
+    if (await handlesMatch(entry.handle, handle)) {
+      previous = entry;
+      break;
+    }
+  }
+
+  const recent: RecentFile = {
+    id: previous?.id ?? `recent-${Date.now()}-${crypto.randomUUID?.() ?? Math.random()}`,
+    name: handle.name,
+    handle,
+    lastOpenedAt: Date.now(),
+  };
+
+  try {
+    await withStore(RECENT_STORE_NAME, 'readwrite', (store) => store.put(recent));
+    const overflow = current.filter((entry) => entry.id !== recent.id).slice(MAX_RECENT_FILES - 1);
+    await Promise.all(
+      overflow.map((entry) =>
+        withStore(RECENT_STORE_NAME, 'readwrite', (store) => store.delete(entry.id)),
+      ),
+    );
+  } catch {
+    // A abertura continua funcionando mesmo sem histórico persistente.
+  }
+  return loadRecentFiles();
+}
+
+export async function removeRecentFile(recentId: string): Promise<RecentFile[]> {
+  try {
+    await withStore(RECENT_STORE_NAME, 'readwrite', (store) => store.delete(recentId));
+  } catch {
+    // Nada a limpar.
+  }
+  return loadRecentFiles();
 }

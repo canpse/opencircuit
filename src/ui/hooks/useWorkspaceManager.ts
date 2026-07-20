@@ -12,14 +12,19 @@ import {
 } from '../../state/workspaceStorage';
 import {
   ensureWritePermission,
+  ensureReadPermission,
   loadFileHandles,
+  loadRecentFiles,
   pickFileToSave,
   pickFilesToOpen,
+  rememberRecentFile,
+  removeRecentFile,
   removeFileHandle,
   serializeCircuit,
   storeFileHandle,
   supportsFileSystemAccess,
   writeTextToHandle,
+  type RecentFile,
 } from '../../state/fileSystem';
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
 
@@ -33,6 +38,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
   const [linkedFiles, setLinkedFiles] = useState<ReadonlyMap<string, FileSystemFileHandle>>(
     () => new Map(),
   );
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>([]);
 
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
@@ -50,7 +56,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     if (!supportsFileSystemAccess()) return;
     let cancelled = false;
     const knownIds = new Set(workspace.documents.map((document) => document.id));
-    void loadFileHandles().then((stored) => {
+    void Promise.all([loadFileHandles(), loadRecentFiles()]).then(([stored, recent]) => {
       if (cancelled) return;
       const restored = new Map<string, FileSystemFileHandle>();
       for (const [documentId, handle] of stored) {
@@ -61,6 +67,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
         }
       }
       if (restored.size > 0) setLinkedFiles(restored);
+      setRecentFiles(recent);
     });
     return () => {
       cancelled = true;
@@ -76,6 +83,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
       return next;
     });
     void storeFileHandle(documentId, handle);
+    void rememberRecentFile(handle).then(setRecentFiles);
   }
 
   function unlinkFile(documentId: string) {
@@ -308,6 +316,36 @@ export function useWorkspaceManager({ onMessage }: Options) {
     }
   }
 
+  async function openRecentDocument(recentId: string) {
+    const recent = recentFiles.find((entry) => entry.id === recentId);
+    if (!recent) return;
+    if (!(await ensureReadPermission(recent.handle))) {
+      onMessage('Sem permissão para abrir esse arquivo recente.');
+      return;
+    }
+
+    try {
+      const file = await recent.handle.getFile();
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
+      const document: WorkspaceDocument = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        circuit: normalizeCircuitForEditor(parsed),
+        exampleId: null,
+        saved: true,
+        everSaved: true,
+      };
+      setDocuments((currentDocuments) => [...currentDocuments, document]);
+      setActiveDocumentId(document.id);
+      linkFile(document.id, recent.handle);
+      onMessage(`Arquivo recente aberto: ${file.name}.`);
+    } catch {
+      setRecentFiles(await removeRecentFile(recent.id));
+      onMessage('O arquivo recente não está mais acessível ou tem formato inválido.');
+    }
+  }
+
   function renameDocument(documentId: string, name: string) {
     const trimmed = name.trim();
     const current = documents.find((document) => document.id === documentId);
@@ -387,6 +425,8 @@ export function useWorkspaceManager({ onMessage }: Options) {
     saveActiveDocument,
     saveActiveDocumentAs,
     openDocumentsFromPicker,
+    openRecentDocument,
+    recentFiles,
     linkedDocumentIds,
     renameDocument,
     loadExample,
