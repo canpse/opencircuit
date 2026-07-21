@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, RefObject } from 'react';
 import type { GateType } from '../../core/types';
 import type { WireStyle } from '../editor/CircuitCanvas';
 import type { CircuitImageFormat } from '../editor/exportCircuitImage';
 
 type EditorTool = GateType | 'select' | 'wire' | 'pan';
+type OpenMenu = 'file' | 'export' | null;
 
 type ExampleOption = { id: string; name: string; description?: string };
 type LessonOption = { id: string; title: string; description: string; examples: ExampleOption[] };
@@ -61,40 +63,93 @@ export function CommandBar({
   onWireStyleChange,
   onImportJson,
 }: Props) {
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
+  const commandbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenu) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!commandbarRef.current?.contains(event.target as Node)) setOpenMenu(null);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpenMenu(null);
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openMenu]);
+
+  function runMenuAction(action: () => void) {
+    setOpenMenu(null);
+    action();
+  }
+
   return (
-    <div className="commandbar">
-      <button onClick={onOpen} title="Abrir arquivo (Ctrl+O)">
-        Meus circuitos
-      </button>
-      <button onClick={onSave} title="Salvar (Ctrl+S)">
-        Salvar
-      </button>
-      <button onClick={onSaveAs} title="Salvar como (Ctrl+Shift+S)">
-        Salvar como
-      </button>
-      <button
-        onClick={onDownloadJson}
-        title="Exporta uma cópia local sem alterar o documento salvo"
-      >
-        Baixar JSON
-      </button>
-      <button onClick={onImportClick}>Importar JSON</button>
-      <select
-        className="examples-select"
-        value=""
-        onChange={(event) => {
-          onExportImage(event.target.value as CircuitImageFormat);
-          event.target.value = '';
-        }}
-        aria-label="Exportar imagem do circuito"
-        title="Exporta o circuito inteiro como imagem, independente do zoom atual."
-      >
-        <option value="" disabled>
-          Imagem
-        </option>
-        <option value="png">Exportar PNG (alta resolução)</option>
-        <option value="svg">Exportar SVG (vetorial)</option>
-      </select>
+    <div className="commandbar" ref={commandbarRef}>
+      <div className="toolbar-menu">
+        <button
+          className={openMenu === 'file' ? 'active' : ''}
+          aria-haspopup="menu"
+          aria-expanded={openMenu === 'file'}
+          onClick={() => setOpenMenu((current) => (current === 'file' ? null : 'file'))}
+        >
+          Arquivo <span className="toolbar-menu-chevron">⌄</span>
+        </button>
+        {openMenu === 'file' && (
+          <div className="toolbar-menu-popover" role="menu" aria-label="Arquivo">
+            <button role="menuitem" onClick={() => runMenuAction(onOpen)}>
+              <span>Meus circuitos</span>
+              <kbd>Ctrl+O</kbd>
+            </button>
+            <span className="toolbar-menu-divider" />
+            <button role="menuitem" onClick={() => runMenuAction(onSave)}>
+              <span>Salvar</span>
+              <kbd>Ctrl+S</kbd>
+            </button>
+            <button role="menuitem" onClick={() => runMenuAction(onSaveAs)}>
+              <span>Salvar como…</span>
+              <kbd>Ctrl+Shift+S</kbd>
+            </button>
+            <span className="toolbar-menu-divider" />
+            <button role="menuitem" onClick={() => runMenuAction(onImportClick)}>
+              Importar JSON…
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="toolbar-menu">
+        <button
+          className={openMenu === 'export' ? 'active' : ''}
+          aria-haspopup="menu"
+          aria-expanded={openMenu === 'export'}
+          onClick={() => setOpenMenu((current) => (current === 'export' ? null : 'export'))}
+        >
+          Exportar <span className="toolbar-menu-chevron">⌄</span>
+        </button>
+        {openMenu === 'export' && (
+          <div className="toolbar-menu-popover" role="menu" aria-label="Exportar">
+            <button role="menuitem" onClick={() => runMenuAction(onDownloadJson)}>
+              <span>Baixar JSON</span>
+              <small>Cópia editável</small>
+            </button>
+            <span className="toolbar-menu-divider" />
+            <button role="menuitem" onClick={() => runMenuAction(() => onExportImage('png'))}>
+              <span>Baixar imagem PNG</span>
+              <small>Alta resolução</small>
+            </button>
+            <button role="menuitem" onClick={() => runMenuAction(() => onExportImage('svg'))}>
+              <span>Baixar imagem SVG</span>
+              <small>Formato vetorial</small>
+            </button>
+          </div>
+        )}
+      </div>
       <select
         className="examples-select"
         value=""
