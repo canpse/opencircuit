@@ -130,6 +130,7 @@ export function App() {
     openCanvasMenu,
     openComponentMenu,
     openWireMenu,
+    openWaypointMenu,
     addComponentFromContextMenu,
     renameContextTarget,
     toggleWireContextTarget,
@@ -145,6 +146,7 @@ export function App() {
     removeSelection,
     removeComponent,
     removeWire,
+    removeWireWaypoint,
     toggleWireDisplay,
     setRenameRequest,
   });
@@ -344,6 +346,7 @@ export function App() {
                 onOpenCanvasMenu={openCanvasMenu}
                 onOpenComponentMenu={openComponentMenu}
                 onOpenWireMenu={openWireMenu}
+                onOpenWaypointMenu={openWaypointMenu}
                 onSelectComponent={selectComponent}
                 onSelectWire={selectWire}
                 onSelectItems={selectItems}

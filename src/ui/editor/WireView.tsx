@@ -8,6 +8,7 @@ import {
   orthogonalPath,
   routeBetweenPoints,
   selfLoopRoute,
+  smoothBezierPathThroughPoints,
   type WireRoute,
 } from './wireRouting';
 import type { WireStyle } from './CircuitCanvas';
@@ -26,6 +27,7 @@ export const WireView = memo(function WireView({
   onRename,
   onWireMouseDown,
   onWaypointMouseDown,
+  onWaypointContextMenu,
   onRemoveWaypoint,
 }: {
   wire: Wire;
@@ -45,6 +47,11 @@ export const WireView = memo(function WireView({
     wireId: string,
     waypointIndex: number,
   ) => void;
+  onWaypointContextMenu: (
+    event: MouseEvent<SVGCircleElement>,
+    wireId: string,
+    waypointIndex: number,
+  ) => void;
   onRemoveWaypoint: (wireId: string, waypointIndex: number) => void;
 }) {
   const [editingEnd, setEditingEnd] = useState<'from' | 'to' | null>(null);
@@ -60,7 +67,7 @@ export const WireView = memo(function WireView({
     wireStyle === 'orthogonal'
       ? orthogonalPath(points, route?.jumps ?? [])
       : wire.waypoints?.length
-        ? bezierPathFromPoints(points)
+        ? smoothBezierPathThroughPoints([start, ...wire.waypoints, end])
         : fromComponent.id === toComponent.id
           ? bezierPathFromPoints(points)
           : bezierPathWithPinStubs(start, end);
@@ -173,17 +180,26 @@ export const WireView = memo(function WireView({
             r="7"
             tabIndex={0}
             role="button"
-            aria-label={`Guia de rota ${waypointIndex + 1}`}
+            data-wire-waypoint="true"
+            aria-label={`Ponto de controle ${waypointIndex + 1}`}
             onMouseDown={(event) => {
-              event.preventDefault();
               event.stopPropagation();
-              if (event.button === 0) onWaypointMouseDown(event, wire.id, waypointIndex);
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.currentTarget.focus();
+              onWaypointMouseDown(event, wire.id, waypointIndex);
             }}
             onClick={(event) => {
               event.stopPropagation();
               onSelect(wire.id);
             }}
             onDoubleClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              event.currentTarget.focus();
+              onWaypointContextMenu(event, wire.id, waypointIndex);
+            }}
             onKeyDown={(event) => {
               if (event.key !== 'Delete' && event.key !== 'Backspace') return;
               event.preventDefault();

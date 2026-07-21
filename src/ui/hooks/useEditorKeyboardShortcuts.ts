@@ -135,6 +135,8 @@ export function useEditorKeyboardShortcuts({
       }
 
       if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const eventElement = event.target as Element | null;
+      if (eventElement?.closest?.('[data-wire-waypoint="true"]')) return;
       if (!hasSelection(selection)) return;
 
       event.preventDefault();

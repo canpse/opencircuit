@@ -433,6 +433,35 @@ export function bezierPathFromPoints(points: Point[]): string {
   return roundedPolylinePath(points, 18);
 }
 
+// Curva Catmull–Rom convertida em segmentos Bézier cúbicos. Diferentemente
+// de bezierPathFromPoints, esta função não arredonda uma rota ortogonal: ela
+// atravessa diretamente cada ponto de controle informado pelo usuário.
+export function smoothBezierPathThroughPoints(points: Point[]): string {
+  if (points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  if (points.length === 2) return bezierPathWithPinStubs(points[0], points[1]);
+
+  const commands = [`M ${points[0].x} ${points[0].y}`];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[Math.max(0, index - 1)];
+    const start = points[index];
+    const end = points[index + 1];
+    const next = points[Math.min(points.length - 1, index + 2)];
+    const firstControl =
+      index === 0
+        ? { x: start.x + (end.x - start.x) / 3, y: start.y }
+        : { x: start.x + (end.x - previous.x) / 6, y: start.y + (end.y - previous.y) / 6 };
+    const secondControl =
+      index === points.length - 2
+        ? { x: end.x - (end.x - start.x) / 3, y: end.y }
+        : { x: end.x - (next.x - start.x) / 6, y: end.y - (next.y - start.y) / 6 };
+    commands.push(
+      `C ${firstControl.x} ${firstControl.y}, ${secondControl.x} ${secondControl.y}, ${end.x} ${end.y}`,
+    );
+  }
+  return commands.join(' ');
+}
+
 function roundedPolylinePath(points: Point[], radius: number): string {
   if (points.length === 0) return '';
   if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;

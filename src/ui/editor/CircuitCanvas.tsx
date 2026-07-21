@@ -78,6 +78,7 @@ interface Props {
   onOpenCanvasMenu: (x: number, y: number, point: Point) => void;
   onOpenComponentMenu: (x: number, y: number, componentId: string) => void;
   onOpenWireMenu: (x: number, y: number, wireId: string) => void;
+  onOpenWaypointMenu: (x: number, y: number, wireId: string, waypointIndex: number) => void;
   onSelectComponent: (componentId: string) => void;
   onSelectWire: (wireId: string) => void;
   onSelectItems: (selection: Selection) => void;
@@ -106,10 +107,7 @@ export function CircuitCanvas(props: Props) {
     [layoutComponents],
   );
   const wireRoutes = useMemo(() => {
-    const routedWires =
-      props.wireStyle === 'orthogonal'
-        ? props.circuit.wires
-        : props.circuit.wires.filter((wire) => wire.waypoints?.length);
+    const routedWires = props.wireStyle === 'orthogonal' ? props.circuit.wires : [];
     if (routedWires.length === 0) return [];
     return measureProfile(
       'routing.orthogonal',
@@ -240,10 +238,20 @@ export function CircuitCanvas(props: Props) {
       const startMouse = svgPoint(event);
       const wire = props.circuit.wires.find((candidate) => candidate.id === wireId);
       const route = routeByWireId.get(wireId);
+      const fromComponent = wire ? componentById.get(wire.from.componentId) : null;
+      const toComponent = wire ? componentById.get(wire.to.componentId) : null;
+      const curvePoints =
+        wire && fromComponent && toComponent
+          ? [
+              getPinPosition(fromComponent, wire.from.pinId),
+              ...(wire.waypoints ?? []),
+              getPinPosition(toComponent, wire.to.pinId),
+            ]
+          : [];
       setWireWaypointDrag({
         wireId,
         waypointIndex: waypointInsertionIndex(
-          route?.points ?? [],
+          props.wireStyle === 'orthogonal' ? (route?.points ?? []) : curvePoints,
           wire?.waypoints ?? [],
           startMouse,
         ),
@@ -264,6 +272,10 @@ export function CircuitCanvas(props: Props) {
         recorded: false,
       });
     },
+  );
+  const handleWaypointContextMenu = useEventCallback(
+    (event: MouseEvent<SVGCircleElement>, wireId: string, waypointIndex: number) =>
+      props.onOpenWaypointMenu(event.clientX, event.clientY, wireId, waypointIndex),
   );
 
   const handleComponentMouseDown = useEventCallback(
@@ -499,6 +511,7 @@ export function CircuitCanvas(props: Props) {
                 onRename={props.onRenameWire}
                 onWireMouseDown={handleWireMouseDown}
                 onWaypointMouseDown={handleWaypointMouseDown}
+                onWaypointContextMenu={handleWaypointContextMenu}
                 onRemoveWaypoint={props.onRemoveWireWaypoint}
               />
             );

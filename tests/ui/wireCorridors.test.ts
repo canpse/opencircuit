@@ -5,6 +5,7 @@ import {
   routeCircuitWires,
   spreadWireCorridors,
   waypointInsertionIndex,
+  smoothBezierPathThroughPoints,
   type WireRoute,
 } from '../../src/ui/editor/wireRouting';
 import type { LogicComponent, Point, Wire } from '../../src/core/types';
@@ -233,6 +234,20 @@ test('MergeCollinearRemovePontosRedundantes', () => {
     { x: 100, y: 100 },
     { x: 200, y: 100 },
   ]);
+});
+
+test('CurvaComGuiasPassaDiretamentePelosPontosDeControle', () => {
+  const path = smoothBezierPathThroughPoints([
+    { x: 0, y: 100 },
+    { x: 180, y: 40 },
+    { x: 340, y: 220 },
+    { x: 500, y: 100 },
+  ]);
+
+  assert.equal((path.match(/ C /g) ?? []).length, 3);
+  assert.doesNotMatch(path, / [LQ] /, 'não deve reutilizar uma polilinha ortogonal');
+  assert.match(path, /, 180 40 C /, 'deve atravessar a primeira guia');
+  assert.match(path, /, 340 220 C /, 'deve atravessar a segunda guia');
 });
 
 // Integração: um fan-out real não pode deixar corredores interiores

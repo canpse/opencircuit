@@ -15,6 +15,7 @@ interface Options {
   removeSelection: () => void;
   removeComponent: (id: string) => void;
   removeWire: (id: string) => void;
+  removeWireWaypoint: (wireId: string, waypointIndex: number) => void;
   toggleWireDisplay: (id: string) => void;
   setRenameRequest: Dispatch<SetStateAction<{ componentId: string; nonce: number } | null>>;
 }
@@ -30,6 +31,7 @@ export function useContextMenuManager({
   removeSelection,
   removeComponent,
   removeWire,
+  removeWireWaypoint,
   toggleWireDisplay,
   setRenameRequest,
 }: Options) {
@@ -60,6 +62,13 @@ export function useContextMenuManager({
     setContextMenu({ kind: 'wire', x, y, wireId });
   }
 
+  function openWaypointMenu(x: number, y: number, wireId: string, waypointIndex: number) {
+    if (!selection.wireIds.includes(wireId)) {
+      selectWire(wireId);
+    }
+    setContextMenu({ kind: 'waypoint', x, y, wireId, waypointIndex });
+  }
+
   function addComponentFromContextMenu(type: GateType) {
     if (!contextMenu || contextMenu.kind !== 'canvas') return;
     addComponent(type, contextMenu.point);
@@ -74,6 +83,11 @@ export function useContextMenuManager({
 
   function removeContextTarget() {
     if (!contextMenu || contextMenu.kind === 'canvas') return;
+    if (contextMenu.kind === 'waypoint') {
+      removeWireWaypoint(contextMenu.wireId, contextMenu.waypointIndex);
+      setContextMenu(null);
+      return;
+    }
     const targetIsSelected =
       contextMenu.kind === 'component'
         ? selection.componentIds.includes(contextMenu.componentId)
@@ -101,6 +115,7 @@ export function useContextMenuManager({
     openCanvasMenu,
     openComponentMenu,
     openWireMenu,
+    openWaypointMenu,
     addComponentFromContextMenu,
     renameContextTarget,
     toggleWireContextTarget,
