@@ -8,6 +8,7 @@ export type ContextMenu =
   | { kind: 'canvas'; x: number; y: number; point: Point }
   | { kind: 'component'; x: number; y: number; componentId: string }
   | { kind: 'wire'; x: number; y: number; wireId: string }
+  | { kind: 'waypoint'; x: number; y: number; wireId: string; waypointIndex: number }
   | null;
 
 const RECENT_COMPONENTS_KEY = 'opencircuit-recent-context-components';
@@ -79,12 +80,17 @@ export function ContextMenuView({
             </button>
           )}
           <button disabled={!canRemove} onClick={onRemove} role="menuitem">
-            {selectedCount > 1 ? `Excluir seleção (${selectedCount})` : 'Excluir'}
+            {contextRemoveLabel(menu, selectedCount)}
           </button>
         </>
       )}
     </div>
   );
+}
+
+export function contextRemoveLabel(menu: NonNullable<ContextMenu>, selectedCount: number): string {
+  if (menu.kind === 'waypoint') return 'Excluir ponto de controle';
+  return selectedCount > 1 ? `Excluir seleção (${selectedCount})` : 'Excluir';
 }
 
 function CanvasComponentMenu({

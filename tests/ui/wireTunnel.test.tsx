@@ -31,6 +31,7 @@ test('TunelRenderizaTocosRotuladosNasDuasPontas', () => {
         onRename={() => undefined}
         onWireMouseDown={() => undefined}
         onWaypointMouseDown={() => undefined}
+        onWaypointContextMenu={() => undefined}
         onRemoveWaypoint={() => undefined}
       />
     </svg>,
@@ -71,6 +72,7 @@ test('FioSelecionadoRenderizaGuiasFocaveis', () => {
         onRename={() => undefined}
         onWireMouseDown={() => undefined}
         onWaypointMouseDown={() => undefined}
+        onWaypointContextMenu={() => undefined}
         onRemoveWaypoint={() => undefined}
       />
     </svg>,
@@ -78,5 +80,53 @@ test('FioSelecionadoRenderizaGuiasFocaveis', () => {
 
   assert.match(markup, /class="wire-waypoint"/);
   assert.match(markup, /tabindex="0"/);
-  assert.match(markup, /aria-label="Guia de rota 1"/);
+  assert.match(markup, /aria-label="Ponto de controle 1"/);
+  assert.match(markup, /data-wire-waypoint="true"/);
+});
+
+test('FioCurvoComGuiaIgnoraOsCotovelosDaRotaOrtogonal', () => {
+  const source: LogicComponent = { id: 'IN', type: 'input', x: 20, y: 40 };
+  const target: LogicComponent = { id: 'LED', type: 'led', x: 420, y: 40 };
+  const wire: Wire = {
+    id: 'W1',
+    from: { componentId: 'IN', pinId: 'out' },
+    to: { componentId: 'LED', pinId: 'in' },
+    waypoints: [{ x: 240, y: 180 }],
+  };
+
+  const markup = renderToStaticMarkup(
+    <svg>
+      <WireView
+        wire={wire}
+        route={{
+          wireId: 'W1',
+          points: [
+            { x: 100, y: 66 },
+            { x: 100, y: 180 },
+            { x: 240, y: 180 },
+            { x: 420, y: 66 },
+          ],
+          jumps: [],
+        }}
+        wireStyle="bezier"
+        fromComponent={source}
+        toComponent={target}
+        active={false}
+        selected={false}
+        onSelect={() => undefined}
+        onContextMenu={() => undefined}
+        onRemove={() => undefined}
+        onRename={() => undefined}
+        onWireMouseDown={() => undefined}
+        onWaypointMouseDown={() => undefined}
+        onWaypointContextMenu={() => undefined}
+        onRemoveWaypoint={() => undefined}
+      />
+    </svg>,
+  );
+  const path = markup.match(/<path d="([^"]+)" class="wire bezier/)?.[1] ?? '';
+
+  assert.match(path, / C /, 'deve desenhar uma curva cúbica');
+  assert.doesNotMatch(path, / [LQ] /, 'não deve desenhar a rota ortogonal arredondada');
+  assert.match(path, /, 240 180 C /, 'deve atravessar o ponto de controle');
 });

@@ -96,6 +96,7 @@ function renderCircuit(
       onOpenCanvasMenu={() => undefined}
       onOpenComponentMenu={() => undefined}
       onOpenWireMenu={() => undefined}
+      onOpenWaypointMenu={() => undefined}
       onSelectComponent={() => undefined}
       onSelectWire={() => undefined}
       onSelectItems={() => undefined}

@@ -249,7 +249,7 @@ export function useCircuitEditor({
       ),
     }));
     setSelection({ componentIds: [], wireIds: [wireId] });
-    onMessage('Guia de rota adicionada.');
+    onMessage('Ponto de controle adicionado.');
   }
 
   function beginMoveWireWaypoint() {
@@ -283,7 +283,7 @@ export function useCircuitEditor({
         return { ...wire, waypoints: waypoints.length > 0 ? waypoints : undefined };
       }),
     }));
-    onMessage('Guia de rota removida.');
+    onMessage('Ponto de controle removido.');
   }
 
   function removeComponent(componentId: string) {
