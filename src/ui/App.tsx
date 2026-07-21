@@ -539,6 +539,7 @@ export function App() {
 
       {contextMenu && (
         <ContextMenuView
+          key={`${contextMenu.kind}-${contextMenu.x}-${contextMenu.y}`}
           menu={contextMenu}
           selection={selection}
           onAddComponent={addComponentFromContextMenu}
@@ -551,6 +552,7 @@ export function App() {
             )
           }
           onRemove={removeContextTarget}
+          onClose={closeContextMenu}
         />
       )}
     </main>

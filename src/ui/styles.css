@@ -1149,10 +1149,14 @@ button:disabled {
   box-shadow: 0 18px 42px rgba(42, 63, 78, 0.22);
   backdrop-filter: blur(12px);
 }
+.canvas-context-menu {
+  width: 300px;
+  padding: 8px;
+}
 .context-menu-title {
   padding: 8px 10px 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1169,6 +1173,174 @@ button:disabled {
 .context-menu button:hover {
   background: rgba(47, 125, 211, 0.12);
   box-shadow: none;
+}
+.context-menu button:focus-visible {
+  outline: 2px solid rgba(47, 125, 211, 0.48);
+  outline-offset: -2px;
+}
+.context-menu-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+}
+.context-menu-search > span {
+  position: absolute;
+  left: 11px;
+  color: var(--muted);
+  font-size: 18px;
+  pointer-events: none;
+}
+.context-menu-search input {
+  width: 100%;
+  height: 38px;
+  padding: 0 36px;
+  border: 1px solid rgba(91, 113, 128, 0.24);
+  border-radius: 10px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+.context-menu-search input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(47, 125, 211, 0.12);
+}
+.context-menu .context-menu-search-clear {
+  position: absolute;
+  right: 4px;
+  width: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 17px;
+}
+.context-menu-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+.context-menu .context-menu-quick-grid button {
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(91, 113, 128, 0.1);
+  background: rgba(241, 246, 250, 0.66);
+}
+.context-menu .context-menu-quick-grid button:hover,
+.context-menu .context-menu-quick-grid button:focus-visible {
+  border-color: rgba(47, 125, 211, 0.22);
+  background: rgba(47, 125, 211, 0.11);
+}
+.context-menu-quick-grid .tool-button-content {
+  min-width: 0;
+  gap: 7px;
+  font-size: 11px;
+}
+.context-menu-quick-grid .tool-button-content > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.context-menu-divider {
+  height: 1px;
+  margin: 7px 5px 2px;
+  background: rgba(91, 113, 128, 0.15);
+}
+.context-menu-categories {
+  display: grid;
+  gap: 1px;
+}
+.context-menu .context-menu-categories button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 35px;
+  margin: 0;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+.context-menu .context-menu-categories button.submenu-active {
+  color: var(--brand-strong);
+  background: rgba(47, 125, 211, 0.12);
+}
+.context-menu-category-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+.context-menu-category-meta span {
+  color: var(--brand-strong);
+  font-size: 18px;
+  line-height: 0.8;
+}
+.context-submenu {
+  position: absolute;
+  top: -8px;
+  width: 340px;
+  max-height: min(460px, calc(100vh - 16px));
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid rgba(91, 113, 128, 0.26);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 18px 42px rgba(42, 63, 78, 0.2);
+  backdrop-filter: blur(12px);
+}
+.context-submenu.opens-right {
+  left: calc(100% + 8px);
+}
+.context-submenu.opens-left {
+  right: calc(100% + 8px);
+}
+.context-submenu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+.context-menu .context-submenu-grid button {
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+}
+.context-menu .context-submenu-grid button:hover,
+.context-menu .context-submenu-grid button:focus-visible {
+  border-color: rgba(47, 125, 211, 0.18);
+}
+.context-submenu-grid .tool-button-content {
+  min-width: 0;
+  gap: 8px;
+  font-size: 11px;
+}
+.context-submenu-grid .tool-button-content > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.context-menu-search-results {
+  max-height: min(390px, calc(100vh - 76px));
+  overflow: auto;
+}
+.context-menu-search-results .tool-button-content {
+  gap: 9px;
+  font-size: 12px;
+}
+.context-menu-empty {
+  padding: 24px 12px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
 }
 
 .statusbar {
