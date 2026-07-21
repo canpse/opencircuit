@@ -455,6 +455,34 @@ export function App() {
                 unstable={simulationResult.unstable}
                 hasFeedback={hasFeedback}
               />
+              <div className="analysis-guide-card">
+                {hasSequentialComponents || hasFeedback ? (
+                  <>
+                    <span className="analysis-guide-eyebrow">Dica de análise</span>
+                    <strong>Tabela verdade é uma fotografia; formas de onda são o filme.</strong>
+                    <p>
+                      Este circuito possui memória ou realimentação, então seu resultado também
+                      depende do estado anterior. Use as formas de onda para acompanhar entradas,
+                      clock, estados internos e saídas a cada Tick.
+                    </p>
+                    <button onClick={() => setWaveformPanelOpen(true)}>
+                      Abrir Formas de onda <span aria-hidden="true">↓</span>
+                    </button>
+                    <small>A aba recolhível fica na parte inferior do canvas.</small>
+                  </>
+                ) : (
+                  <>
+                    <span className="analysis-guide-eyebrow">Como ler</span>
+                    <strong>Cada linha representa uma combinação possível das entradas.</strong>
+                    <p>
+                      As primeiras colunas mostram os valores aplicados às entradas; as últimas
+                      mostram as saídas produzidas pelo circuito. A linha amarela corresponde à
+                      combinação que está ativa agora no canvas, e uma saída verde indica nível
+                      lógico 1.
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           )}
           {sidePanelTab === 'lesson' && (
