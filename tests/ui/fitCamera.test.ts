@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { fitCameraToBounds } from '../../src/ui/editor/useCanvasCamera';
+import { fitCameraToBounds, resizeCameraToViewport } from '../../src/ui/editor/useCanvasCamera';
 
 const DEFAULT_WIDTH = 1200;
 const MIN_ZOOM = 0.25;
@@ -49,4 +49,34 @@ test('FitCircuitoGiganteRespeitaZoomMinimo', () => {
   const boundsCenter = centerOf(bounds);
   const cameraCenter = centerOf(camera);
   assert.ok(Math.abs(cameraCenter.x - boundsCenter.x) < 1e-6, 'segue centralizado');
+});
+
+test('CameraResponsivaAssumeAProporcaoDoViewport', () => {
+  const camera = { x: 0, y: 0, width: 1200, height: 720 };
+  const resized = resizeCameraToViewport(
+    camera,
+    { width: 1000, height: 600 },
+    { width: 1000, height: 400 },
+  );
+
+  assert.equal(resized.width / resized.height, 1000 / 400);
+  assert.deepEqual(centerOf(resized), centerOf(camera));
+});
+
+test('CameraResponsivaPreservaAEscalaVisual', () => {
+  const camera = { x: 100, y: 50, width: 900, height: 600 };
+  const previousViewport = { width: 900, height: 600 };
+  const nextViewport = { width: 720, height: 360 };
+  const resized = resizeCameraToViewport(camera, previousViewport, nextViewport);
+
+  assert.equal(resized.width / nextViewport.width, camera.width / previousViewport.width);
+  assert.equal(resized.height / nextViewport.height, camera.height / previousViewport.height);
+  assert.deepEqual(centerOf(resized), centerOf(camera));
+});
+
+test('FitUsaAProporcaoAtualDoViewport', () => {
+  const viewport = { width: 900, height: 400 };
+  const camera = fitCameraToBounds({ x: 100, y: 100, width: 600, height: 240 }, viewport, 1);
+
+  assert.ok(Math.abs(camera.width / camera.height - viewport.width / viewport.height) < 1e-12);
 });

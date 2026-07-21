@@ -7,38 +7,89 @@ import { circuitContentBounds, type Bounds } from './exportCircuitImage';
 export type Camera = { x: number; y: number; width: number; height: number };
 type Panning = { startClient: Point; startCamera: Camera } | null;
 type ViewportBounds = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>;
+type ViewportSize = Pick<ViewportBounds, 'width' | 'height'>;
 
 const DEFAULT_CAMERA: Camera = { x: 0, y: 0, width: 1200, height: 720 };
+const DEFAULT_VIEWPORT: ViewportSize = {
+  width: DEFAULT_CAMERA.width,
+  height: DEFAULT_CAMERA.height,
+};
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 4;
 const FIT_MARGIN = 40;
 
-// Câmera que enquadra os bounds com margem, centralizada e respeitando os
-// limites de zoom. Exportada para os testes; a UI usa via zoomToFit.
-export function fitCameraToBounds(bounds: Bounds): Camera {
-  const fitWidth = bounds.width + FIT_MARGIN * 2;
-  const fitHeight = bounds.height + FIT_MARGIN * 2;
-  const idealZoom = Math.min(DEFAULT_CAMERA.width / fitWidth, DEFAULT_CAMERA.height / fitHeight);
-  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, idealZoom));
-  const width = DEFAULT_CAMERA.width / zoom;
-  const height = DEFAULT_CAMERA.height / zoom;
+function cameraCenter(camera: Camera): Point {
   return {
-    x: bounds.x + bounds.width / 2 - width / 2,
-    y: bounds.y + bounds.height / 2 - height / 2,
+    x: camera.x + camera.width / 2,
+    y: camera.y + camera.height / 2,
+  };
+}
+
+function cameraAtScale(center: Point, viewport: ViewportSize, unitsPerPixel: number): Camera {
+  const width = viewport.width * unitsPerPixel;
+  const height = viewport.height * unitsPerPixel;
+  return {
+    x: center.x - width / 2,
+    y: center.y - height / 2,
     width,
     height,
   };
 }
 
+function validViewport(viewport: ViewportSize): boolean {
+  return viewport.width > 0 && viewport.height > 0;
+}
+
+// Ajusta a área visível quando o espaço do editor muda sem alterar o tamanho
+// aparente do circuito. Assim, painéis apenas revelam ou ocultam área do mundo.
+export function resizeCameraToViewport(
+  camera: Camera,
+  previousViewport: ViewportSize,
+  nextViewport: ViewportSize,
+): Camera {
+  if (!validViewport(previousViewport) || !validViewport(nextViewport)) return camera;
+  const unitsPerPixel = camera.width / previousViewport.width;
+  return cameraAtScale(cameraCenter(camera), nextViewport, unitsPerPixel);
+}
+
+// Câmera que enquadra os bounds com margem, centralizada e respeitando os
+// limites de zoom. O viewport padrão preserva chamadas sem contexto de layout.
+export function fitCameraToBounds(
+  bounds: Bounds,
+  viewport: ViewportSize = DEFAULT_VIEWPORT,
+  baseUnitsPerPixel = 1,
+): Camera {
+  const safeViewport = validViewport(viewport) ? viewport : DEFAULT_VIEWPORT;
+  const fitWidth = bounds.width + FIT_MARGIN * 2;
+  const fitHeight = bounds.height + FIT_MARGIN * 2;
+  // A folga microscópica evita que arredondamentos de ponto flutuante deixem
+  // a margem final uma fração de unidade para fora da câmera.
+  const idealUnitsPerPixel =
+    Math.max(fitWidth / safeViewport.width, fitHeight / safeViewport.height) *
+    (1 + Number.EPSILON * 8);
+  const unitsPerPixel = clampUnitsPerPixel(idealUnitsPerPixel, baseUnitsPerPixel);
+  return cameraAtScale(
+    { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 },
+    safeViewport,
+    unitsPerPixel,
+  );
+}
+
 export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
   const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
   const [panning, setPanning] = useState<Panning>(null);
+  const [zoomPercent, setZoomPercent] = useState(100);
   const viewportRef = useRef<ViewportBounds | null>(null);
-  const zoomPercent = Math.round((DEFAULT_CAMERA.width / camera.width) * 100);
+  const baseUnitsPerPixelRef = useRef<number | null>(null);
+  const unitsPerPixelRef = useRef<number | null>(null);
 
   const resetCamera = useCallback(() => {
     beginProfileInteraction('canvas.reset');
-    setCamera(DEFAULT_CAMERA);
+    const viewport = viewportRef.current ?? DEFAULT_VIEWPORT;
+    const baseScale = baseUnitsPerPixelRef.current ?? 1;
+    unitsPerPixelRef.current = baseScale;
+    setZoomPercent(100);
+    setCamera(cameraAtScale(cameraCenter(DEFAULT_CAMERA), viewport, baseScale));
   }, []);
 
   // Enquadra o circuito; com o canvas vazio volta à câmera padrão.
@@ -50,24 +101,53 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
       return;
     }
     beginProfileInteraction('canvas.fit');
-    setCamera(fitCameraToBounds(bounds));
+    const viewport = viewportRef.current ?? DEFAULT_VIEWPORT;
+    const fittedCamera = fitCameraToBounds(bounds, viewport, baseUnitsPerPixelRef.current ?? 1);
+    const fittedScale = fittedCamera.width / viewport.width;
+    unitsPerPixelRef.current = fittedScale;
+    setZoomPercent(Math.round(((baseUnitsPerPixelRef.current ?? 1) / fittedScale) * 100));
+    setCamera(fittedCamera);
   }, [resetCamera, svgRef]);
 
   const zoomAtCenter = useCallback((factor: number) => {
     beginProfileInteraction('canvas.zoom');
-    setCamera((current) =>
-      zoomCamera(current, factor, {
-        x: current.x + current.width / 2,
-        y: current.y + current.height / 2,
-      }),
-    );
+    const viewport = viewportRef.current ?? DEFAULT_VIEWPORT;
+    const baseScale = baseUnitsPerPixelRef.current ?? 1;
+    const currentScale = unitsPerPixelRef.current ?? baseScale;
+    const nextScale = clampUnitsPerPixel(currentScale * factor, baseScale);
+    unitsPerPixelRef.current = nextScale;
+    setZoomPercent(Math.round((baseScale / nextScale) * 100));
+    setCamera((current) => cameraAtScale(cameraCenter(current), viewport, nextScale));
   }, []);
 
   useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const updateViewport = () => {
-      viewportRef.current = svg.getBoundingClientRect();
+      const nextViewport = svg.getBoundingClientRect();
+      if (!validViewport(nextViewport)) return;
+      const previousViewport = viewportRef.current;
+      viewportRef.current = nextViewport;
+
+      if (baseUnitsPerPixelRef.current === null) {
+        const initialScale = DEFAULT_CAMERA.width / nextViewport.width;
+        baseUnitsPerPixelRef.current = initialScale;
+        unitsPerPixelRef.current = initialScale;
+        setCamera(cameraAtScale(cameraCenter(DEFAULT_CAMERA), nextViewport, initialScale));
+        return;
+      }
+
+      if (
+        previousViewport &&
+        previousViewport.width === nextViewport.width &&
+        previousViewport.height === nextViewport.height
+      ) {
+        return;
+      }
+
+      const currentScale = unitsPerPixelRef.current ?? baseUnitsPerPixelRef.current;
+      setPanning(null);
+      setCamera((current) => cameraAtScale(cameraCenter(current), nextViewport, currentScale));
     };
     updateViewport();
     const observer = new ResizeObserver(updateViewport);
@@ -126,7 +206,12 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
     const focus = cameraPointFromClient(camera, viewport, event);
     const delta = Math.max(-80, Math.min(80, event.deltaY));
     const factor = Math.exp(delta * 0.0015);
-    setCamera((current) => zoomCamera(current, factor, focus));
+    const baseScale = baseUnitsPerPixelRef.current ?? 1;
+    const currentScale = unitsPerPixelRef.current ?? baseScale;
+    const nextScale = clampUnitsPerPixel(currentScale * factor, baseScale);
+    unitsPerPixelRef.current = nextScale;
+    setZoomPercent(Math.round((baseScale / nextScale) * 100));
+    setCamera((current) => zoomCamera(current, nextScale, focus, viewport));
   }
 
   function startPan(event: MouseEvent<SVGSVGElement>) {
@@ -184,11 +269,21 @@ function cameraScale(camera: Camera, viewport: ViewportBounds): number {
   );
 }
 
-function zoomCamera(camera: Camera, factor: number, focus: Point): Camera {
-  const currentZoom = DEFAULT_CAMERA.width / camera.width;
-  const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, currentZoom / factor));
-  const nextWidth = DEFAULT_CAMERA.width / nextZoom;
-  const nextHeight = DEFAULT_CAMERA.height / nextZoom;
+function clampUnitsPerPixel(unitsPerPixel: number, baseUnitsPerPixel: number): number {
+  return Math.min(
+    baseUnitsPerPixel / MIN_ZOOM,
+    Math.max(baseUnitsPerPixel / MAX_ZOOM, unitsPerPixel),
+  );
+}
+
+function zoomCamera(
+  camera: Camera,
+  nextUnitsPerPixel: number,
+  focus: Point,
+  viewport: ViewportSize,
+): Camera {
+  const nextWidth = viewport.width * nextUnitsPerPixel;
+  const nextHeight = viewport.height * nextUnitsPerPixel;
   const focusRatioX = (focus.x - camera.x) / camera.width;
   const focusRatioY = (focus.y - camera.y) / camera.height;
   return {
