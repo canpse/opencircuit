@@ -4,6 +4,7 @@ import {
   componentDefinitionLabel,
   createLogicComponent,
   hasSelection,
+  moveComponentsWithWaypoints,
   nextId,
   pasteClipboard,
   snap,
@@ -49,14 +50,7 @@ export function useCircuitEditor({
   }
 
   function moveComponents(moves: Array<{ componentId: string; point: Point }>) {
-    const positions = new Map(moves.map((move) => [move.componentId, snap(move.point, GRID)]));
-    setCircuit((current) => ({
-      ...current,
-      components: current.components.map((component) => {
-        const position = positions.get(component.id);
-        return position ? { ...component, x: position.x, y: position.y } : component;
-      }),
-    }));
+    setCircuit((current) => moveComponentsWithWaypoints(current, moves, GRID));
   }
 
   function toggleInput(componentId: string) {

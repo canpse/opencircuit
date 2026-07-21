@@ -49,6 +49,54 @@ export function snap(point: Point, grid: number): Point {
   return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
 }
 
+export type ComponentMove = { componentId: string; point: Point };
+
+export function moveComponentsWithWaypoints(
+  circuit: CircuitDocument,
+  moves: ComponentMove[],
+  grid: number,
+): CircuitDocument {
+  const positions = new Map(moves.map((move) => [move.componentId, snap(move.point, grid)]));
+  const translations = new Map(
+    circuit.components.flatMap((component) => {
+      const position = positions.get(component.id);
+      return position
+        ? [[component.id, { x: position.x - component.x, y: position.y - component.y }] as const]
+        : [];
+    }),
+  );
+
+  return {
+    ...circuit,
+    components: circuit.components.map((component) => {
+      const position = positions.get(component.id);
+      if (!position || (component.x === position.x && component.y === position.y)) return component;
+      return { ...component, x: position.x, y: position.y };
+    }),
+    wires: circuit.wires.map((wire) => {
+      const fromTranslation = translations.get(wire.from.componentId);
+      const toTranslation = translations.get(wire.to.componentId);
+      const movesWithGroup =
+        fromTranslation &&
+        toTranslation &&
+        (fromTranslation.x !== 0 || fromTranslation.y !== 0) &&
+        fromTranslation.x === toTranslation.x &&
+        fromTranslation.y === toTranslation.y &&
+        wire.waypoints?.length &&
+        positions.has(wire.from.componentId) &&
+        positions.has(wire.to.componentId);
+      if (!movesWithGroup) return wire;
+      return {
+        ...wire,
+        waypoints: wire.waypoints?.map((waypoint) => ({
+          x: waypoint.x + fromTranslation.x,
+          y: waypoint.y + fromTranslation.y,
+        })),
+      };
+    }),
+  };
+}
+
 export type CircuitClipboard = { components: LogicComponent[]; wires: Wire[] };
 
 export function pasteClipboard(
