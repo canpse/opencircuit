@@ -66,7 +66,6 @@ interface Props {
   onToggleInput: (componentId: string) => void;
   onSetButtonPressed: (componentId: string, pressed: boolean) => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
-  onRemoveWire: (wireId: string) => void;
   onRenameWire: (wireId: string, label: string) => void;
   onAddWireWaypoint: (wireId: string, waypointIndex: number, point: Point) => void;
   onBeginMoveWireWaypoint: () => void;
@@ -230,7 +229,6 @@ export function CircuitCanvas(props: Props) {
   const handleWireContextMenu = useEventCallback((event: MouseEvent<SVGElement>, wireId: string) =>
     props.onOpenWireMenu(event.clientX, event.clientY, wireId),
   );
-  const handleWireRemove = useEventCallback((wireId: string) => props.onRemoveWire(wireId));
   const handleWireMouseDown = useEventCallback(
     (event: MouseEvent<SVGPathElement>, wireId: string) => {
       if (event.button !== 0 || props.selectedTool !== 'select') return;
@@ -507,7 +505,6 @@ export function CircuitCanvas(props: Props) {
                 selected={selectedWireIds.has(wire.id)}
                 onSelect={handleWireSelect}
                 onContextMenu={handleWireContextMenu}
-                onRemove={handleWireRemove}
                 onRename={props.onRenameWire}
                 onWireMouseDown={handleWireMouseDown}
                 onWaypointMouseDown={handleWaypointMouseDown}
