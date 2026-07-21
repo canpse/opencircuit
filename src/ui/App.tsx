@@ -26,12 +26,14 @@ import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
 import { useSimulationController } from './hooks/useSimulationController';
 import { useContextMenuManager } from './hooks/useContextMenu';
+import { useResizableBottomPanel } from './hooks/useResizableBottomPanel';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
 export function App() {
   const [message, setMessage] = useState('Pronto para testar lógica.');
-  const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'waveform' | 'lesson'>('truth');
+  const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'lesson'>('truth');
+  const [waveformPanelOpen, setWaveformPanelOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -170,6 +172,7 @@ export function App() {
 
   const [wireStyle, setWireStyle] = useWireStylePreference(WIRE_STYLE_STORAGE_KEY);
   const truthPanel = useResizableSidePanel(320, 260, 620);
+  const waveformPanel = useResizableBottomPanel(260, 150, 520);
 
   const hasFeedback = circuitHasFeedback(circuit);
   const currentExample =
@@ -349,6 +352,65 @@ export function App() {
               />
             </Profiler>
           </div>
+          <section
+            className={`waveform-drawer ${waveformPanelOpen ? 'open' : 'closed'}`}
+            style={{ height: waveformPanelOpen ? waveformPanel.height : 40 }}
+            aria-label="Formas de onda"
+          >
+            {waveformPanelOpen && (
+              <div
+                className="waveform-drawer-resizer"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Redimensionar painel de formas de onda"
+                aria-valuemin={150}
+                aria-valuemax={520}
+                aria-valuenow={Math.round(waveformPanel.height)}
+                tabIndex={0}
+                title="Arraste para redimensionar"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  waveformPanel.startResizing(event.clientY);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    waveformPanel.resizeBy(20);
+                  }
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    waveformPanel.resizeBy(-20);
+                  }
+                }}
+              />
+            )}
+            <div className="waveform-drawer-header">
+              <button
+                className="waveform-drawer-toggle"
+                aria-expanded={waveformPanelOpen}
+                aria-controls="waveform-bottom-content"
+                onClick={() => setWaveformPanelOpen((open) => !open)}
+              >
+                <span className="waveform-drawer-chevron" aria-hidden="true">
+                  {waveformPanelOpen ? '⌄' : '⌃'}
+                </span>
+                <strong>Formas de onda</strong>
+                <span className="waveform-drawer-summary">
+                  {waveformSignals.length} sinais · {waveformSamples.length} amostras
+                </span>
+              </button>
+            </div>
+            {waveformPanelOpen && (
+              <div className="waveform-drawer-content" id="waveform-bottom-content">
+                <WaveformPanel
+                  signals={waveformSignals}
+                  samples={waveformSamples}
+                  autoClockRunning={autoClockRunning}
+                  onClear={clearWaveformHistory}
+                />
+              </div>
+            )}
+          </section>
         </div>
 
         <div
@@ -374,14 +436,6 @@ export function App() {
             </button>
             <button
               role="tab"
-              aria-selected={sidePanelTab === 'waveform'}
-              className={sidePanelTab === 'waveform' ? 'active' : ''}
-              onClick={() => setSidePanelTab('waveform')}
-            >
-              Formas de onda
-            </button>
-            <button
-              role="tab"
               aria-selected={sidePanelTab === 'lesson'}
               className={sidePanelTab === 'lesson' ? 'active' : ''}
               onClick={() => setSidePanelTab('lesson')}
@@ -400,17 +454,6 @@ export function App() {
                 evaluation={evaluation}
                 unstable={simulationResult.unstable}
                 hasFeedback={hasFeedback}
-              />
-            </div>
-          )}
-          {sidePanelTab === 'waveform' && (
-            <div role="tabpanel">
-              <div className="panel-header">Formas de onda</div>
-              <WaveformPanel
-                signals={waveformSignals}
-                samples={waveformSamples}
-                autoClockRunning={autoClockRunning}
-                onClear={clearWaveformHistory}
               />
             </div>
           )}
