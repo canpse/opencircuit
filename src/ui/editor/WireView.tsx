@@ -23,7 +23,6 @@ export const WireView = memo(function WireView({
   selected,
   onSelect,
   onContextMenu,
-  onRemove,
   onRename,
   onWireMouseDown,
   onWaypointMouseDown,
@@ -39,7 +38,6 @@ export const WireView = memo(function WireView({
   selected: boolean;
   onSelect: (wireId: string) => void;
   onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
-  onRemove: (wireId: string) => void;
   onRename: (wireId: string, label: string) => void;
   onWireMouseDown: (event: MouseEvent<SVGPathElement>, wireId: string) => void;
   onWaypointMouseDown: (
@@ -164,10 +162,6 @@ export const WireView = memo(function WireView({
           event.preventDefault();
           event.stopPropagation();
           onContextMenu(event, wire.id);
-        }}
-        onDoubleClick={(event) => {
-          event.stopPropagation();
-          onRemove(wire.id);
         }}
       />
       {selected &&

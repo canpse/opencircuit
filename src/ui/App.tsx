@@ -334,7 +334,6 @@ export function App() {
                 onToggleInput={toggleInput}
                 onSetButtonPressed={setButtonPressed}
                 onPinClick={onPinClick}
-                onRemoveWire={removeWire}
                 onRenameWire={renameWire}
                 onAddWireWaypoint={addWireWaypoint}
                 onBeginMoveWireWaypoint={beginMoveWireWaypoint}

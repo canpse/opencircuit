@@ -27,7 +27,6 @@ test('TunelRenderizaTocosRotuladosNasDuasPontas', () => {
         selected={false}
         onSelect={() => undefined}
         onContextMenu={() => undefined}
-        onRemove={() => undefined}
         onRename={() => undefined}
         onWireMouseDown={() => undefined}
         onWaypointMouseDown={() => undefined}
@@ -68,7 +67,6 @@ test('FioSelecionadoRenderizaGuiasFocaveis', () => {
         selected
         onSelect={() => undefined}
         onContextMenu={() => undefined}
-        onRemove={() => undefined}
         onRename={() => undefined}
         onWireMouseDown={() => undefined}
         onWaypointMouseDown={() => undefined}
@@ -115,7 +113,6 @@ test('FioCurvoComGuiaIgnoraOsCotovelosDaRotaOrtogonal', () => {
         selected={false}
         onSelect={() => undefined}
         onContextMenu={() => undefined}
-        onRemove={() => undefined}
         onRename={() => undefined}
         onWireMouseDown={() => undefined}
         onWaypointMouseDown={() => undefined}
