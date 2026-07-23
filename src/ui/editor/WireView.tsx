@@ -82,7 +82,9 @@ export const WireView = memo(function WireView({
     const fromStubPath =
       tunnelFromOffset === 0
         ? `M ${start.x} ${start.y} L ${start.x + 32} ${start.y}`
-        : `M ${start.x} ${start.y} L ${start.x + 10} ${start.y} L ${start.x + 10} ${fromLaneY} L ${start.x + 32} ${fromLaneY}`;
+        : wireStyle === 'bezier'
+          ? `M ${start.x} ${start.y} C ${start.x + 16} ${start.y}, ${start.x + 16} ${fromLaneY}, ${start.x + 32} ${fromLaneY}`
+          : `M ${start.x} ${start.y} L ${start.x + 10} ${start.y} L ${start.x + 10} ${fromLaneY} L ${start.x + 32} ${fromLaneY}`;
 
     const startEditing = (event: MouseEvent<SVGGElement>, endpoint: 'from' | 'to') => {
       event.preventDefault();
