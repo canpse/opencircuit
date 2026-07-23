@@ -170,6 +170,32 @@ export function computeWireTrunks(
   return trunks;
 }
 
+const TUNNEL_STUB_LANE_HEIGHT = 18;
+
+// Quando vários túneis saem do mesmo pino de origem, seus tocos e rótulos
+// ficariam exatamente empilhados uns sobre os outros (o pino é o mesmo
+// ponto para todos). Escalona cada um verticalmente em faixas, como uma
+// pequena escada, mantendo o ponto de conexão exato no pino.
+export function computeTunnelFromOffsets(wires: Wire[]): Map<string, number> {
+  const groups = new Map<string, Wire[]>();
+  for (const wire of wires) {
+    if (wire.display !== 'tunnel') continue;
+    const key = `${wire.from.componentId}:${wire.from.pinId}`;
+    const list = groups.get(key) ?? [];
+    list.push(wire);
+    groups.set(key, list);
+  }
+
+  const offsets = new Map<string, number>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    group.forEach((wire, index) => {
+      offsets.set(wire.id, (index - (group.length - 1) / 2) * TUNNEL_STUB_LANE_HEIGHT);
+    });
+  }
+  return offsets;
+}
+
 const CORRIDOR_SPACING = 8;
 const MIN_CORRIDOR_OVERLAP = 20;
 

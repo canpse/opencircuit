@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
+  computeTunnelFromOffsets,
   computeWireTrunks,
   mergeCollinearPoints,
   routeCircuitWires,
@@ -341,6 +342,64 @@ test('TroncoIgnoraFioExibidoComoTunel', () => {
     ],
   ]);
   assert.deepEqual(computeWireTrunks(wires, routeByWireId), []);
+});
+
+test('OffsetDeTunelEhZeroSemIrmaosNoMesmoPino', () => {
+  const wires: Wire[] = [
+    {
+      id: 'W1',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'A', pinId: 'in' },
+      display: 'tunnel',
+    },
+  ];
+  assert.deepEqual(computeTunnelFromOffsets(wires), new Map());
+});
+
+test('TuneisDoMesmoPinoDeOrigemFicamEscalonadosSimetricamente', () => {
+  const wires: Wire[] = [
+    {
+      id: 'W1',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'A', pinId: 'in' },
+      display: 'tunnel',
+    },
+    {
+      id: 'W2',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'B', pinId: 'in' },
+      display: 'tunnel',
+    },
+    {
+      id: 'W3',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'C', pinId: 'in' },
+      display: 'tunnel',
+    },
+  ];
+  const offsets = computeTunnelFromOffsets(wires);
+  assert.equal(offsets.get('W1'), -18);
+  assert.equal(offsets.get('W2'), 0);
+  assert.equal(offsets.get('W3'), 18);
+});
+
+test('OffsetDeTunelIgnoraPinosDiferentesEFiosNormais', () => {
+  const wires: Wire[] = [
+    {
+      id: 'W1',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'A', pinId: 'in' },
+      display: 'tunnel',
+    },
+    {
+      id: 'W2',
+      from: { componentId: 'IN2', pinId: 'out' },
+      to: { componentId: 'B', pinId: 'in' },
+      display: 'tunnel',
+    },
+    { id: 'W3', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'C', pinId: 'in' } },
+  ];
+  assert.deepEqual(computeTunnelFromOffsets(wires), new Map());
 });
 
 test('RoteamentoPassaPorTodasAsGuiasNaOrdem', () => {

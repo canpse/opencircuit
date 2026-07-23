@@ -21,6 +21,7 @@ export const WireView = memo(function WireView({
   toComponent,
   active,
   selected,
+  tunnelFromOffset = 0,
   onSelect,
   onContextMenu,
   onRename,
@@ -36,6 +37,7 @@ export const WireView = memo(function WireView({
   toComponent: LogicComponent;
   active: boolean;
   selected: boolean;
+  tunnelFromOffset?: number;
   onSelect: (wireId: string) => void;
   onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onRename: (wireId: string, label: string) => void;
@@ -73,6 +75,14 @@ export const WireView = memo(function WireView({
   if (wire.display === 'tunnel') {
     const label = wire.label || 'Túnel';
     const wireClass = `wire tunnel-stub ${active ? 'on' : ''} ${selected ? 'selected' : ''}`;
+    // Vários túneis podem sair do mesmo pino de origem; tunnelFromOffset
+    // escalona o toco/rótulo desse lado em faixas para não empilhar tudo
+    // no mesmo ponto (ver computeTunnelFromOffsets).
+    const fromLaneY = start.y + tunnelFromOffset;
+    const fromStubPath =
+      tunnelFromOffset === 0
+        ? `M ${start.x} ${start.y} L ${start.x + 32} ${start.y}`
+        : `M ${start.x} ${start.y} L ${start.x + 10} ${start.y} L ${start.x + 10} ${fromLaneY} L ${start.x + 32} ${fromLaneY}`;
 
     const startEditing = (event: MouseEvent<SVGGElement>, endpoint: 'from' | 'to') => {
       event.preventDefault();
@@ -112,8 +122,8 @@ export const WireView = memo(function WireView({
         }}
       >
         <g onDoubleClick={(event) => startEditing(event, 'from')}>
-          <path className={wireClass} d={`M ${start.x} ${start.y} L ${start.x + 32} ${start.y}`} />
-          <text className="tunnel-label" x={start.x + 38} y={start.y + 4} textAnchor="start">
+          <path className={wireClass} d={fromStubPath} />
+          <text className="tunnel-label" x={start.x + 38} y={fromLaneY + 4} textAnchor="start">
             ▸ {label}
           </text>
         </g>
@@ -127,7 +137,7 @@ export const WireView = memo(function WireView({
           <foreignObject
             className="tunnel-label-editor-object"
             x={editingEnd === 'from' ? start.x + 34 : end.x - 154}
-            y={(editingEnd === 'from' ? start.y : end.y) - 17}
+            y={(editingEnd === 'from' ? fromLaneY : end.y) - 17}
             width="120"
             height="34"
           >
