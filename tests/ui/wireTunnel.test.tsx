@@ -41,6 +41,57 @@ test('TunelRenderizaTocosRotuladosNasDuasPontas', () => {
   assert.match(markup, /CLK ▸/);
 });
 
+test('TunelComIrmaosNoMesmoPinoDesenhaTocoEscalonado', () => {
+  const source: LogicComponent = { id: 'IN', type: 'input', x: 20, y: 40 };
+  const target: LogicComponent = { id: 'LED', type: 'led', x: 320, y: 40 };
+  const tunnel: Wire = {
+    id: 'W1',
+    from: { componentId: 'IN', pinId: 'out' },
+    to: { componentId: 'LED', pinId: 'in' },
+    display: 'tunnel',
+    label: 'CLK',
+  };
+
+  const markup = renderToStaticMarkup(
+    <svg>
+      <WireView
+        wire={tunnel}
+        route={undefined}
+        wireStyle="orthogonal"
+        fromComponent={source}
+        toComponent={target}
+        active={false}
+        selected={false}
+        tunnelFromOffset={18}
+        onSelect={() => undefined}
+        onContextMenu={() => undefined}
+        onRename={() => undefined}
+        onWireMouseDown={() => undefined}
+        onWaypointMouseDown={() => undefined}
+        onWaypointContextMenu={() => undefined}
+        onRemoveWaypoint={() => undefined}
+      />
+    </svg>,
+  );
+
+  const fromStub = markup.match(/<path class="wire tunnel-stub[^"]*" d="([^"]+)"/)?.[1] ?? '';
+  assert.match(
+    fromStub,
+    / L \d+ \d+ L \d+ \d+ L \d+ \d+$/,
+    'deve desenhar um cotovelo até a faixa',
+  );
+  assert.doesNotMatch(
+    fromStub,
+    /^M \d+ 66 L \d+ 66$/,
+    'não deve ser o toco reto original (sem irmãos)',
+  );
+  assert.match(
+    markup,
+    /y="88"[^>]*>\s*▸ CLK/,
+    'rótulo deve seguir a faixa escalonada (66 + 18 + 4)',
+  );
+});
+
 test('FioSelecionadoRenderizaGuiasFocaveis', () => {
   const source: LogicComponent = { id: 'IN', type: 'input', x: 20, y: 40 };
   const target: LogicComponent = { id: 'LED', type: 'led', x: 320, y: 40 };

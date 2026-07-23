@@ -5,6 +5,7 @@ import { useCanvasLayoutComponents } from './canvasMemo';
 import { useEventCallback } from '../hooks/useEventCallback';
 import {
   componentBounds,
+  computeTunnelFromOffsets,
   intersects,
   orthogonalPath,
   routeCircuitWires,
@@ -134,6 +135,12 @@ export function CircuitCanvas(props: Props) {
     }
     return map;
   }, [wireTrunks]);
+  // Túneis que saem do mesmo pino ficam escalonados verticalmente para não
+  // empilhar tocos e rótulos exatamente um sobre o outro.
+  const tunnelFromOffsetByWireId = useMemo(
+    () => computeTunnelFromOffsets(props.circuit.wires),
+    [props.circuit.wires],
+  );
   const selectedComponentIds = useMemo(
     () => new Set(props.selection.componentIds),
     [props.selection.componentIds],
@@ -540,6 +547,7 @@ export function CircuitCanvas(props: Props) {
                 toComponent={toComponent}
                 active={Boolean(props.evaluation[wire.from.componentId]?.[wire.from.pinId])}
                 selected={selectedWireIds.has(wire.id)}
+                tunnelFromOffset={tunnelFromOffsetByWireId.get(wire.id) ?? 0}
                 onSelect={handleWireSelect}
                 onContextMenu={handleWireContextMenu}
                 onRename={props.onRenameWire}
