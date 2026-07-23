@@ -92,6 +92,44 @@ test('TunelComIrmaosNoMesmoPinoDesenhaTocoEscalonado', () => {
   );
 });
 
+test('TunelEscalonadoUsaCurvaNoEstiloBezier', () => {
+  const source: LogicComponent = { id: 'IN', type: 'input', x: 20, y: 40 };
+  const target: LogicComponent = { id: 'LED', type: 'led', x: 320, y: 40 };
+  const tunnel: Wire = {
+    id: 'W1',
+    from: { componentId: 'IN', pinId: 'out' },
+    to: { componentId: 'LED', pinId: 'in' },
+    display: 'tunnel',
+    label: 'CLK',
+  };
+
+  const markup = renderToStaticMarkup(
+    <svg>
+      <WireView
+        wire={tunnel}
+        route={undefined}
+        wireStyle="bezier"
+        fromComponent={source}
+        toComponent={target}
+        active={false}
+        selected={false}
+        tunnelFromOffset={18}
+        onSelect={() => undefined}
+        onContextMenu={() => undefined}
+        onRename={() => undefined}
+        onWireMouseDown={() => undefined}
+        onWaypointMouseDown={() => undefined}
+        onWaypointContextMenu={() => undefined}
+        onRemoveWaypoint={() => undefined}
+      />
+    </svg>,
+  );
+
+  const fromStub = markup.match(/<path class="wire tunnel-stub[^"]*" d="([^"]+)"/)?.[1] ?? '';
+  assert.match(fromStub, / C /, 'cotovelo escalonado deve virar curva no estilo bezier');
+  assert.doesNotMatch(fromStub, / L /, 'não deve misturar segmentos retos com a curva');
+});
+
 test('FioSelecionadoRenderizaGuiasFocaveis', () => {
   const source: LogicComponent = { id: 'IN', type: 'input', x: 20, y: 40 };
   const target: LogicComponent = { id: 'LED', type: 'led', x: 320, y: 40 };
