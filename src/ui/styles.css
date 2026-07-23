@@ -1533,6 +1533,17 @@ button:disabled {
   pointer-events: none;
   opacity: 0.85;
 }
+.wire-trunk-stem {
+  pointer-events: none;
+}
+.wire-trunk-junction {
+  pointer-events: none;
+  fill: var(--line-off);
+  r: 4;
+}
+.wire-trunk-junction.on {
+  fill: var(--line-on);
+}
 .wire-tunnel:hover .tunnel-stub {
   stroke-width: 7;
 }

@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
+  computeWireTrunks,
   mergeCollinearPoints,
   routeCircuitWires,
   spreadWireCorridors,
@@ -150,8 +151,196 @@ test('RoteamentoIgnoraFiosExibidosComoTunel', () => {
       new Map(components.map((component) => [component.id, component])),
       components,
     ),
-    [],
+    { routes: [], trunks: [] },
   );
+});
+
+test('TroncoNaoSeFormaComUmUnicoFio', () => {
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+  ];
+  const routeByWireId = new Map([
+    [
+      'W1',
+      route('W1', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+      ]),
+    ],
+  ]);
+  assert.deepEqual(computeWireTrunks(wires, routeByWireId), []);
+});
+
+test('TroncoDetectaPrefixoCompartilhadoEPontoDeJuncao', () => {
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+    { id: 'W2', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'B', pinId: 'in' } },
+  ];
+  const routeByWireId = new Map([
+    [
+      'W1',
+      route('W1', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+        { x: 60, y: 40 },
+      ]),
+    ],
+    [
+      'W2',
+      route('W2', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: -40 },
+        { x: 60, y: -40 },
+      ]),
+    ],
+  ]);
+  const trunks = computeWireTrunks(wires, routeByWireId);
+  assert.equal(trunks.length, 1);
+  assert.deepEqual(trunks[0].stemPoints, [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.deepEqual([...trunks[0].branchWireIds].sort(), ['W1', 'W2']);
+});
+
+test('TroncoNaoEngoleRotaMaisCurta', () => {
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+    { id: 'W2', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'B', pinId: 'in' } },
+  ];
+  const routeByWireId = new Map([
+    [
+      'W1',
+      route('W1', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+      ]),
+    ],
+    [
+      'W2',
+      route('W2', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+        { x: 60, y: 40 },
+      ]),
+    ],
+  ]);
+  const trunks = computeWireTrunks(wires, routeByWireId);
+  assert.equal(trunks.length, 1);
+  assert.deepEqual(trunks[0].stemPoints, [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+});
+
+// Integração: quando o prefixo compartilhado tem mais de 1 segmento, o
+// espaçamento de corredores não pode desfazer a fusão do tronco — só o
+// segmento logo depois da junção (já divergente por natureza) continua
+// livre para se espalhar.
+test('TroncoComMaisDeUmSegmentoNaoEhDesfeitoPeloEspacamento', () => {
+  // Reproduz exatamente a composição que routeCircuitWires faz: detecta o
+  // tronco a partir das rotas brutas e injeta o caule inteiro (incluindo a
+  // junção) como fixedPoints antes de espalhar os corredores. A junção
+  // precisa ficar travada nos dois lados — senão o segmento que começa
+  // nela se espalharia de um jeito diferente em cada ramo, e a junção
+  // desenhada descolaria do início do ramo renderizado.
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+    { id: 'W2', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'B', pinId: 'in' } },
+  ];
+  const raw = [
+    route('W1', [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 100 },
+      { x: 60, y: 100 },
+      { x: 60, y: 140 },
+    ]),
+    route('W2', [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 100 },
+      { x: 80, y: 100 },
+      { x: 80, y: -60 },
+    ]),
+  ];
+  const routeByWireId = new Map(raw.map((r) => [r.wireId, r]));
+  const trunks = computeWireTrunks(wires, routeByWireId);
+  assert.equal(trunks.length, 1);
+  assert.deepEqual(trunks[0].stemPoints, [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 100 },
+  ]);
+
+  const withTrunkFixed = raw.map((r) => ({ ...r, fixedPoints: trunks[0].stemPoints }));
+  const [spreadA, spreadB] = spreadWireCorridors(withTrunkFixed);
+
+  assert.deepEqual(spreadA.points[1], { x: 20, y: 0 }, 'segmento do caule não se move');
+  assert.deepEqual(spreadB.points[1], { x: 20, y: 0 }, 'segmento do caule não se move');
+  assert.deepEqual(spreadA.points[2], { x: 20, y: 100 }, 'ponto de junção não se move');
+  assert.deepEqual(spreadB.points[2], { x: 20, y: 100 }, 'ponto de junção não se move');
+});
+
+test('TroncoIgnoraFioComGuiasDeRota', () => {
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+    {
+      id: 'W2',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'B', pinId: 'in' },
+      waypoints: [{ x: 20, y: 0 }],
+    },
+  ];
+  const routeByWireId = new Map([
+    [
+      'W1',
+      route('W1', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+        { x: 60, y: 40 },
+      ]),
+    ],
+    [
+      'W2',
+      route('W2', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: -40 },
+        { x: 60, y: -40 },
+      ]),
+    ],
+  ]);
+  assert.deepEqual(computeWireTrunks(wires, routeByWireId), []);
+});
+
+test('TroncoIgnoraFioExibidoComoTunel', () => {
+  const wires: Wire[] = [
+    { id: 'W1', from: { componentId: 'IN', pinId: 'out' }, to: { componentId: 'A', pinId: 'in' } },
+    {
+      id: 'W2',
+      from: { componentId: 'IN', pinId: 'out' },
+      to: { componentId: 'B', pinId: 'in' },
+      display: 'tunnel',
+    },
+  ];
+  const routeByWireId = new Map([
+    [
+      'W1',
+      route('W1', [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 40 },
+        { x: 60, y: 40 },
+      ]),
+    ],
+  ]);
+  assert.deepEqual(computeWireTrunks(wires, routeByWireId), []);
 });
 
 test('RoteamentoPassaPorTodasAsGuiasNaOrdem', () => {
@@ -175,7 +364,7 @@ test('RoteamentoPassaPorTodasAsGuiasNaOrdem', () => {
     wires,
     new Map(components.map((component) => [component.id, component])),
     components,
-  );
+  ).routes;
   const indexes = waypoints.map((waypoint) =>
     guidedRoute.points.findIndex((point) => point.x === waypoint.x && point.y === waypoint.y),
   );
@@ -268,12 +457,27 @@ test('RoteamentoCompletoNaoDeixaCorredoresSobrepostos', () => {
   }));
   const componentById = new Map(components.map((component) => [component.id, component]));
 
-  const routes = routeCircuitWires(wires, componentById, components);
+  const { routes, trunks } = routeCircuitWires(wires, componentById, components);
+
+  // Os 8 fios saem do mesmo pino e formam um tronco visual: os segmentos do
+  // caule compartilhado ficam intencionalmente sobrepostos (é a própria
+  // fusão que o tronco desenha), e o segmento que começa na junção também
+  // fica travado (senão a junção desenhada descolaria do início de cada
+  // ramo) — só os segmentos depois desse ponto precisam continuar sem
+  // sobreposição.
+  assert.equal(trunks.length, 1, 'os 8 fios devem formar um único tronco');
+  assert.equal(trunks[0].branchWireIds.length, 8, 'o tronco deve reunir os 8 ramos');
+  const branchStartByWireId = new Map(
+    trunks.flatMap((trunk) =>
+      trunk.branchWireIds.map((wireId) => [wireId, trunk.stemPoints.length]),
+    ),
+  );
 
   type Segment = { vertical: boolean; coord: number; lo: number; hi: number };
   const interiorSegments: Segment[] = [];
   for (const candidate of routes) {
-    for (let index = 1; index <= candidate.points.length - 3; index += 1) {
+    const branchStart = branchStartByWireId.get(candidate.wireId) ?? 1;
+    for (let index = branchStart; index <= candidate.points.length - 3; index += 1) {
       const a = candidate.points[index];
       const b = candidate.points[index + 1];
       if (a.x === b.x && a.y !== b.y) {
