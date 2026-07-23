@@ -6,11 +6,13 @@ import { useEventCallback } from '../hooks/useEventCallback';
 import {
   componentBounds,
   intersects,
+  orthogonalPath,
   routeCircuitWires,
   textComponentWidth,
   waypointInsertionIndex,
   wireInRect,
   type RectBounds,
+  type WireTrunk,
 } from './wireRouting';
 import { PendingWire, WireView } from './WireView';
 import { useLabelEditing } from './useLabelEditing';
@@ -105,9 +107,9 @@ export function CircuitCanvas(props: Props) {
     () => new Map(layoutComponents.map((component) => [component.id, component])),
     [layoutComponents],
   );
-  const wireRoutes = useMemo(() => {
+  const routing = useMemo(() => {
     const routedWires = props.wireStyle === 'orthogonal' ? props.circuit.wires : [];
-    if (routedWires.length === 0) return [];
+    if (routedWires.length === 0) return { routes: [], trunks: [] };
     return measureProfile(
       'routing.orthogonal',
       {
@@ -118,9 +120,20 @@ export function CircuitCanvas(props: Props) {
     );
   }, [props.wireStyle, props.circuit.wires, componentById, layoutComponents]);
   const routeByWireId = useMemo(
-    () => new Map(wireRoutes.map((route) => [route.wireId, route])),
-    [wireRoutes],
+    () => new Map(routing.routes.map((route) => [route.wireId, route])),
+    [routing],
   );
+  // Fios que compartilham o pino de origem renderizam como um tronco único
+  // com ponto de junção (ver computeWireTrunks); puramente derivado das
+  // rotas já calculadas, sem campo novo no documento.
+  const wireTrunks = routing.trunks;
+  const branchTrunkByWireId = useMemo(() => {
+    const map = new Map<string, WireTrunk>();
+    for (const trunk of wireTrunks) {
+      for (const wireId of trunk.branchWireIds) map.set(wireId, trunk);
+    }
+    return map;
+  }, [wireTrunks]);
   const selectedComponentIds = useMemo(
     () => new Set(props.selection.componentIds),
     [props.selection.componentIds],
@@ -489,15 +502,39 @@ export function CircuitCanvas(props: Props) {
           </linearGradient>
         </defs>
         <g className="wires">
+          {wireTrunks.map((trunk) => {
+            const junction = trunk.stemPoints[trunk.stemPoints.length - 1];
+            const active = Boolean(props.evaluation[trunk.from.componentId]?.[trunk.from.pinId]);
+            const jumps = routeByWireId.get(trunk.branchWireIds[0])?.jumps ?? [];
+            return (
+              <g key={`trunk-${trunk.from.componentId}-${trunk.from.pinId}`}>
+                <path
+                  className={`wire orthogonal wire-trunk-stem ${active ? 'on' : ''}`}
+                  d={orthogonalPath(trunk.stemPoints, jumps)}
+                />
+                <circle
+                  className={`wire-trunk-junction ${active ? 'on' : ''}`}
+                  cx={junction.x}
+                  cy={junction.y}
+                />
+              </g>
+            );
+          })}
           {props.circuit.wires.map((wire) => {
             const fromComponent = componentById.get(wire.from.componentId);
             const toComponent = componentById.get(wire.to.componentId);
             if (!fromComponent || !toComponent) return null;
+            const route = routeByWireId.get(wire.id);
+            const trunk = branchTrunkByWireId.get(wire.id);
+            const effectiveRoute =
+              trunk && route
+                ? { ...route, points: route.points.slice(trunk.stemPoints.length - 1) }
+                : route;
             return (
               <WireView
                 key={wire.id}
                 wire={wire}
-                route={routeByWireId.get(wire.id)}
+                route={effectiveRoute}
                 wireStyle={props.wireStyle}
                 fromComponent={fromComponent}
                 toComponent={toComponent}

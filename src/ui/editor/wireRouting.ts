@@ -1,7 +1,13 @@
 import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
-import type { LogicComponent, Point, Wire } from '../../core/types';
+import type { LogicComponent, PinRef, Point, Wire } from '../../core/types';
 
 export type WireRoute = { wireId: string; points: Point[]; jumps: Point[]; fixedPoints?: Point[] };
+
+export interface WireTrunk {
+  from: PinRef;
+  stemPoints: Point[];
+  branchWireIds: string[];
+}
 
 export interface RectBounds {
   x: number;
@@ -62,7 +68,7 @@ export function routeCircuitWires(
   wires: Wire[],
   componentById: Map<string, LogicComponent>,
   components: LogicComponent[],
-): WireRoute[] {
+): { routes: WireRoute[]; trunks: WireTrunk[] } {
   const routes = wires
     .filter((wire) => wire.display !== 'tunnel')
     .map((wire, index) => {
@@ -86,15 +92,82 @@ export function routeCircuitWires(
       };
     });
 
-  const spread = spreadWireCorridors(routes);
+  // Fios que compartilham o pino de origem formam um tronco visual (ver
+  // computeWireTrunks); todos os pontos do tronco — incluindo a junção —
+  // viram "pontos fixos" para o espaçamento de corredores não os mover. A
+  // junção precisa ficar travada nos dois lados: se o segmento que começa
+  // nela pudesse se espalhar, cada ramo acabaria com uma junção em um
+  // lugar diferente, e o tronco desenhado (um único ponto) descolaria do
+  // início de cada ramo renderizado.
+  const routeByWireId = new Map(routes.map((route) => [route.wireId, route]));
+  const trunks = computeWireTrunks(wires, routeByWireId);
+  const stemPointsByWireId = new Map<string, Point[]>();
+  for (const trunk of trunks) {
+    for (const wireId of trunk.branchWireIds) stemPointsByWireId.set(wireId, trunk.stemPoints);
+  }
+  const withTrunkFixed = routes.map((route) => {
+    const stem = stemPointsByWireId.get(route.wireId);
+    if (!stem) return route;
+    return { ...route, fixedPoints: [...(route.fixedPoints ?? []), ...stem] };
+  });
 
-  return spread.map((route, index) => ({
-    ...route,
-    jumps: findWireJumps(
-      route,
-      spread.filter((_, otherIndex) => otherIndex !== index),
-    ),
-  }));
+  const spread = spreadWireCorridors(withTrunkFixed);
+
+  return {
+    routes: spread.map((route, index) => ({
+      ...route,
+      jumps: findWireJumps(
+        route,
+        spread.filter((_, otherIndex) => otherIndex !== index),
+      ),
+    })),
+    trunks,
+  };
+}
+
+// Agrupa fios que saem do mesmo pino em um tronco visual: o maior prefixo de
+// pontos idênticos entre as rotas do grupo vira o "caule" comum, terminando
+// no ponto de junção de onde cada ramo se separa. Puramente derivado da
+// geometria já roteada — não persiste nada no documento.
+export function computeWireTrunks(
+  wires: Wire[],
+  routeByWireId: ReadonlyMap<string, { points: Point[] }>,
+): WireTrunk[] {
+  const groups = new Map<string, Wire[]>();
+  for (const wire of wires) {
+    if (wire.display === 'tunnel') continue;
+    if (wire.waypoints?.length) continue;
+    if (wire.from.componentId === wire.to.componentId) continue;
+    if (!routeByWireId.has(wire.id)) continue;
+    const key = `${wire.from.componentId}:${wire.from.pinId}`;
+    const list = groups.get(key) ?? [];
+    list.push(wire);
+    groups.set(key, list);
+  }
+
+  const trunks: WireTrunk[] = [];
+  for (const groupWires of groups.values()) {
+    if (groupWires.length < 2) continue;
+    const pointLists = groupWires.map((wire) => routeByWireId.get(wire.id)!.points);
+    if (pointLists.some((points) => points.length < 2)) continue;
+
+    const maxLength = Math.min(...pointLists.map((points) => points.length)) - 1;
+    let shared = 0;
+    while (
+      shared < maxLength &&
+      pointLists.every((points) => samePoint(points[shared], pointLists[0][shared]))
+    ) {
+      shared += 1;
+    }
+    if (shared < 2) continue;
+
+    trunks.push({
+      from: groupWires[0].from,
+      stemPoints: pointLists[0].slice(0, shared),
+      branchWireIds: groupWires.map((wire) => wire.id),
+    });
+  }
+  return trunks;
 }
 
 const CORRIDOR_SPACING = 8;
