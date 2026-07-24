@@ -15,6 +15,8 @@ interface WaveformPanelProps {
   autoClockRunning: boolean;
   onClear: () => void;
   onRemoveSignal: (componentId: string, pinId: string) => void;
+  historyTick: number | null;
+  onSelectTick: (tick: number | null) => void;
 }
 
 export function WaveformPanel({
@@ -23,6 +25,8 @@ export function WaveformPanel({
   autoClockRunning,
   onClear,
   onRemoveSignal,
+  historyTick,
+  onSelectTick,
 }: WaveformPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldFollowLatestRef = useRef(true);
@@ -53,10 +57,20 @@ export function WaveformPanel({
   return (
     <div className="waveform-panel-content">
       <div className="waveform-toolbar">
-        <div className="waveform-status" aria-live="polite">
-          <span className={`waveform-status-dot ${autoClockRunning ? 'running' : ''}`} />
-          {autoClockRunning ? 'Auto-clock rodando' : 'Auto-clock parado'}
-        </div>
+        {historyTick !== null ? (
+          <div className="waveform-status waveform-status-history" aria-live="polite">
+            <span className="waveform-status-dot history" />
+            Visualizando tick {historyTick}
+            <button className="waveform-live-button" onClick={() => onSelectTick(null)}>
+              Voltar ao vivo
+            </button>
+          </div>
+        ) : (
+          <div className="waveform-status" aria-live="polite">
+            <span className={`waveform-status-dot ${autoClockRunning ? 'running' : ''}`} />
+            {autoClockRunning ? 'Auto-clock rodando' : 'Auto-clock parado'}
+          </div>
+        )}
         <button className="waveform-clear-button" onClick={onClear} disabled={samples.length === 0}>
           Limpar
         </button>
@@ -117,6 +131,8 @@ export function WaveformPanel({
                 firstTick={firstTick}
                 width={plotWidth}
                 height={plotHeight}
+                historyTick={historyTick}
+                onSelectTick={onSelectTick}
               />
               {traces.map((trace) => (
                 <WaveformTrace key={trace.key} path={trace.path} />
@@ -167,12 +183,16 @@ function WaveformGrid({
   firstTick,
   width,
   height,
+  historyTick,
+  onSelectTick,
 }: {
   signals: WaveformSignal[];
   samples: WaveformSample[];
   firstTick: number;
   width: number;
   height: number;
+  historyTick: number | null;
+  onSelectTick: (tick: number | null) => void;
 }) {
   return (
     <g className="waveform-grid">
@@ -182,8 +202,26 @@ function WaveformGrid({
       })}
       {samples.map((sample) => {
         const x = WAVEFORM_INSET + (sample.tick - firstTick) * WAVEFORM_TICK_WIDTH;
+        const selected = sample.tick === historyTick;
         return (
-          <g key={sample.tick}>
+          <g key={sample.tick} className={`waveform-tick ${selected ? 'selected' : ''}`}>
+            <rect
+              className="waveform-tick-hit"
+              x={x - WAVEFORM_TICK_WIDTH / 2}
+              y={0}
+              width={WAVEFORM_TICK_WIDTH}
+              height={height}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selected}
+              aria-label={`Ver estado do circuito no tick ${sample.tick}`}
+              onClick={() => onSelectTick(sample.tick)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                onSelectTick(sample.tick);
+              }}
+            />
             <line x1={x} y1={WAVEFORM_AXIS_HEIGHT - 5} x2={x} y2={height} />
             <text x={x} y={18} textAnchor="middle">
               {sample.tick}

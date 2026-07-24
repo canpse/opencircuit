@@ -4,11 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stepCircuit } from '../../src/core/evaluateCircuit';
 import { createSimulationSession } from '../../src/core/simulation/simulationSession';
-import {
-  createWaveformRecorder,
-  recordTickSample,
-  signalKey,
-} from '../../src/core/simulation/waveform';
+import { createWaveformRecorder, recordTickSample } from '../../src/core/simulation/waveform';
 import type {
   SimulationRequest,
   SimulationResponse,
@@ -95,16 +91,13 @@ test('Amostra da forma de onda nunca mistura o resultado de um tick com o circui
   let circuit = loadClockedDLatch();
   const runtime = new SimulationRuntimeModel(worker, circuit);
   let recorder = createWaveformRecorder();
-  const clockKey = signalKey('EN', 'CLK');
 
   function recordFromCurrentState() {
     if (!runtime.simulationState.result) return;
     recorder = recordTickSample(
       recorder,
       runtime.simulationState.tick,
-      runtime.simulationState.circuit,
       runtime.simulationState.result.values,
-      undefined,
     );
   }
 
@@ -138,8 +131,8 @@ test('Amostra da forma de onda nunca mistura o resultado de um tick com o circui
   const sample = recorder.samples[0];
   assert.equal(sample.tick, 2, 'a amostra gravada deve ser rotulada com o tick que a produziu');
   assert.equal(
-    sample.values[clockKey],
+    sample.evaluation.EN?.CLK,
     false,
-    'o valor do clock na amostra deve ser o do tick 2 (baixo, após subir no tick 1), não o de outro tick',
+    'o valor do clock no snapshot deve ser o do tick 2 (baixo, após subir no tick 1), não o de outro tick',
   );
 });

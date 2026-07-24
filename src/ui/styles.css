@@ -778,6 +778,27 @@ button:disabled {
   background: #fff;
 }
 
+.history-view-banner {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 7px 14px;
+  color: #fff;
+  background: var(--brand-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+.history-view-banner button {
+  padding: 3px 10px;
+  color: var(--brand-strong);
+  background: #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .canvas-wrap {
   position: relative;
   flex: 1;
@@ -1021,6 +1042,21 @@ button:disabled {
   background: #2fb36d;
   box-shadow: 0 0 0 3px rgba(47, 179, 109, 0.17);
 }
+.waveform-status-dot.history {
+  background: var(--brand-strong);
+  box-shadow: 0 0 0 3px rgba(47, 125, 211, 0.17);
+}
+.waveform-status-history {
+  color: var(--brand-strong);
+}
+.waveform-live-button {
+  padding: 3px 8px;
+  color: #fff;
+  background: var(--brand-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
 .waveform-clear-button {
   padding: 7px 10px;
   color: var(--brand-strong);
@@ -1110,11 +1146,35 @@ button:disabled {
 .waveform-grid line {
   stroke: rgba(91, 113, 128, 0.13);
   stroke-width: 1;
+  pointer-events: none;
 }
 .waveform-grid text {
   fill: var(--muted);
   font-size: 10px;
   font-weight: 800;
+  pointer-events: none;
+}
+.waveform-tick-hit {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+}
+.waveform-tick-hit:hover {
+  fill: rgba(47, 125, 211, 0.06);
+}
+.waveform-tick-hit:focus-visible {
+  fill: rgba(47, 125, 211, 0.1);
+}
+.waveform-tick.selected .waveform-tick-hit {
+  fill: rgba(47, 125, 211, 0.12);
+}
+.waveform-tick.selected line {
+  stroke: var(--brand-strong);
+  stroke-width: 1.5;
+}
+.waveform-tick.selected text {
+  fill: var(--brand-strong);
+  font-weight: 900;
 }
 .waveform-trace {
   fill: none;

@@ -26,7 +26,7 @@ export function diffChangedSignals(
   return changed;
 }
 
-const EMPTY_CHANGED_SIGNALS: ReadonlyMap<string, number> = new Map();
+export const EMPTY_CHANGED_SIGNALS: ReadonlyMap<string, number> = new Map();
 
 // Dá um pulso visual nos pinos que acabaram de mudar de valor (ver
 // ComponentView), para ajudar a enxergar causa e efeito em lógica

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { CircuitDocument, SimulationResult } from '../../core/types';
+import type { CircuitDocument, EvaluationResult, SimulationResult } from '../../core/types';
 import {
   createWaveformRecorder,
+  deriveWaveformSamples,
   recordTickSample,
   resolveWaveformSignals,
 } from '../../core/simulation/waveform';
@@ -27,6 +28,8 @@ export function useWaveformHistory({
   watchedSignals,
 }: Options) {
   const [recorder, setRecorder] = useState(createWaveformRecorder);
+  // null = ao vivo; um número = mostrando o snapshot congelado daquele tick.
+  const [historyTick, setHistoryTick] = useState<number | null>(null);
 
   useEffect(() => {
     if (simulationResult === EMPTY_SIMULATION_RESULT) return;
@@ -34,9 +37,12 @@ export function useWaveformHistory({
     // propagado via estado); recordTickSample ignora ticks repetidos, então
     // não há cascata de re-renderizações.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRecorder((current) =>
-      recordTickSample(current, tickCount, circuit, simulationResult.values, watchedSignals),
-    );
+    setRecorder((current) => recordTickSample(current, tickCount, simulationResult.values));
+    // Qualquer avaliação nova ao vivo sai do modo histórico automaticamente
+    // — evita editar ou avançar o circuito enquanto uma amostra congelada
+    // do passado está sendo mostrada, sem precisar bloquear nada no canvas.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHistoryTick(null);
     // circuit/tickCount já vêm emparelhados com simulationResult (ver
     // comentário na interface Options acima), então só o resultado
     // precisa disparar a gravação.
@@ -48,13 +54,35 @@ export function useWaveformHistory({
     [circuit, watchedSignals],
   );
 
+  const waveformSamples = useMemo(
+    () => deriveWaveformSamples(recorder.samples, circuit, watchedSignals),
+    [recorder.samples, circuit, watchedSignals],
+  );
+
+  const evaluationByTick = useMemo(
+    () => new Map(recorder.samples.map((snapshot) => [snapshot.tick, snapshot.evaluation])),
+    [recorder.samples],
+  );
+
+  const historyEvaluation: EvaluationResult | null =
+    historyTick !== null ? (evaluationByTick.get(historyTick) ?? null) : null;
+
+  // Clicar no tick já selecionado volta para "ao vivo".
+  const selectHistoryTick = useCallback((tick: number | null) => {
+    setHistoryTick((current) => (tick !== null && current === tick ? null : tick));
+  }, []);
+
   const clearWaveformHistory = useCallback(() => {
     setRecorder(createWaveformRecorder());
+    setHistoryTick(null);
   }, []);
 
   return {
-    waveformSamples: recorder.samples,
+    waveformSamples,
     waveformSignals,
     clearWaveformHistory,
+    historyTick,
+    historyEvaluation,
+    selectHistoryTick,
   };
 }
