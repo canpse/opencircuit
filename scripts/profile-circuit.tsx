@@ -71,6 +71,7 @@ function renderCircuit(
     <CircuitCanvas
       circuit={circuit}
       evaluation={evaluation}
+      changedSignals={new Map()}
       selectedTool="select"
       wireStyle={wireStyle}
       pendingWire={null}

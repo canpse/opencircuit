@@ -56,6 +56,7 @@ type WireWaypointDrag = {
 interface Props {
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
+  changedSignals: ReadonlyMap<string, number>;
   selectedTool: Tool;
   wireStyle: WireStyle;
   pendingWire: PinRef | null;
@@ -141,6 +142,22 @@ export function CircuitCanvas(props: Props) {
     () => computeTunnelFromOffsets(props.circuit.wires),
     [props.circuit.wires],
   );
+  // Agrupa os pinos que acabaram de mudar de valor por componente, para
+  // cada ComponentView pulsar só os seus próprios pinos (ver
+  // useEvaluationChangeFlashes). props.changedSignals só troca de
+  // referência quando há mudança real, então componentes não afetados
+  // continuam recebendo o mesmo `undefined`/mapa de sempre e não
+  // re-renderizam.
+  const changedPinsByComponentId = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const [key, generation] of props.changedSignals) {
+      const [componentId, pinId] = key.split(':');
+      const forComponent = map.get(componentId) ?? new Map<string, number>();
+      forComponent.set(pinId, generation);
+      map.set(componentId, forComponent);
+    }
+    return map;
+  }, [props.changedSignals]);
   const selectedComponentIds = useMemo(
     () => new Set(props.selection.componentIds),
     [props.selection.componentIds],
@@ -578,6 +595,7 @@ export function CircuitCanvas(props: Props) {
               key={component.id}
               component={component}
               values={props.evaluation[component.id]}
+              changedPins={changedPinsByComponentId.get(component.id)}
               selected={selectedComponentIds.has(component.id)}
               onMouseDown={handleComponentMouseDown}
               onContextMenu={handleComponentContextMenu}
