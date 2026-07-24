@@ -23,12 +23,22 @@ export function useSimulationController({
   const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
   const [tickCount, setTickCount] = useState(0);
 
-  const { simulationResult, evaluation, resetSimulationRuntime } = useSimulationRuntime(circuit);
-
-  const { waveformSamples, waveformSignals, clearWaveformHistory } = useWaveformHistory({
-    circuit,
+  const {
     simulationResult,
-    tickCount,
+    evaluation,
+    simulationCircuit,
+    simulationTick,
+    resetSimulationRuntime,
+  } = useSimulationRuntime(circuit, tickCount);
+
+  // waveformHistory usa o circuito/tick emparelhados com simulationResult
+  // (não circuit/tickCount direto): sob carga pesada, o React pode juntar
+  // o avanço do próximo tick no mesmo commit da resposta do tick anterior,
+  // e ler circuit/tickCount "atuais" nesse caso gravaria a amostra errada.
+  const { waveformSamples, waveformSignals, clearWaveformHistory } = useWaveformHistory({
+    circuit: simulationCircuit,
+    simulationResult,
+    tickCount: simulationTick,
   });
 
   const hasSequentialComponents = circuit.components.some((component) =>
