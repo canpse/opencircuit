@@ -38,6 +38,7 @@ type ComponentViewProps = {
   onSetButtonPressed: (componentId: string, pressed: boolean) => void;
   onRemove: (componentId: string) => void;
   onRenameStart: (componentId: string) => void;
+  onEnterInstance: (componentId: string) => void;
   onResizeStart: (event: MouseEvent<SVGRectElement>, componentId: string) => void;
   onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
@@ -63,6 +64,7 @@ function componentViewPropsAreEqual(
     previous.onSetButtonPressed === next.onSetButtonPressed &&
     previous.onRemove === next.onRemove &&
     previous.onRenameStart === next.onRenameStart &&
+    previous.onEnterInstance === next.onEnterInstance &&
     previous.onResizeStart === next.onResizeStart &&
     previous.onPinMouseDown === next.onPinMouseDown &&
     previous.onPinMouseUp === next.onPinMouseUp &&
@@ -82,6 +84,7 @@ export const ComponentView = memo(function ComponentView({
   onSetButtonPressed,
   onRemove,
   onRenameStart,
+  onEnterInstance,
   onResizeStart,
   onPinMouseDown,
   onPinMouseUp,
@@ -104,6 +107,12 @@ export const ComponentView = memo(function ComponentView({
   const gateAsset = GATE_ASSETS[component.type];
   const isCombinationalBlock =
     !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
+  // A valid subcircuit instance drills into its definition on double-click (Figma-style);
+  // a dangling one (definitionId doesn't resolve) falls back to rename, same as before.
+  const handleDoubleClick =
+    component.type === 'subcircuit' && !isDanglingSubcircuit
+      ? () => onEnterInstance(component.id)
+      : () => onRenameStart(component.id);
 
   return (
     <g
@@ -118,7 +127,7 @@ export const ComponentView = memo(function ComponentView({
       onDoubleClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
-        onRenameStart(component.id);
+        handleDoubleClick();
       }}
     >
       <rect
@@ -249,12 +258,16 @@ export const ComponentView = memo(function ComponentView({
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            // A subcircuit instance's single click stays a no-op here (it's already
+            // selected via mousedown): renaming on click would flash open right before
+            // a double-click enters the instance, since click always fires first.
+            if (component.type === 'subcircuit') return;
             onRenameStart(component.id);
           }}
           onDoubleClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
-            onRenameStart(component.id);
+            handleDoubleClick();
           }}
         >
           {component.label ?? definition.label}

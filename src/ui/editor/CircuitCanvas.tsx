@@ -77,6 +77,7 @@ interface Props {
   onToggleInput: (componentId: string) => void;
   onSetButtonPressed: (componentId: string, pressed: boolean) => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
+  onEnterInstance: (componentId: string) => void;
   onRenameWire: (wireId: string, label: string) => void;
   onAddWireWaypoint: (wireId: string, waypointIndex: number, point: Point) => void;
   onBeginMoveWireWaypoint: () => void;
@@ -379,6 +380,9 @@ export function CircuitCanvas(props: Props) {
     const component = componentById.get(componentId);
     if (component) startRename(component);
   });
+  const handleEnterInstance = useEventCallback((componentId: string) =>
+    props.onEnterInstance(componentId),
+  );
   const handleResizeStart = useEventCallback(
     (event: MouseEvent<SVGRectElement>, componentId: string) => {
       const component = componentById.get(componentId);
@@ -632,6 +636,7 @@ export function CircuitCanvas(props: Props) {
               onSetButtonPressed={handleSetButtonPressed}
               onRemove={handleComponentRemove}
               onRenameStart={handleRenameStart}
+              onEnterInstance={handleEnterInstance}
               onResizeStart={handleResizeStart}
               onPinMouseDown={handlePinMouseDown}
               onPinMouseUp={handlePinMouseUp}

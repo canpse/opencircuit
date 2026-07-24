@@ -23,7 +23,10 @@ import {
   GRID,
   hasSelection,
   normalizeCircuitForEditor,
+  pushDefinitionPath,
+  truncateDefinitionPath,
 } from './app/editorUtils';
+import { DefinitionBreadcrumb } from './panels/DefinitionBreadcrumb';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
 import { RemoteCircuitsDialog } from './dialogs/RemoteCircuitsDialog';
@@ -85,15 +88,19 @@ export function App() {
     onMessage: setMessage,
   });
 
-  // Fase 1 (fundação de subcircuitos, issue #18): navegação simples pra entrar/sair de
-  // uma definição -- sem trilha de migalhas/duplo-clique ainda (isso é Fase 3). Editar a
-  // raiz ou uma definição usa o mesmo par circuit/setCircuit (useCircuitEditor não
-  // precisa saber a diferença), só trocando qual "fatia" do documento é exposta.
+  // Fase 1-3 (subcircuitos, issue #18): editar a raiz ou uma definição usa o mesmo par
+  // circuit/setCircuit (useCircuitEditor não precisa saber a diferença), só trocando qual
+  // "fatia" do documento é exposta. navigationPath é uma pilha de ids de definição --
+  // duplo-clique numa instância empilha (Fase 3), a barra "Subcircuitos" salta direto
+  // (substitui a pilha). scopedCircuit/setScopedCircuit só enxergam o topo da pilha
+  // (activeDefinitionId, derivado), nunca o caminho inteiro -- não precisam mudar entre
+  // navegação plana (Fase 1) e aninhada (Fase 3).
   const definitions = useMemo(() => circuit.definitions ?? [], [circuit.definitions]);
-  const [activeDefinitionId, setActiveDefinitionId] = useState<string | null>(null);
+  const [navigationPath, setNavigationPath] = useState<string[]>([]);
   const [pendingSubcircuitDefinitionId, setPendingSubcircuitDefinitionId] = useState<string | null>(
     null,
   );
+  const activeDefinitionId = navigationPath[navigationPath.length - 1] ?? null;
   const activeDefinition = activeDefinitionId
     ? (definitions.find((definition) => definition.id === activeDefinitionId) ?? null)
     : null;
@@ -133,14 +140,27 @@ export function App() {
     });
   }
 
-  function enterDefinition(definitionId: string) {
-    setActiveDefinitionId(definitionId);
+  function enterDefinitionDirect(definitionId: string) {
+    // Barra "Subcircuitos" e "+ Nova definição": salto direto, descarta qualquer
+    // caminho aninhado atual (diferente de enterInstance, que empilha).
+    setNavigationPath([definitionId]);
     setMessage('Editando definição de subcircuito.');
   }
 
-  function exitDefinition() {
-    setActiveDefinitionId(null);
-    setMessage('De volta ao circuito principal.');
+  function enterInstance(componentId: string) {
+    // Duplo-clique numa instância de subcircuito: empilha sobre o caminho atual.
+    const component = scopedCircuit.components.find((candidate) => candidate.id === componentId);
+    if (!component || component.type !== 'subcircuit' || !component.definitionId) return;
+    if (!definitions.some((definition) => definition.id === component.definitionId)) return;
+    setNavigationPath((path) => pushDefinitionPath(path, component.definitionId!));
+    setMessage('Editando definição de subcircuito.');
+  }
+
+  function goToBreadcrumbIndex(index: number) {
+    setNavigationPath((path) => truncateDefinitionPath(path, index));
+    setMessage(
+      index === -1 ? 'De volta ao circuito principal.' : 'Editando definição de subcircuito.',
+    );
   }
 
   function createDefinition() {
@@ -155,7 +175,7 @@ export function App() {
         { id, name: name.trim(), components: [], wires: [] },
       ],
     }));
-    enterDefinition(id);
+    enterDefinitionDirect(id);
   }
 
   function transformSelectionIntoSubcircuit(componentIds: string[]) {
@@ -362,6 +382,16 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDocumentId, activeDefinitionId]);
 
+  // Separate from the effect above (which already re-fires on every navigationPath
+  // change, since activeDefinitionId derives from it): switching documents must not
+  // leave you N levels deep in a definition from the PREVIOUS document. This can't
+  // live in the same effect -- keying it on navigationPath there would zero out the
+  // path you just pushed via enterInstance, fighting the navigation itself.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNavigationPath([]);
+  }, [activeDocumentId]);
+
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
     resetSimulation();
     setCircuit(normalizeCircuitForEditor(nextCircuit));
@@ -456,7 +486,7 @@ export function App() {
           selectedTool={selectedTool}
           onSelectTool={setSelectedTool}
           definitions={definitions}
-          excludeDefinitionId={activeDefinitionId}
+          excludeDefinitionIds={navigationPath}
           selectedSubcircuitDefinitionId={pendingSubcircuitDefinitionId}
           onSelectSubcircuit={(definitionId) => {
             setPendingSubcircuitDefinitionId(definitionId);
@@ -483,7 +513,7 @@ export function App() {
               <button
                 key={definition.id}
                 className={activeDefinitionId === definition.id ? 'active' : ''}
-                onClick={() => enterDefinition(definition.id)}
+                onClick={() => enterDefinitionDirect(definition.id)}
               >
                 {definition.name}
               </button>
@@ -493,14 +523,11 @@ export function App() {
             </button>
           </div>
           <div className="editor-panel">
-            {activeDefinition && (
-              <div className="history-view-banner">
-                <span>
-                  Editando definição: <strong>{activeDefinition.name}</strong>
-                </span>
-                <button onClick={exitDefinition}>Voltar ao circuito principal</button>
-              </div>
-            )}
+            <DefinitionBreadcrumb
+              navigationPath={navigationPath}
+              definitions={definitions}
+              onNavigate={goToBreadcrumbIndex}
+            />
             {!activeDefinition && historyTick !== null && (
               <div className="history-view-banner">
                 <span>
@@ -529,6 +556,7 @@ export function App() {
                 onToggleInput={toggleInput}
                 onSetButtonPressed={setButtonPressed}
                 onPinClick={onPinClick}
+                onEnterInstance={enterInstance}
                 onRenameWire={renameWire}
                 onAddWireWaypoint={addWireWaypoint}
                 onBeginMoveWireWaypoint={beginMoveWireWaypoint}
