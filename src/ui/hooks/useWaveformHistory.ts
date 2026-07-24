@@ -8,6 +8,11 @@ import {
 import { EMPTY_SIMULATION_RESULT } from './useSimulationRuntime';
 
 interface Options {
+  // circuit/tickCount devem vir emparelhados com simulationResult (ver
+  // useSimulationRuntime: simulationCircuit/simulationTick), nunca o
+  // circuito/contador "atuais" do editor — sob carga pesada, o próximo
+  // tick pode ser incorporado ao mesmo commit da resposta do tick
+  // anterior, e ler estado externo nesse caso gravaria o par errado.
   circuit: CircuitDocument;
   simulationResult: SimulationResult;
   tickCount: number;
@@ -25,9 +30,9 @@ export function useWaveformHistory({ circuit, simulationResult, tickCount }: Opt
     setRecorder((current) =>
       recordTickSample(current, tickCount, circuit, simulationResult.values),
     );
-    // Amostras só são gravadas quando chega um resultado novo do worker:
-    // circuit e tickCount mudam antes da resposta correspondente, então
-    // reagir a eles gravaria valores do tick anterior.
+    // circuit/tickCount já vêm emparelhados com simulationResult (ver
+    // comentário na interface Options acima), então só o resultado
+    // precisa disparar a gravação.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationResult]);
 
