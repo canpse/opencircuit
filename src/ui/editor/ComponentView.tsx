@@ -30,6 +30,7 @@ const GATE_ASSETS: Partial<Record<GateType, string>> = {
 type ComponentViewProps = {
   component: LogicComponent;
   values: Record<string, boolean> | undefined;
+  changedPins: ReadonlyMap<string, number> | undefined;
   selected: boolean;
   onMouseDown: (event: MouseEvent<SVGGElement>, componentId: string) => void;
   onContextMenu: (event: MouseEvent<SVGGElement>, componentId: string) => void;
@@ -54,6 +55,7 @@ function componentViewPropsAreEqual(
     previous.component === next.component &&
     previous.selected === next.selected &&
     sameEvaluationValues(previous.values, next.values) &&
+    previous.changedPins === next.changedPins &&
     previous.onMouseDown === next.onMouseDown &&
     previous.onContextMenu === next.onContextMenu &&
     previous.onToggleInput === next.onToggleInput &&
@@ -70,6 +72,7 @@ function componentViewPropsAreEqual(
 export const ComponentView = memo(function ComponentView({
   component,
   values,
+  changedPins,
   selected,
   onMouseDown,
   onContextMenu,
@@ -310,6 +313,15 @@ export const ComponentView = memo(function ComponentView({
               cy={pin.offset.y}
               r="7"
             />
+            {changedPins?.has(pin.id) && (
+              <circle
+                key={`flash-${changedPins.get(pin.id)}`}
+                className="pin-flash"
+                cx={pin.offset.x}
+                cy={pin.offset.y}
+                r="7"
+              />
+            )}
             {pin.kind === 'input' && component.type !== 'led' && component.type !== 'not' && (
               <text
                 className="pin-label"

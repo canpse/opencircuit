@@ -157,6 +157,7 @@ export function App() {
     setAutoClockIntervalMs,
     simulationResult,
     evaluation,
+    changedSignals,
     hasSequentialComponents,
     waveformSamples,
     waveformSignals,
@@ -321,6 +322,7 @@ export function App() {
               <CircuitCanvas
                 circuit={circuit}
                 evaluation={evaluation}
+                changedSignals={changedSignals}
                 selectedTool={selectedTool}
                 wireStyle={wireStyle}
                 pendingWire={pendingWire}

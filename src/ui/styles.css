@@ -1600,6 +1600,24 @@ button:disabled {
   opacity: 0.7;
 }
 
+@keyframes pin-flash-ping {
+  from {
+    r: 7;
+    opacity: 0.85;
+  }
+  to {
+    r: 16;
+    opacity: 0;
+  }
+}
+.pin-flash {
+  fill: none;
+  stroke: var(--brand);
+  stroke-width: 2;
+  pointer-events: none;
+  animation: pin-flash-ping 600ms ease-out forwards;
+}
+
 .marquee-selection {
   fill: rgba(47, 125, 211, 0.12);
   stroke: var(--brand);

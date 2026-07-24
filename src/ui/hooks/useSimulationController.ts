@@ -4,6 +4,7 @@ import { isSequentialType, stepCircuit } from '../../core/evaluateCircuit';
 import { useSimulationRuntime } from './useSimulationRuntime';
 import { useWaveformHistory } from './useWaveformHistory';
 import { useAutoClock } from './useAutoClock';
+import { useEvaluationChangeFlashes } from './useEvaluationChangeFlashes';
 import type { SetStateAction } from 'react';
 
 interface Options {
@@ -40,6 +41,8 @@ export function useSimulationController({
     simulationResult,
     tickCount: simulationTick,
   });
+
+  const { changedSignals, resetChangeFlashes } = useEvaluationChangeFlashes(evaluation);
 
   const hasSequentialComponents = circuit.components.some((component) =>
     isSequentialType(component.type),
@@ -90,6 +93,7 @@ export function useSimulationController({
     resetSimulationRuntime();
     setTickCount(0);
     clearWaveformHistory();
+    resetChangeFlashes();
   }
 
   function resetSimulation() {
@@ -103,6 +107,7 @@ export function useSimulationController({
     setAutoClockIntervalMs,
     simulationResult,
     evaluation,
+    changedSignals,
     hasSequentialComponents,
     tickCount,
     waveformSamples,
