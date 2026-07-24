@@ -471,6 +471,97 @@ function testTruthTableRowsForXor() {
   );
 }
 
+// Regressão: a tabela verdade deve achatar subcircuitos antes de avaliar --
+// buildCircuitTruthRows chamava evaluateCircuit direto no documento hierárquico,
+// e uma instância type: 'subcircuit' cai no case defensivo de gates.ts (sempre
+// falso) quando não passa por flattenCircuit primeiro. Isso fazia a tabela
+// mostrar 0 em toda linha sempre que havia uma instância entre entrada e saída,
+// mesmo com a simulação ao vivo do canvas (que já achata) correta.
+function testTruthTableRowsFlattenSubcircuitInstances() {
+  const andDefinition: CircuitDocument['definitions'] = [
+    {
+      id: 'and3-def',
+      name: 'AND de 3 entradas',
+      components: [
+        { id: 'I3', type: 'input', x: 0, y: 0 },
+        { id: 'I4', type: 'input', x: 0, y: 80 },
+        { id: 'I5', type: 'input', x: 0, y: 160 },
+        { id: 'AND1', type: 'and', x: 160, y: 20 },
+        { id: 'AND2', type: 'and', x: 320, y: 60 },
+        { id: 'OUT', type: 'led', x: 480, y: 60 },
+      ],
+      wires: [
+        {
+          id: 'iw1',
+          from: { componentId: 'I3', pinId: 'out' },
+          to: { componentId: 'AND1', pinId: 'a' },
+        },
+        {
+          id: 'iw2',
+          from: { componentId: 'I4', pinId: 'out' },
+          to: { componentId: 'AND1', pinId: 'b' },
+        },
+        {
+          id: 'iw3',
+          from: { componentId: 'AND1', pinId: 'out' },
+          to: { componentId: 'AND2', pinId: 'a' },
+        },
+        {
+          id: 'iw4',
+          from: { componentId: 'I5', pinId: 'out' },
+          to: { componentId: 'AND2', pinId: 'b' },
+        },
+        {
+          id: 'iw5',
+          from: { componentId: 'AND2', pinId: 'out' },
+          to: { componentId: 'OUT', pinId: 'in' },
+        },
+      ],
+    },
+  ];
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'I3', type: 'input', x: 0, y: 0 },
+      { id: 'I4', type: 'input', x: 0, y: 80 },
+      { id: 'I5', type: 'input', x: 0, y: 160 },
+      { id: 'U1', type: 'subcircuit', x: 200, y: 60, definitionId: 'and3-def' },
+      { id: 'LED', type: 'led', x: 400, y: 60 },
+    ],
+    wires: [
+      {
+        id: 'w1',
+        from: { componentId: 'I3', pinId: 'out' },
+        to: { componentId: 'U1', pinId: 'I3' },
+      },
+      {
+        id: 'w2',
+        from: { componentId: 'I4', pinId: 'out' },
+        to: { componentId: 'U1', pinId: 'I4' },
+      },
+      {
+        id: 'w3',
+        from: { componentId: 'I5', pinId: 'out' },
+        to: { componentId: 'U1', pinId: 'I5' },
+      },
+      {
+        id: 'w4',
+        from: { componentId: 'U1', pinId: 'OUT' },
+        to: { componentId: 'LED', pinId: 'in' },
+      },
+    ],
+    definitions: andDefinition,
+  };
+  const inputs = circuit.components.filter((component) => component.type === 'input');
+  const outputs = circuit.components.filter((component) => component.type === 'led');
+  const rows = buildCircuitTruthRows(circuit, inputs, outputs, circuit.definitions);
+  assert.deepEqual(
+    rows.map((row) => row.outputs[0]),
+    [false, false, false, false, false, false, false, true],
+    'AND de 3 entradas via subcircuito deve ser 1 só na última linha (todas entradas 1)',
+  );
+}
+
 function testWireRoutingSelfLoopGoesAroundComponent() {
   const component = {
     id: 'N1',
@@ -699,6 +790,7 @@ const tests = [
   testSubtractor4BitFromGatesAllCombinations,
   testAlu4BitAllOperationsAllCombinations,
   testTruthTableRowsForXor,
+  testTruthTableRowsFlattenSubcircuitInstances,
   testWireRoutingSelfLoopGoesAroundComponent,
   testCameraPointAccountsForSvgLetterboxing,
   testNativeDFlipFlopCapturesOnlyOnRisingEdge,
