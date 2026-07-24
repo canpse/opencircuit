@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CircuitDocument, SimulationResult } from '../../core/types';
+import type { CircuitDefinition, CircuitDocument, SimulationResult } from '../../core/types';
 import type {
   SimulationRequest,
   SimulationResponse,
 } from '../../core/simulation/simulationSession';
 import SimulationWorker from '../../core/simulation/worker?worker';
+import { flattenCircuit } from '../../core/hierarchy/flatten';
+import { liftEvaluationForScope } from '../../core/hierarchy/simulate';
 
 export const EMPTY_SIMULATION_RESULT: SimulationResult = {
   values: {},
@@ -19,7 +21,11 @@ interface SimulationState {
   tick: number;
 }
 
-export function useSimulationRuntime(circuit: CircuitDocument, tick: number) {
+export function useSimulationRuntime(
+  circuit: CircuitDocument,
+  tick: number,
+  definitions: CircuitDefinition[],
+) {
   const [resetToken, setResetToken] = useState(0);
   const [simulationState, setSimulationState] = useState<SimulationState>({
     result: EMPTY_SIMULATION_RESULT,
@@ -43,25 +49,31 @@ export function useSimulationRuntime(circuit: CircuitDocument, tick: number) {
 
     const id = ++messageIdRef.current;
 
-    // circuit/tick ficam presos ao closure desta requisição: mesmo que o
-    // circuito ou a contagem de ticks já tenham avançado por fora (ex.: o
-    // próximo tick do clock automático disparou antes deste render
-    // comitar), o par gravado aqui continua sendo exatamente o que gerou
-    // esta resposta — sem reler estado externo que pode já ter mudado.
+    // A hierarquia é achatada aqui, no main thread, antes de postar pro worker —
+    // o worker/simulationSession/motor de simulação continuam inalterados, sempre
+    // vendo um CircuitDocument flat. `nodes` (de flattenCircuit) fica preso ao
+    // mesmo closure que circuit/tick: mesmo que o circuito ou a contagem de ticks
+    // já tenham avançado por fora (ex.: o próximo tick do clock automático
+    // disparou antes deste render comitar), o trio gravado aqui continua sendo
+    // exatamente o que gerou esta resposta — sem reler estado externo que pode
+    // já ter mudado.
+    const { flat, nodes } = flattenCircuit(circuit, definitions);
+
     const handleMessage = (e: MessageEvent<SimulationResponse>) => {
       if (e.data.id === id) {
-        setSimulationState({ result: e.data.result, circuit, tick });
+        const liftedValues = liftEvaluationForScope(nodes, e.data.result.values);
+        setSimulationState({ result: { ...e.data.result, values: liftedValues }, circuit, tick });
       }
     };
 
     workerRef.current.addEventListener('message', handleMessage);
-    const request: SimulationRequest = { type: 'simulate', id, circuit };
+    const request: SimulationRequest = { type: 'simulate', id, circuit: flat };
     workerRef.current.postMessage(request);
 
     return () => {
       workerRef.current?.removeEventListener('message', handleMessage);
     };
-  }, [circuit, tick, resetToken]);
+  }, [circuit, tick, resetToken, definitions]);
 
   function resetSimulationRuntime() {
     const request: SimulationRequest = { type: 'reset' };

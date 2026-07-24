@@ -1,4 +1,5 @@
 import type {
+  CircuitDefinition,
   ComponentDefinition,
   GateType,
   LogicComponent,
@@ -136,24 +137,146 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
     ['Q0', 'Q1', 'Q2', 'Q3'],
     180,
   ),
+  // Static fallback only: a subcircuit instance's real pins are derived dynamically
+  // from its definition by resolveComponentDefinition/deriveSubcircuitDefinition below.
+  // This entry exists purely so COMPONENT_DEFINITIONS stays exhaustive over GateType.
+  subcircuit: {
+    type: 'subcircuit',
+    label: 'Subcircuito',
+    width: 140,
+    height: 74,
+    pins: [],
+  },
 };
 
-export function getPins(component: LogicComponent): PinDefinition[] {
-  return COMPONENT_DEFINITIONS[component.type].pins;
+const SUBCIRCUIT_DEFAULT_WIDTH = 140;
+
+/**
+ * Derives a subcircuit definition's boundary pins from its internal components/wires.
+ * Both rules are type-based and unconditional (internal wiring never changes which
+ * pins exist, only what drives/reads them) -- explicit marker components, symmetric in
+ * both directions:
+ *
+ * Rule 1 (input): every input/clock component inside the definition becomes an input
+ * pin. These are the only two GateTypes with no input pin of their own (pure sources),
+ * so they're the natural "external driver enters here" marker.
+ *
+ * Rule 2 (output): every LED component inside the definition becomes an output pin,
+ * sourced from whatever drives that LED's `in` pin internally. LED is the natural
+ * "expose this value" marker: it's already the simulator's dedicated terminal/display
+ * component, so reusing it avoids a "forgot to wire this" gate output accidentally
+ * becoming a pin, and reads immediately as "this is a boundary output" when authoring
+ * a definition.
+ */
+export function deriveSubcircuitPins(definition: CircuitDefinition): PinDefinition[] {
+  const ordered = [...definition.components].sort((a, b) => a.y - b.y || a.x - b.x);
+
+  const inputs: Array<{ id: string; label: string }> = ordered
+    .filter((component) => component.type === 'input' || component.type === 'clock')
+    .map((component) => ({ id: component.id, label: component.label ?? component.id }));
+
+  const outputs: Array<{ id: string; label: string }> = ordered
+    .filter((component) => component.type === 'led')
+    .map((component) => ({ id: component.id, label: component.label ?? component.id }));
+
+  const height = Math.max(74, Math.max(inputs.length, outputs.length, 1) * 24 + 22);
+  const pinY = (count: number, index: number) => height / 2 - ((count - 1) * 24) / 2 + index * 24;
+
+  return [
+    ...inputs.map((pin, index): PinDefinition => ({
+      id: pin.id,
+      kind: 'input',
+      label: pin.label,
+      offset: { x: 0, y: pinY(inputs.length, index) },
+    })),
+    ...outputs.map((pin, index): PinDefinition => ({
+      id: pin.id,
+      kind: 'output',
+      label: pin.label,
+      offset: { x: SUBCIRCUIT_DEFAULT_WIDTH, y: pinY(outputs.length, index) },
+    })),
+  ];
 }
 
-export function getPin(component: LogicComponent, pinId: string): PinDefinition | undefined {
-  return getPins(component).find((pin) => pin.id === pinId);
+const derivedDefinitionCache = new WeakMap<CircuitDefinition, ComponentDefinition>();
+// Reentrancy guard: breaks infinite recursion if two definitions reference each other
+// (directly or indirectly). A cyclic occurrence resolves to a pin-less stub instead of
+// hanging: the authoritative cycle guard for simulation lives in flattenCircuit.
+const definitionsBeingDerived = new Set<CircuitDefinition>();
+
+export function deriveSubcircuitDefinition(definition: CircuitDefinition): ComponentDefinition {
+  const cached = derivedDefinitionCache.get(definition);
+  if (cached) return cached;
+  if (definitionsBeingDerived.has(definition)) {
+    return {
+      type: 'subcircuit',
+      label: definition.name,
+      width: SUBCIRCUIT_DEFAULT_WIDTH,
+      height: 74,
+      pins: [],
+    };
+  }
+  definitionsBeingDerived.add(definition);
+  try {
+    const pins = deriveSubcircuitPins(definition);
+    const inputCount = pins.filter((pin) => pin.kind === 'input').length;
+    const outputCount = pins.filter((pin) => pin.kind === 'output').length;
+    const height = Math.max(74, Math.max(inputCount, outputCount, 1) * 24 + 22);
+    const result: ComponentDefinition = {
+      type: 'subcircuit',
+      label: definition.name,
+      width: SUBCIRCUIT_DEFAULT_WIDTH,
+      height,
+      pins,
+    };
+    derivedDefinitionCache.set(definition, result);
+    return result;
+  } finally {
+    definitionsBeingDerived.delete(definition);
+  }
 }
 
-export function getPinPosition(component: LogicComponent, pinId: string): Point {
-  const pin = getPin(component, pinId);
+export function resolveComponentDefinition(
+  component: LogicComponent,
+  definitions?: CircuitDefinition[],
+): ComponentDefinition {
+  if (component.type !== 'subcircuit') return COMPONENT_DEFINITIONS[component.type];
+  const definition = definitions?.find((candidate) => candidate.id === component.definitionId);
+  if (!definition) return COMPONENT_DEFINITIONS.subcircuit;
+  return deriveSubcircuitDefinition(definition);
+}
+
+export function getPins(
+  component: LogicComponent,
+  definitions?: CircuitDefinition[],
+): PinDefinition[] {
+  return resolveComponentDefinition(component, definitions).pins;
+}
+
+export function getPin(
+  component: LogicComponent,
+  pinId: string,
+  definitions?: CircuitDefinition[],
+): PinDefinition | undefined {
+  return getPins(component, definitions).find((pin) => pin.id === pinId);
+}
+
+export function getPinPosition(
+  component: LogicComponent,
+  pinId: string,
+  definitions?: CircuitDefinition[],
+): Point {
+  const pin = getPin(component, pinId, definitions);
   if (!pin) return { x: component.x, y: component.y };
   return { x: component.x + pin.offset.x, y: component.y + pin.offset.y };
 }
 
-export function getPinKind(component: LogicComponent, pinId: string) {
-  return getPin(component, pinId)?.kind;
+export function getPinKind(
+  component: LogicComponent,
+  pinId: string,
+  definitions?: CircuitDefinition[],
+) {
+  return getPin(component, pinId, definitions)?.kind;
 }
 
 export function samePin(a: PinRef, b: PinRef): boolean {

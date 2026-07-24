@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import type { CircuitDocument } from '../../core/types';
-import { isSequentialType, stepCircuit } from '../../core/evaluateCircuit';
+import type { CircuitDefinition, CircuitDocument } from '../../core/types';
 import { toggleWatchedSignal as toggleWatchedSignalKey } from '../../core/simulation/waveform';
+import { stepHierarchical } from '../../core/hierarchy/simulate';
+import { circuitOrInstancesHaveSequential } from '../../core/hierarchy/scope';
 import { useSimulationRuntime } from './useSimulationRuntime';
 import { useWaveformHistory } from './useWaveformHistory';
 import { useAutoClock } from './useAutoClock';
@@ -11,6 +12,7 @@ import type { SetStateAction } from 'react';
 interface Options {
   circuit: CircuitDocument;
   setCircuit: (action: SetStateAction<CircuitDocument>) => void;
+  definitions: CircuitDefinition[];
   watchedSignals: string[] | undefined;
   setWatchedSignals: (signals: string[]) => void;
   rememberCircuit: () => void;
@@ -20,6 +22,7 @@ interface Options {
 export function useSimulationController({
   circuit,
   setCircuit,
+  definitions,
   watchedSignals,
   setWatchedSignals,
   rememberCircuit,
@@ -35,7 +38,7 @@ export function useSimulationController({
     simulationCircuit,
     simulationTick,
     resetSimulationRuntime,
-  } = useSimulationRuntime(circuit, tickCount);
+  } = useSimulationRuntime(circuit, tickCount, definitions);
 
   // waveformHistory usa o circuito/tick emparelhados com simulationResult
   // (não circuit/tickCount direto): sob carga pesada, o React pode juntar
@@ -78,14 +81,12 @@ export function useSimulationController({
     toggleWatchedSignal(wire.from.componentId, wire.from.pinId);
   }
 
-  const hasSequentialComponents = circuit.components.some((component) =>
-    isSequentialType(component.type),
-  );
+  const hasSequentialComponents = circuitOrInstancesHaveSequential(circuit.components, definitions);
 
   const autoClockTick = useCallback(() => {
-    setCircuit((current) => stepCircuit(current));
+    setCircuit((current) => stepHierarchical(current, definitions));
     setTickCount((current) => current + 1);
-  }, [setCircuit]);
+  }, [setCircuit, definitions]);
 
   useAutoClock({
     running: autoClockRunning,
@@ -94,7 +95,7 @@ export function useSimulationController({
   });
 
   function circuitCanTick() {
-    return circuit.components.some((component) => isSequentialType(component.type));
+    return circuitOrInstancesHaveSequential(circuit.components, definitions);
   }
 
   function tickSequentialCircuit() {
@@ -103,7 +104,7 @@ export function useSimulationController({
       return;
     }
     rememberCircuit();
-    setCircuit((current) => stepCircuit(current));
+    setCircuit((current) => stepHierarchical(current, definitions));
     setTickCount((current) => current + 1);
     onMessage('Tick: tempo sequencial avançado.');
   }

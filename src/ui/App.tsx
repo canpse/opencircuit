@@ -1,5 +1,7 @@
-import { Profiler, useEffect, useRef, useState } from 'react';
+import { Profiler, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
 import type { CircuitDocument, GateType } from '../core/types';
+import { flattenCircuit } from '../core/hierarchy/flatten';
+import { nextDefinitionId } from '../core/hierarchy/scope';
 import { CircuitCanvas } from './editor/CircuitCanvas';
 import { exportCircuitImage, type CircuitImageFormat } from './editor/exportCircuitImage';
 import { recordReactProfile } from '../performance/profiling';
@@ -78,6 +80,78 @@ export function App() {
     onMessage: setMessage,
   });
 
+  // Fase 1 (fundação de subcircuitos, issue #18): navegação simples pra entrar/sair de
+  // uma definição -- sem trilha de migalhas/duplo-clique ainda (isso é Fase 3). Editar a
+  // raiz ou uma definição usa o mesmo par circuit/setCircuit (useCircuitEditor não
+  // precisa saber a diferença), só trocando qual "fatia" do documento é exposta.
+  const definitions = useMemo(() => circuit.definitions ?? [], [circuit.definitions]);
+  const [activeDefinitionId, setActiveDefinitionId] = useState<string | null>(null);
+  const [pendingSubcircuitDefinitionId, setPendingSubcircuitDefinitionId] = useState<string | null>(
+    null,
+  );
+  const activeDefinition = activeDefinitionId
+    ? (definitions.find((definition) => definition.id === activeDefinitionId) ?? null)
+    : null;
+
+  const scopedCircuit = useMemo<CircuitDocument>(
+    () =>
+      activeDefinition
+        ? { version: 1, components: activeDefinition.components, wires: activeDefinition.wires }
+        : circuit,
+    [activeDefinition, circuit],
+  );
+
+  function setScopedCircuit(action: SetStateAction<CircuitDocument>) {
+    setCircuit((previousFull) => {
+      if (!activeDefinitionId) {
+        return typeof action === 'function' ? action(previousFull) : action;
+      }
+      const previousDefinitions = previousFull.definitions ?? [];
+      const previousDefinition = previousDefinitions.find(
+        (definition) => definition.id === activeDefinitionId,
+      );
+      if (!previousDefinition) return previousFull;
+      const previousScoped: CircuitDocument = {
+        version: 1,
+        components: previousDefinition.components,
+        wires: previousDefinition.wires,
+      };
+      const nextScoped = typeof action === 'function' ? action(previousScoped) : action;
+      return {
+        ...previousFull,
+        definitions: previousDefinitions.map((definition) =>
+          definition.id === activeDefinitionId
+            ? { ...definition, components: nextScoped.components, wires: nextScoped.wires }
+            : definition,
+        ),
+      };
+    });
+  }
+
+  function enterDefinition(definitionId: string) {
+    setActiveDefinitionId(definitionId);
+    setMessage('Editando definição de subcircuito.');
+  }
+
+  function exitDefinition() {
+    setActiveDefinitionId(null);
+    setMessage('De volta ao circuito principal.');
+  }
+
+  function createDefinition() {
+    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
+    if (!name || !name.trim()) return;
+    const id = nextDefinitionId(definitions);
+    setCircuit((current) => ({
+      ...current,
+      definitions: [
+        ...(current.definitions ?? []),
+        { id, name: name.trim(), components: [], wires: [] },
+      ],
+    }));
+    enterDefinition(id);
+  }
+
   const {
     canUndo,
     canRedo,
@@ -115,8 +189,9 @@ export function App() {
     onCopy,
     onPaste,
   } = useCircuitEditor({
-    circuit,
-    setCircuit,
+    circuit: scopedCircuit,
+    setCircuit: setScopedCircuit,
+    definitions,
     rememberCircuit,
     onMessage: setMessage,
     onSelectTool: setSelectedTool,
@@ -146,8 +221,9 @@ export function App() {
     resetSimulation,
     resetSimulationState,
   } = useSimulationController({
-    circuit,
-    setCircuit,
+    circuit: scopedCircuit,
+    setCircuit: setScopedCircuit,
+    definitions,
     watchedSignals: activeDocument.watchedSignals,
     setWatchedSignals,
     rememberCircuit,
@@ -187,7 +263,13 @@ export function App() {
   const truthPanel = useResizableSidePanel(320, 260, 620);
   const waveformPanel = useResizableBottomPanel(260, 150, 520);
 
-  const hasFeedback = circuitHasFeedback(circuit);
+  // circuitHasFeedback roda sobre o grafo achatado (memoizado): uma realimentação que
+  // atravessa a fronteira de uma instância de subcircuito só aparece depois de expandida.
+  const flattenedScope = useMemo(
+    () => flattenCircuit(scopedCircuit, definitions),
+    [scopedCircuit, definitions],
+  );
+  const hasFeedback = circuitHasFeedback(flattenedScope.flat);
   const currentExample =
     CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
 
@@ -221,9 +303,10 @@ export function App() {
     setSelectedTool('select');
     resetSimulationState();
     setPendingWire(null);
+    setPendingSubcircuitDefinitionId(null);
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDocumentId]);
+  }, [activeDocumentId, activeDefinitionId]);
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
     resetSimulation();
@@ -315,7 +398,17 @@ export function App() {
         className="app-layout"
         style={{ gridTemplateColumns: `250px minmax(520px, 1fr) 8px ${truthPanel.width}px` }}
       >
-        <ComponentLibrary selectedTool={selectedTool} onSelectTool={setSelectedTool} />
+        <ComponentLibrary
+          selectedTool={selectedTool}
+          onSelectTool={setSelectedTool}
+          definitions={definitions}
+          excludeDefinitionId={activeDefinitionId}
+          selectedSubcircuitDefinitionId={pendingSubcircuitDefinitionId}
+          onSelectSubcircuit={(definitionId) => {
+            setPendingSubcircuitDefinitionId(definitionId);
+            setSelectedTool('subcircuit');
+          }}
+        />
 
         <div className="center-panel">
           <DocumentTabs
@@ -327,8 +420,34 @@ export function App() {
             onRename={renameDocument}
             onCreate={createNewDocument}
           />
+          <div className="definitions-bar">
+            <span className="definitions-bar-label">Subcircuitos:</span>
+            {definitions.length === 0 && (
+              <span className="definitions-bar-empty">nenhum ainda</span>
+            )}
+            {definitions.map((definition) => (
+              <button
+                key={definition.id}
+                className={activeDefinitionId === definition.id ? 'active' : ''}
+                onClick={() => enterDefinition(definition.id)}
+              >
+                {definition.name}
+              </button>
+            ))}
+            <button className="definitions-bar-create" onClick={createDefinition}>
+              + Nova definição
+            </button>
+          </div>
           <div className="editor-panel">
-            {historyTick !== null && (
+            {activeDefinition && (
+              <div className="history-view-banner">
+                <span>
+                  Editando definição: <strong>{activeDefinition.name}</strong>
+                </span>
+                <button onClick={exitDefinition}>Voltar ao circuito principal</button>
+              </div>
+            )}
+            {!activeDefinition && historyTick !== null && (
               <div className="history-view-banner">
                 <span>
                   Visualizando tick <strong>{historyTick}</strong> (histórico)
@@ -338,7 +457,7 @@ export function App() {
             )}
             <Profiler id="CircuitCanvas" onRender={recordReactProfile}>
               <CircuitCanvas
-                circuit={circuit}
+                circuit={scopedCircuit}
                 evaluation={canvasEvaluation}
                 changedSignals={canvasChangedSignals}
                 selectedTool={selectedTool}
@@ -347,6 +466,8 @@ export function App() {
                 selection={selection}
                 renameRequest={renameRequest}
                 onRenameRequestHandled={() => setRenameRequest(null)}
+                definitions={definitions}
+                pendingSubcircuitDefinitionId={pendingSubcircuitDefinitionId}
                 onCanvasAdd={addComponent}
                 onBeginMoveComponent={beginMoveComponent}
                 onMoveComponents={moveComponents}

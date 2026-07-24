@@ -1,5 +1,9 @@
 import { MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
+import {
+  COMPONENT_DEFINITIONS,
+  getPinPosition,
+  resolveComponentDefinition,
+} from '../../core/catalog';
 import { ComponentView } from './ComponentView';
 import { useCanvasLayoutComponents } from './canvasMemo';
 import { useEventCallback } from '../hooks/useEventCallback';
@@ -20,6 +24,7 @@ import { useLabelEditing } from './useLabelEditing';
 import { measureProfile } from '../../performance/profiling';
 import { CanvasViewport } from './CanvasViewport';
 import type {
+  CircuitDefinition,
   CircuitDocument,
   EvaluationResult,
   GateType,
@@ -63,7 +68,9 @@ interface Props {
   selection: Selection;
   renameRequest: { componentId: string; nonce: number } | null;
   onRenameRequestHandled: () => void;
-  onCanvasAdd: (type: GateType, point: Point) => void;
+  definitions?: CircuitDefinition[];
+  pendingSubcircuitDefinitionId?: string | null;
+  onCanvasAdd: (type: GateType, point: Point, definitionId?: string) => void;
   onBeginMoveComponent: () => void;
   onMoveComponents: (moves: Array<{ componentId: string; point: Point }>) => void;
   onResizeTextComponent: (componentId: string, width: number) => void;
@@ -91,6 +98,7 @@ interface Props {
 
 export function CircuitCanvas(props: Props) {
   const { renameRequest, onRenameRequestHandled } = props;
+  const definitions = useMemo(() => props.definitions ?? [], [props.definitions]);
   const svgRef = useRef<SVGSVGElement>(null);
   const [dragging, setDragging] = useState<Dragging>(null);
   const [mousePoint, setMousePoint] = useState<Point | null>(null);
@@ -118,9 +126,9 @@ export function CircuitCanvas(props: Props) {
         components: layoutComponents.length,
         wires: routedWires.length,
       },
-      () => routeCircuitWires(routedWires, componentById, layoutComponents),
+      () => routeCircuitWires(routedWires, componentById, layoutComponents, definitions),
     );
-  }, [props.wireStyle, props.circuit.wires, componentById, layoutComponents]);
+  }, [props.wireStyle, props.circuit.wires, componentById, layoutComponents, definitions]);
   const routeByWireId = useMemo(
     () => new Map(routing.routes.map((route) => [route.wireId, route])),
     [routing],
@@ -173,10 +181,16 @@ export function CircuitCanvas(props: Props) {
     startRename,
     commitRename,
     onLabelEditorKeyDown,
-  } = useLabelEditing(componentById, props.onSelectComponent, props.onRenameComponent, () => {
-    setDragging(null);
-    setMarquee(null);
-  });
+  } = useLabelEditing(
+    componentById,
+    props.onSelectComponent,
+    props.onRenameComponent,
+    () => {
+      setDragging(null);
+      setMarquee(null);
+    },
+    definitions,
+  );
 
   useEffect(() => {
     if (!renameRequest) return;
@@ -224,7 +238,14 @@ export function CircuitCanvas(props: Props) {
       props.selectedTool !== 'wire' &&
       props.selectedTool !== 'pan'
     ) {
-      props.onCanvasAdd(props.selectedTool, svgPoint(event));
+      if (props.selectedTool === 'subcircuit' && !props.pendingSubcircuitDefinitionId) return;
+      props.onCanvasAdd(
+        props.selectedTool,
+        svgPoint(event),
+        props.selectedTool === 'subcircuit'
+          ? (props.pendingSubcircuitDefinitionId ?? undefined)
+          : undefined,
+      );
     }
   }
 
@@ -243,10 +264,10 @@ export function CircuitCanvas(props: Props) {
 
     suppressNextClick.current = true;
     const componentIds = props.circuit.components
-      .filter((component) => intersects(rect, componentBounds(component)))
+      .filter((component) => intersects(rect, componentBounds(component, definitions)))
       .map((component) => component.id);
     const wireIds = props.circuit.wires
-      .filter((wire) => wireInRect(wire, componentById, rect))
+      .filter((wire) => wireInRect(wire, componentById, rect, definitions))
       .map((wire) => wire.id);
     props.onSelectItems({ componentIds, wireIds });
   }
@@ -256,7 +277,7 @@ export function CircuitCanvas(props: Props) {
   // para a prévia não partir de uma coordenada antiga.
   function seedPendingWireMousePoint(pin: PinRef) {
     const component = componentById.get(pin.componentId);
-    if (component) setMousePoint(getPinPosition(component, pin.pinId));
+    if (component) setMousePoint(getPinPosition(component, pin.pinId, definitions));
   }
 
   // Handlers com identidade permanente (useEventCallback) e parametrizados
@@ -278,9 +299,9 @@ export function CircuitCanvas(props: Props) {
       const curvePoints =
         wire && fromComponent && toComponent
           ? [
-              getPinPosition(fromComponent, wire.from.pinId),
+              getPinPosition(fromComponent, wire.from.pinId, definitions),
               ...(wire.waypoints ?? []),
-              getPinPosition(toComponent, wire.to.pinId),
+              getPinPosition(toComponent, wire.to.pinId, definitions),
             ]
           : [];
       setWireWaypointDrag({
@@ -506,7 +527,13 @@ export function CircuitCanvas(props: Props) {
           event.preventDefault();
           const type = event.dataTransfer.getData('application/opencircuit-gate') as GateType;
           if (type && COMPONENT_DEFINITIONS[type]) {
-            props.onCanvasAdd(type, svgPoint(event));
+            const definitionId =
+              type === 'subcircuit'
+                ? event.dataTransfer.getData('application/opencircuit-subcircuit-definition') ||
+                  undefined
+                : undefined;
+            if (type === 'subcircuit' && !definitionId) return;
+            props.onCanvasAdd(type, svgPoint(event), definitionId);
             props.onSelectTool('select');
           }
         }}
@@ -565,6 +592,7 @@ export function CircuitCanvas(props: Props) {
                 active={Boolean(props.evaluation[wire.from.componentId]?.[wire.from.pinId])}
                 selected={selectedWireIds.has(wire.id)}
                 tunnelFromOffset={tunnelFromOffsetByWireId.get(wire.id) ?? 0}
+                definitions={definitions}
                 onSelect={handleWireSelect}
                 onContextMenu={handleWireContextMenu}
                 onRename={props.onRenameWire}
@@ -584,6 +612,7 @@ export function CircuitCanvas(props: Props) {
             components={layoutComponents}
             wireStyle={props.wireStyle}
             mousePoint={mousePoint}
+            definitions={definitions}
           />
         )}
 
@@ -607,6 +636,7 @@ export function CircuitCanvas(props: Props) {
               onPinMouseDown={handlePinMouseDown}
               onPinMouseUp={handlePinMouseUp}
               onPinClick={handlePinClick}
+              definitions={definitions}
             />
           ))}
         </g>
@@ -615,7 +645,7 @@ export function CircuitCanvas(props: Props) {
           (() => {
             const component = componentById.get(editingLabel.componentId);
             if (!component) return null;
-            const definition = COMPONENT_DEFINITIONS[component.type];
+            const definition = resolveComponentDefinition(component, definitions);
             return (
               <foreignObject
                 className="label-editor-object"

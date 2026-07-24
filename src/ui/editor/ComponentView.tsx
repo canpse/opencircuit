@@ -1,6 +1,6 @@
 import { memo, type MouseEvent } from 'react';
-import { COMPONENT_DEFINITIONS } from '../../core/catalog';
-import type { GateType, LogicComponent, PinRef } from '../../core/types';
+import { resolveComponentDefinition } from '../../core/catalog';
+import type { CircuitDefinition, GateType, LogicComponent, PinRef } from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
 import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
 import inputSwitchOnAsset from '../../assets/components/input_switch_on.png';
@@ -42,6 +42,7 @@ type ComponentViewProps = {
   onPinMouseDown: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinMouseUp: (pin: PinRef, kind: 'input' | 'output') => void;
   onPinClick: (pin: PinRef, kind: 'input' | 'output') => void;
+  definitions?: CircuitDefinition[];
 };
 
 // A simulação recria o objeto de avaliação a cada tick; comparar `values`
@@ -65,7 +66,8 @@ function componentViewPropsAreEqual(
     previous.onResizeStart === next.onResizeStart &&
     previous.onPinMouseDown === next.onPinMouseDown &&
     previous.onPinMouseUp === next.onPinMouseUp &&
-    previous.onPinClick === next.onPinClick
+    previous.onPinClick === next.onPinClick &&
+    previous.definitions === next.definitions
   );
 }
 
@@ -84,8 +86,12 @@ export const ComponentView = memo(function ComponentView({
   onPinMouseDown,
   onPinMouseUp,
   onPinClick,
+  definitions = [],
 }: ComponentViewProps) {
-  const definition = COMPONENT_DEFINITIONS[component.type];
+  const definition = resolveComponentDefinition(component, definitions);
+  const isDanglingSubcircuit =
+    component.type === 'subcircuit' &&
+    !definitions.some((candidate) => candidate.id === component.definitionId);
   const bodyWidth = component.type === 'text' ? textComponentWidth(component) : definition.width;
   const labelLines =
     component.type === 'text' ? wrapText(component.label ?? definition.label, bodyWidth - 42) : [];
@@ -102,7 +108,7 @@ export const ComponentView = memo(function ComponentView({
   return (
     <g
       transform={`translate(${component.x}, ${component.y})`}
-      className={`component ${selected ? 'selected' : ''}`}
+      className={`component ${selected ? 'selected' : ''} ${isDanglingSubcircuit ? 'subcircuit-dangling' : ''}`}
       onMouseDown={(event) => onMouseDown(event, component.id)}
       onContextMenu={(event) => {
         event.preventDefault();

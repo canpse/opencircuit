@@ -1,6 +1,6 @@
 import { KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
-import { COMPONENT_DEFINITIONS } from '../../core/catalog';
-import type { LogicComponent } from '../../core/types';
+import { resolveComponentDefinition } from '../../core/catalog';
+import type { CircuitDefinition, LogicComponent } from '../../core/types';
 
 type EditingLabel = { componentId: string; value: string } | null;
 
@@ -9,6 +9,7 @@ export function useLabelEditing(
   onSelectComponent: (componentId: string) => void,
   onRenameComponent: (componentId: string, label: string) => void,
   onBeforeEdit?: () => void,
+  definitions: CircuitDefinition[] = [],
 ) {
   const [editingLabel, setEditingLabel] = useState<EditingLabel>(null);
   const labelInputRef = useRef<HTMLInputElement>(null);
@@ -21,7 +22,7 @@ export function useLabelEditing(
   }, [editingComponentId]);
 
   function startRename(component: LogicComponent) {
-    const definition = COMPONENT_DEFINITIONS[component.type];
+    const definition = resolveComponentDefinition(component, definitions);
     onSelectComponent(component.id);
     onBeforeEdit?.();
     setEditingLabel({ componentId: component.id, value: component.label ?? definition.label });

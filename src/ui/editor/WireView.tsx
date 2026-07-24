@@ -1,6 +1,6 @@
 import { memo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { getPinPosition } from '../../core/catalog';
-import type { LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import type { CircuitDefinition, LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import {
   bezierPath,
   bezierPathFromPoints,
@@ -22,6 +22,7 @@ export const WireView = memo(function WireView({
   active,
   selected,
   tunnelFromOffset = 0,
+  definitions = [],
   onSelect,
   onContextMenu,
   onRename,
@@ -38,6 +39,7 @@ export const WireView = memo(function WireView({
   active: boolean;
   selected: boolean;
   tunnelFromOffset?: number;
+  definitions?: CircuitDefinition[];
   onSelect: (wireId: string) => void;
   onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onRename: (wireId: string, label: string) => void;
@@ -56,12 +58,12 @@ export const WireView = memo(function WireView({
 }) {
   const [editingEnd, setEditingEnd] = useState<'from' | 'to' | null>(null);
   const [draftLabel, setDraftLabel] = useState('');
-  const start = getPinPosition(fromComponent, wire.from.pinId);
-  const end = getPinPosition(toComponent, wire.to.pinId);
+  const start = getPinPosition(fromComponent, wire.from.pinId, definitions);
+  const end = getPinPosition(toComponent, wire.to.pinId, definitions);
   const points =
     route?.points ??
     (fromComponent.id === toComponent.id
-      ? selfLoopRoute(fromComponent, start, end, 0)
+      ? selfLoopRoute(fromComponent, start, end, 0, definitions)
       : [start, end]);
   const d =
     wireStyle === 'orthogonal'
@@ -224,20 +226,30 @@ export function PendingWire({
   components,
   wireStyle,
   mousePoint,
+  definitions = [],
 }: {
   pendingWire: PinRef;
   componentById: Map<string, LogicComponent>;
   components: LogicComponent[];
   wireStyle: WireStyle;
   mousePoint: Point | null;
+  definitions?: CircuitDefinition[];
 }) {
   const component = componentById.get(pendingWire.componentId);
   if (!component) return null;
-  const start = getPinPosition(component, pendingWire.pinId);
+  const start = getPinPosition(component, pendingWire.pinId, definitions);
   const end = mousePoint;
   const route =
     end && wireStyle === 'orthogonal'
-      ? routeBetweenPoints(start, end, components, new Set([component.id]), 0)
+      ? routeBetweenPoints(
+          start,
+          end,
+          components,
+          new Set([component.id]),
+          0,
+          undefined,
+          definitions,
+        )
       : null;
   const d = end
     ? wireStyle === 'orthogonal' && route

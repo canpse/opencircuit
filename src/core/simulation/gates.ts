@@ -158,5 +158,10 @@ export function evaluateComponent(
         Bout: (!a && b) || (bin && !(a !== b)),
       });
     }
+    case 'subcircuit':
+      // Unreachable at runtime: flattenCircuit() expands every subcircuit instance
+      // into its real internal components before a document ever reaches this
+      // function. Kept only so the switch stays exhaustive over GateType.
+      return false;
   }
 }

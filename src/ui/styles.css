@@ -498,7 +498,7 @@ button:disabled {
 
 .center-panel {
   display: grid;
-  grid-template-rows: 38px minmax(0, 1fr) auto;
+  grid-template-rows: 38px auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   background: #f8fbfd;
@@ -617,6 +617,40 @@ button:disabled {
   overflow-y: hidden;
   border-bottom: 1px solid rgba(91, 113, 128, 0.2);
   background: #f3f7fa;
+}
+
+.definitions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  border-bottom: 1px solid rgba(91, 113, 128, 0.2);
+  background: #eef3f6;
+  font-size: 12px;
+}
+.definitions-bar-label {
+  flex: none;
+  color: var(--muted);
+  font-weight: 800;
+}
+.definitions-bar-empty {
+  flex: none;
+  color: var(--muted);
+  font-style: italic;
+}
+.definitions-bar button {
+  flex: none;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.definitions-bar button.active {
+  color: #fff;
+  background: var(--brand-strong);
+}
+.definitions-bar-create {
+  color: var(--brand-strong);
 }
 .document-tab {
   display: inline-flex;
@@ -1465,6 +1499,11 @@ button:disabled {
 .component.selected .text-note-body {
   stroke: var(--brand);
   stroke-width: 3;
+}
+.component.subcircuit-dangling .gate-body {
+  stroke: #c0392b;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
 }
 
 .component-label,

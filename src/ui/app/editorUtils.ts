@@ -1,6 +1,13 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import { withSequentialDefaults } from '../../core/evaluateCircuit';
-import type { CircuitDocument, GateType, LogicComponent, Point, Wire } from '../../core/types';
+import type {
+  CircuitDefinition,
+  CircuitDocument,
+  GateType,
+  LogicComponent,
+  Point,
+  Wire,
+} from '../../core/types';
 import type { Selection } from '../context-menu/ContextMenuView';
 import type { WireStyle } from '../editor/CircuitCanvas';
 
@@ -13,19 +20,51 @@ export function loadWireStyle(storageKey: string): WireStyle {
   }
 }
 
+function cloneComponent(component: LogicComponent): LogicComponent {
+  return {
+    ...component,
+    memory: component.memory ? { ...component.memory } : undefined,
+    instanceMemory: component.instanceMemory
+      ? Object.fromEntries(
+          Object.entries(component.instanceMemory).map(([path, memory]) => [path, { ...memory }]),
+        )
+      : undefined,
+  };
+}
+
+function cloneWire(wire: Wire): Wire {
+  return {
+    ...wire,
+    from: { ...wire.from },
+    to: { ...wire.to },
+    waypoints: wire.waypoints?.map((point) => ({ ...point })),
+  };
+}
+
+function cloneDefinition(definition: CircuitDefinition): CircuitDefinition {
+  return {
+    id: definition.id,
+    name: definition.name,
+    components: definition.components.map(cloneComponent),
+    wires: definition.wires.map(cloneWire),
+  };
+}
+
 export function cloneCircuit(circuit: CircuitDocument): CircuitDocument {
   return {
     version: circuit.version,
-    components: circuit.components.map((component) => ({
-      ...component,
-      memory: component.memory ? { ...component.memory } : undefined,
-    })),
-    wires: circuit.wires.map((wire) => ({
-      ...wire,
-      from: { ...wire.from },
-      to: { ...wire.to },
-      waypoints: wire.waypoints?.map((point) => ({ ...point })),
-    })),
+    components: circuit.components.map(cloneComponent),
+    wires: circuit.wires.map(cloneWire),
+    definitions: circuit.definitions?.map(cloneDefinition),
+  };
+}
+
+function normalizeDefinition(definition: CircuitDefinition): CircuitDefinition {
+  return {
+    ...definition,
+    components: definition.components.map((component) =>
+      withSequentialDefaults(cloneComponent(component)),
+    ),
   };
 }
 
@@ -33,11 +72,9 @@ export function normalizeCircuitForEditor(circuit: CircuitDocument): CircuitDocu
   return {
     ...cloneCircuit(circuit),
     components: circuit.components.map((component) =>
-      withSequentialDefaults({
-        ...component,
-        memory: component.memory ? { ...component.memory } : undefined,
-      }),
+      withSequentialDefaults(cloneComponent(component)),
     ),
+    definitions: circuit.definitions?.map(normalizeDefinition),
   };
 }
 
@@ -190,6 +227,7 @@ export function nextId(type: GateType, components: LogicComponent[]): string {
     'd-latch': 'DL',
     'd-flip-flop': 'DFF',
     'register-4': 'REG',
+    subcircuit: 'U',
   };
   const prefix = prefixByType[type];
   let index = components.length + 1;
@@ -202,14 +240,23 @@ export function nextId(type: GateType, components: LogicComponent[]): string {
   return id;
 }
 
-export function createLogicComponent(type: GateType, id: string, point: Point): LogicComponent {
+export function createLogicComponent(
+  type: GateType,
+  id: string,
+  point: Point,
+  definitionId?: string,
+): LogicComponent {
   return withSequentialDefaults({
     id,
     type,
     x: point.x,
     y: point.y,
-    label: defaultLabel(type, id),
+    // Left undefined for a subcircuit instance: leaving no fixed label means the
+    // rendered name always live-reflects the definition's current name (reference
+    // semantics -- renaming a definition should not require touching every instance).
+    label: type === 'subcircuit' ? undefined : defaultLabel(type, id),
     state: type === 'input' || type === 'button' ? false : undefined,
+    definitionId: type === 'subcircuit' ? definitionId : undefined,
   });
 }
 
