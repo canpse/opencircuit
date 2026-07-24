@@ -679,11 +679,12 @@ export function App() {
                 {historyTick !== null && ` (tick ${historyTick})`}
               </div>
               <CircuitTruthTable
-                circuit={circuit}
+                circuit={scopedCircuit}
                 evaluation={canvasEvaluation}
                 unstable={simulationResult.unstable}
                 hasFeedback={hasFeedback}
                 definitions={definitions}
+                scopeName={activeDefinition?.name}
               />
               <div className="analysis-guide-card">
                 {hasSequentialComponents || hasFeedback ? (
