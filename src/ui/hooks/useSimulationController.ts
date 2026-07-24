@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isSequentialType, stepCircuit } from '../../core/evaluateCircuit';
+import { toggleWatchedSignal as toggleWatchedSignalKey } from '../../core/simulation/waveform';
 import { useSimulationRuntime } from './useSimulationRuntime';
 import { useWaveformHistory } from './useWaveformHistory';
 import { useAutoClock } from './useAutoClock';
@@ -10,6 +11,8 @@ import type { SetStateAction } from 'react';
 interface Options {
   circuit: CircuitDocument;
   setCircuit: (action: SetStateAction<CircuitDocument>) => void;
+  watchedSignals: string[] | undefined;
+  setWatchedSignals: (signals: string[]) => void;
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
 }
@@ -17,6 +20,8 @@ interface Options {
 export function useSimulationController({
   circuit,
   setCircuit,
+  watchedSignals,
+  setWatchedSignals,
   rememberCircuit,
   onMessage,
 }: Options) {
@@ -40,9 +45,20 @@ export function useSimulationController({
     circuit: simulationCircuit,
     simulationResult,
     tickCount: simulationTick,
+    watchedSignals,
   });
 
   const { changedSignals, resetChangeFlashes } = useEvaluationChangeFlashes(evaluation);
+
+  function toggleWatchedSignal(componentId: string, pinId: string) {
+    setWatchedSignals(toggleWatchedSignalKey(circuit, watchedSignals, componentId, pinId));
+  }
+
+  function toggleWatchedSignalForWire(wireId: string) {
+    const wire = circuit.wires.find((candidate) => candidate.id === wireId);
+    if (!wire) return;
+    toggleWatchedSignal(wire.from.componentId, wire.from.pinId);
+  }
 
   const hasSequentialComponents = circuit.components.some((component) =>
     isSequentialType(component.type),
@@ -113,6 +129,8 @@ export function useSimulationController({
     waveformSamples,
     waveformSignals,
     clearWaveformHistory,
+    toggleWatchedSignal,
+    toggleWatchedSignalForWire,
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,

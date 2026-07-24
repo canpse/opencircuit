@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CircuitDocument, SimulationResult } from '../../core/types';
 import {
   createWaveformRecorder,
-  listObservableSignals,
   recordTickSample,
+  resolveWaveformSignals,
 } from '../../core/simulation/waveform';
 import { EMPTY_SIMULATION_RESULT } from './useSimulationRuntime';
 
@@ -16,9 +16,16 @@ interface Options {
   circuit: CircuitDocument;
   simulationResult: SimulationResult;
   tickCount: number;
+  // undefined = detecção automática de sinais (ver resolveWaveformSignals).
+  watchedSignals: string[] | undefined;
 }
 
-export function useWaveformHistory({ circuit, simulationResult, tickCount }: Options) {
+export function useWaveformHistory({
+  circuit,
+  simulationResult,
+  tickCount,
+  watchedSignals,
+}: Options) {
   const [recorder, setRecorder] = useState(createWaveformRecorder);
 
   useEffect(() => {
@@ -28,7 +35,7 @@ export function useWaveformHistory({ circuit, simulationResult, tickCount }: Opt
     // não há cascata de re-renderizações.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setRecorder((current) =>
-      recordTickSample(current, tickCount, circuit, simulationResult.values),
+      recordTickSample(current, tickCount, circuit, simulationResult.values, watchedSignals),
     );
     // circuit/tickCount já vêm emparelhados com simulationResult (ver
     // comentário na interface Options acima), então só o resultado
@@ -36,7 +43,10 @@ export function useWaveformHistory({ circuit, simulationResult, tickCount }: Opt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [simulationResult]);
 
-  const waveformSignals = useMemo(() => listObservableSignals(circuit), [circuit]);
+  const waveformSignals = useMemo(
+    () => resolveWaveformSignals(circuit, watchedSignals),
+    [circuit, watchedSignals],
+  );
 
   const clearWaveformHistory = useCallback(() => {
     setRecorder(createWaveformRecorder());
