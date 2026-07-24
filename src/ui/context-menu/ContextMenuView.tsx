@@ -17,7 +17,7 @@ const DEFAULT_QUICK_COMPONENTS: GateType[] = ['input', 'and', 'led', 'clock'];
 const CANVAS_MENU_WIDTH = 300;
 const CANVAS_MENU_HEIGHT = 452;
 const SIMPLE_MENU_WIDTH = 190;
-const SIMPLE_MENU_HEIGHT = 150;
+const SIMPLE_MENU_HEIGHT = 190;
 const SUBMENU_WIDTH = 340;
 const VIEWPORT_MARGIN = 8;
 
@@ -30,6 +30,7 @@ export function ContextMenuView({
   wireIsTunnel,
   onToggleWatchedSignal,
   wireSignalWatched,
+  onTransformSelection,
   onRemove,
   onClose,
 }: {
@@ -41,6 +42,7 @@ export function ContextMenuView({
   wireIsTunnel: boolean;
   onToggleWatchedSignal: () => void;
   wireSignalWatched: boolean;
+  onTransformSelection: () => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
@@ -86,6 +88,12 @@ export function ContextMenuView({
           {menu.kind === 'wire' && (
             <button onClick={onToggleWatchedSignal} role="menuitem">
               {wireSignalWatched ? 'Remover da forma de onda' : 'Adicionar à forma de onda'}
+            </button>
+          )}
+          {(menu.kind === 'component' ||
+            (menu.kind === 'wire' && selection.componentIds.length > 0)) && (
+            <button onClick={onTransformSelection} role="menuitem">
+              Transformar em subcircuito
             </button>
           )}
           <button disabled={!canRemove} onClick={onRemove} role="menuitem">

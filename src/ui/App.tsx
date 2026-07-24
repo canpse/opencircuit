@@ -18,7 +18,12 @@ import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
 import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
 import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
-import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
+import {
+  extractSelectionIntoDefinition,
+  GRID,
+  hasSelection,
+  normalizeCircuitForEditor,
+} from './app/editorUtils';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
 import { RemoteCircuitsDialog } from './dialogs/RemoteCircuitsDialog';
@@ -142,6 +147,7 @@ export function App() {
     const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
     if (!name || !name.trim()) return;
     const id = nextDefinitionId(definitions);
+    rememberCircuit();
     setCircuit((current) => ({
       ...current,
       definitions: [
@@ -150,6 +156,51 @@ export function App() {
       ],
     }));
     enterDefinition(id);
+  }
+
+  function transformSelectionIntoSubcircuit(componentIds: string[]) {
+    if (componentIds.length === 0) {
+      setMessage('Selecione ao menos um componente para transformar em subcircuito.');
+      return;
+    }
+    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
+    if (!name || !name.trim()) return;
+
+    const definitionId = nextDefinitionId(definitions);
+    const result = extractSelectionIntoDefinition(
+      scopedCircuit,
+      componentIds,
+      definitionId,
+      name.trim(),
+      GRID,
+    );
+    if (!result) return;
+
+    rememberCircuit();
+    setCircuit((current) => {
+      const currentDefinitions = current.definitions ?? [];
+      if (!activeDefinition) {
+        return {
+          ...current,
+          components: result.scope.components,
+          wires: result.scope.wires,
+          definitions: [...currentDefinitions, result.definition],
+        };
+      }
+      return {
+        ...current,
+        definitions: [
+          ...currentDefinitions.map((definition) =>
+            definition.id === activeDefinition.id
+              ? { ...definition, components: result.scope.components, wires: result.scope.wires }
+              : definition,
+          ),
+          result.definition,
+        ],
+      };
+    });
+    setSelection({ componentIds: [result.instanceId], wireIds: [] });
+    setMessage(`Subcircuito "${name.trim()}" criado.`);
   }
 
   const {
@@ -164,6 +215,7 @@ export function App() {
     pendingWire,
     setPendingWire,
     selection,
+    setSelection,
     addComponent,
     beginMoveComponent,
     moveComponents,
@@ -242,6 +294,7 @@ export function App() {
     toggleWireContextTarget,
     toggleWatchedSignalContextTarget,
     removeContextTarget,
+    transformContextTarget,
   } = useContextMenuManager({
     selection,
     pendingWire,
@@ -256,6 +309,7 @@ export function App() {
     removeWireWaypoint,
     toggleWireDisplay,
     toggleWatchedSignalForWire,
+    transformSelection: transformSelectionIntoSubcircuit,
     setRenameRequest,
   });
 
@@ -707,6 +761,7 @@ export function App() {
               signalKey(wire.from.componentId, wire.from.pinId),
             );
           })()}
+          onTransformSelection={transformContextTarget}
           onRemove={removeContextTarget}
           onClose={closeContextMenu}
         />
