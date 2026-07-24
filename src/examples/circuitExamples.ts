@@ -606,6 +606,1339 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
     },
   },
   {
+    id: 'sync-counter-8bit',
+    name: 'Contador binário síncrono (8 bits)',
+    circuit: {
+      version: 1,
+      components: [
+        {
+          id: 'EN',
+          type: 'input',
+          x: 20,
+          y: 80,
+          label: 'Enable',
+          state: true,
+        },
+        {
+          id: 'CLK',
+          type: 'clock',
+          x: 420,
+          y: 20,
+          label: 'Clock',
+          state: false,
+        },
+        {
+          id: 'FF0',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 180,
+          label: 'Bit 0',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X0',
+          type: 'xor',
+          x: 640,
+          y: 182,
+          label: 'T0',
+        },
+        {
+          id: 'L0',
+          type: 'led',
+          x: 840,
+          y: 191,
+          label: 'Q0',
+        },
+        {
+          id: 'A1',
+          type: 'and',
+          x: 200,
+          y: 195,
+          label: 'T1',
+        },
+        {
+          id: 'FF1',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 280,
+          label: 'Bit 1',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X1',
+          type: 'xor',
+          x: 640,
+          y: 282,
+          label: 'T1',
+        },
+        {
+          id: 'L1',
+          type: 'led',
+          x: 840,
+          y: 291,
+          label: 'Q1',
+        },
+        {
+          id: 'A2',
+          type: 'and',
+          x: 200,
+          y: 295,
+          label: 'T2',
+        },
+        {
+          id: 'FF2',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 380,
+          label: 'Bit 2',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X2',
+          type: 'xor',
+          x: 640,
+          y: 382,
+          label: 'T2',
+        },
+        {
+          id: 'L2',
+          type: 'led',
+          x: 840,
+          y: 391,
+          label: 'Q2',
+        },
+        {
+          id: 'A3',
+          type: 'and',
+          x: 200,
+          y: 395,
+          label: 'T3',
+        },
+        {
+          id: 'FF3',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 480,
+          label: 'Bit 3',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X3',
+          type: 'xor',
+          x: 640,
+          y: 482,
+          label: 'T3',
+        },
+        {
+          id: 'L3',
+          type: 'led',
+          x: 840,
+          y: 491,
+          label: 'Q3',
+        },
+        {
+          id: 'A4',
+          type: 'and',
+          x: 200,
+          y: 495,
+          label: 'T4',
+        },
+        {
+          id: 'FF4',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 580,
+          label: 'Bit 4',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X4',
+          type: 'xor',
+          x: 640,
+          y: 582,
+          label: 'T4',
+        },
+        {
+          id: 'L4',
+          type: 'led',
+          x: 840,
+          y: 591,
+          label: 'Q4',
+        },
+        {
+          id: 'A5',
+          type: 'and',
+          x: 200,
+          y: 595,
+          label: 'T5',
+        },
+        {
+          id: 'FF5',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 680,
+          label: 'Bit 5',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X5',
+          type: 'xor',
+          x: 640,
+          y: 682,
+          label: 'T5',
+        },
+        {
+          id: 'L5',
+          type: 'led',
+          x: 840,
+          y: 691,
+          label: 'Q5',
+        },
+        {
+          id: 'A6',
+          type: 'and',
+          x: 200,
+          y: 695,
+          label: 'T6',
+        },
+        {
+          id: 'FF6',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 780,
+          label: 'Bit 6',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X6',
+          type: 'xor',
+          x: 640,
+          y: 782,
+          label: 'T6',
+        },
+        {
+          id: 'L6',
+          type: 'led',
+          x: 840,
+          y: 791,
+          label: 'Q6',
+        },
+        {
+          id: 'A7',
+          type: 'and',
+          x: 200,
+          y: 795,
+          label: 'T7',
+        },
+        {
+          id: 'FF7',
+          type: 'd-flip-flop',
+          x: 420,
+          y: 880,
+          label: 'Bit 7',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'X7',
+          type: 'xor',
+          x: 640,
+          y: 882,
+          label: 'T7',
+        },
+        {
+          id: 'L7',
+          type: 'led',
+          x: 840,
+          y: 891,
+          label: 'Q7',
+        },
+        {
+          id: 'TXT1',
+          type: 'text',
+          x: 20,
+          y: 1000,
+          width: 900,
+          label:
+            'Contador binário síncrono de 8 bits. Todo bit é clocado pelo mesmo Clock mestre; a cadeia de portas AND à esquerda calcula, para cada bit, se todos os bits menos significativos já estão em 1 (a condição clássica de "vai um" de um contador síncrono). Cada Flip-Flop D alterna (XOR com o próprio Q) só quando essa condição está ativa. Desligue Enable para pausar a contagem sem perder o valor atual. Rode o clock automático e acompanhe os LEDs contando em binário de 0 a 255 — ou abra as Formas de onda e use o cursor de tempo para inspecionar qualquer instante do histórico.',
+        },
+      ],
+      wires: [
+        {
+          id: 'W1',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W2',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X0',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W3',
+          from: {
+            componentId: 'EN',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X0',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W4',
+          from: {
+            componentId: 'X0',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W5',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L0',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W6',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A1',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W7',
+          from: {
+            componentId: 'EN',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A1',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W8',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W9',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X1',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W10',
+          from: {
+            componentId: 'A1',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X1',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W11',
+          from: {
+            componentId: 'X1',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W12',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L1',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W13',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A2',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W14',
+          from: {
+            componentId: 'A1',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A2',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W15',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W16',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X2',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W17',
+          from: {
+            componentId: 'A2',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X2',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W18',
+          from: {
+            componentId: 'X2',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W19',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L2',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W20',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A3',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W21',
+          from: {
+            componentId: 'A2',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A3',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W22',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W23',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X3',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W24',
+          from: {
+            componentId: 'A3',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X3',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W25',
+          from: {
+            componentId: 'X3',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W26',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L3',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W27',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A4',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W28',
+          from: {
+            componentId: 'A3',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A4',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W29',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF4',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W30',
+          from: {
+            componentId: 'FF4',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X4',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W31',
+          from: {
+            componentId: 'A4',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X4',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W32',
+          from: {
+            componentId: 'X4',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF4',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W33',
+          from: {
+            componentId: 'FF4',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L4',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W34',
+          from: {
+            componentId: 'FF4',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A5',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W35',
+          from: {
+            componentId: 'A4',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A5',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W36',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF5',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W37',
+          from: {
+            componentId: 'FF5',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X5',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W38',
+          from: {
+            componentId: 'A5',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X5',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W39',
+          from: {
+            componentId: 'X5',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF5',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W40',
+          from: {
+            componentId: 'FF5',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L5',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W41',
+          from: {
+            componentId: 'FF5',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A6',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W42',
+          from: {
+            componentId: 'A5',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A6',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W43',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF6',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W44',
+          from: {
+            componentId: 'FF6',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X6',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W45',
+          from: {
+            componentId: 'A6',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X6',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W46',
+          from: {
+            componentId: 'X6',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF6',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W47',
+          from: {
+            componentId: 'FF6',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L6',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W48',
+          from: {
+            componentId: 'FF6',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'A7',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W49',
+          from: {
+            componentId: 'A6',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'A7',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W50',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF7',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W51',
+          from: {
+            componentId: 'FF7',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'X7',
+            pinId: 'a',
+          },
+        },
+        {
+          id: 'W52',
+          from: {
+            componentId: 'A7',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'X7',
+            pinId: 'b',
+          },
+        },
+        {
+          id: 'W53',
+          from: {
+            componentId: 'X7',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF7',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W54',
+          from: {
+            componentId: 'FF7',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L7',
+            pinId: 'in',
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: 'johnson-counter-8bit',
+    name: 'Contador em anel de Johnson (8 bits)',
+    circuit: {
+      version: 1,
+      components: [
+        {
+          id: 'CLK',
+          type: 'clock',
+          x: 320,
+          y: 20,
+          label: 'Clock',
+          state: false,
+        },
+        {
+          id: 'INV',
+          type: 'not',
+          x: 40,
+          y: 110,
+          label: 'Feedback',
+        },
+        {
+          id: 'FF0',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 140,
+          label: 'Estágio 0',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L0',
+          type: 'led',
+          x: 540,
+          y: 151,
+          label: 'Q0',
+        },
+        {
+          id: 'FF1',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 240,
+          label: 'Estágio 1',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L1',
+          type: 'led',
+          x: 540,
+          y: 251,
+          label: 'Q1',
+        },
+        {
+          id: 'FF2',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 340,
+          label: 'Estágio 2',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L2',
+          type: 'led',
+          x: 540,
+          y: 351,
+          label: 'Q2',
+        },
+        {
+          id: 'FF3',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 440,
+          label: 'Estágio 3',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L3',
+          type: 'led',
+          x: 540,
+          y: 451,
+          label: 'Q3',
+        },
+        {
+          id: 'FF4',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 540,
+          label: 'Estágio 4',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L4',
+          type: 'led',
+          x: 540,
+          y: 551,
+          label: 'Q4',
+        },
+        {
+          id: 'FF5',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 640,
+          label: 'Estágio 5',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L5',
+          type: 'led',
+          x: 540,
+          y: 651,
+          label: 'Q5',
+        },
+        {
+          id: 'FF6',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 740,
+          label: 'Estágio 6',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L6',
+          type: 'led',
+          x: 540,
+          y: 751,
+          label: 'Q6',
+        },
+        {
+          id: 'FF7',
+          type: 'd-flip-flop',
+          x: 320,
+          y: 840,
+          label: 'Estágio 7',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'L7',
+          type: 'led',
+          x: 540,
+          y: 851,
+          label: 'Q7',
+        },
+        {
+          id: 'TXT1',
+          type: 'text',
+          x: 40,
+          y: 960,
+          width: 760,
+          label:
+            'Contador em anel de Johnson (8 bits). Cada Flip-Flop D copia o Q do estágio anterior a cada borda de subida do Clock; o último estágio realimenta o primeiro, invertido. O padrão de bits "1"s crescendo e depois "0"s crescendo caminha pelos LEDs — 16 estados distintos antes de repetir (2×8). Rode o clock automático e observe o efeito de luz correndo, ou use o cursor de tempo na forma de onda para revisitar qualquer instante.',
+        },
+      ],
+      wires: [
+        {
+          id: 'W1',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W2',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L0',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W3',
+          from: {
+            componentId: 'INV',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W4',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W5',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L1',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W6',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W7',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W8',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L2',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W9',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W10',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W11',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L3',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W12',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W13',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF4',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W14',
+          from: {
+            componentId: 'FF4',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L4',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W15',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF4',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W16',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF5',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W17',
+          from: {
+            componentId: 'FF5',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L5',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W18',
+          from: {
+            componentId: 'FF4',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF5',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W19',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF6',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W20',
+          from: {
+            componentId: 'FF6',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L6',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W21',
+          from: {
+            componentId: 'FF5',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF6',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W22',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF7',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W23',
+          from: {
+            componentId: 'FF7',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L7',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W24',
+          from: {
+            componentId: 'FF6',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF7',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W25',
+          from: {
+            componentId: 'FF7',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'INV',
+            pinId: 'in',
+          },
+        },
+      ],
+    },
+  },
+  {
     id: 'sr-latch-nor-experiment',
     name: 'Experimento: latch SR com NOR',
     circuit: {
@@ -3117,6 +4450,11 @@ export const CURRICULUM_FAMILIES: CurriculumFamily[] = [
   { id: 'latches', title: 'Latches', description: 'Memória sensível a nível e realimentação.' },
   { id: 'flip-flops', title: 'Flip-flops', description: 'Memória acionada por borda de clock.' },
   { id: 'registers', title: 'Registradores', description: 'Armazenamento de palavras binárias.' },
+  {
+    id: 'counters',
+    title: 'Contadores',
+    description: 'Sequências de estado avançando a cada borda de clock.',
+  },
 ];
 
 function metadataFor(example: RawCircuitExample): ExampleMetadata {
@@ -3923,7 +5261,7 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
       level: 'composition',
       prerequisites: ['d-flip-flop-basic'],
       concepts: ['palavra binária', 'carga paralela', 'fronteira temporal'],
-      next: [],
+      next: ['sync-counter-8bit', 'johnson-counter-8bit'],
       observe: [
         'Ajuste D0–D3 antes do clock.',
         'Dê Tick até uma borda de subida.',
@@ -3938,6 +5276,102 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
         'Capture a palavra 1010 e confirme os LEDs Q3..Q0.',
         'Mude as entradas para 0101 sem clock e confirme que Q não muda.',
         'Capture três palavras diferentes e anote o valor salvo após cada borda de subida.',
+      ],
+    };
+  }
+  if (example.id === 'sync-counter-8bit') {
+    return {
+      ...common,
+      moduleId: 'systems',
+      familyIds: ['counters', 'flip-flops'],
+      trackIds: ['sequential', 'architecture'],
+      difficulty: 4,
+      level: 'system',
+      prerequisites: ['d-flip-flop-basic', 'register-4-basic'],
+      concepts: [
+        'contador síncrono',
+        'cadeia de vai-um (ripple carry enable)',
+        'flip-flop T via XOR',
+        'todos os estágios no mesmo clock',
+      ],
+      goal: 'Entender como oito flip-flops D, todos clocados pelo mesmo sinal, compõem um contador binário de 0 a 255 usando uma cadeia combinacional de "habilita a próxima" em vez de encadear os clocks.',
+      steps: [
+        'Dê alguns Ticks e acompanhe os LEDs Q0..Q7 em binário.',
+        'Desligue Enable e confirme que a contagem para sem perder o valor.',
+        'Religue Enable e continue de onde parou.',
+        'Rode o clock automático e abra as Formas de onda para ver os bits mais altos mudarem de frequência cada vez mais devagar.',
+      ],
+      ideas: [
+        'Cada bit só alterna quando todos os bits menos significativos já estão em 1 — a mesma condição de "vai um" da soma binária.',
+        'Como todo Flip-Flop D é clocado pelo mesmo sinal, o valor novo inteiro é decidido em um único instante — sem os atrasos de propagação de um contador assíncrono (ripple) real.',
+        'Um Flip-Flop D com D = XOR(Q, T) funciona como um Flip-Flop T: alterna quando T=1, mantém quando T=0.',
+        'O bit mais significativo muda com metade da frequência do bit anterior — o padrão clássico de contagem binária.',
+      ],
+      next: [],
+      observe: [
+        'Bit 0 alterna a cada clock; Bit 1 alterna a cada dois clocks; cada bit seguinte é duas vezes mais lento.',
+        'Com Enable desligado, nenhum bit muda mesmo com Tick.',
+        'No painel de Formas de onda, clique num tick antigo para ver o canvas voltar àquele valor.',
+      ],
+      experiments: [
+        'Conte até 15 e confirme 00001111 nos LEDs.',
+        'Desligue Enable no meio da contagem, dê 5 Ticks e confirme que nada mudou.',
+        'Rode o clock automático até passar de 255 e observe voltar a 0.',
+      ],
+      challenge:
+        'Explique por que a cadeia de portas AND (T1..T7) precisa olhar todos os bits menos significativos, não só o anterior, para decidir se um bit deve alternar.',
+      exercises: [
+        'Pare a contagem em 42 (00101010) usando Tick e confirme os LEDs.',
+        'Meça quantos Ticks são necessários para o Bit 3 mudar de valor pela primeira vez.',
+        'Modifique o circuito (ou desenhe no papel) um contador de 4 bits reaproveitando só os quatro primeiros estágios.',
+      ],
+    };
+  }
+  if (example.id === 'johnson-counter-8bit') {
+    return {
+      ...common,
+      moduleId: 'systems',
+      familyIds: ['counters', 'flip-flops'],
+      trackIds: ['sequential', 'architecture'],
+      difficulty: 3,
+      level: 'system',
+      prerequisites: ['d-flip-flop-basic'],
+      concepts: [
+        'registrador de deslocamento',
+        'realimentação invertida',
+        'contador em anel',
+        'sequência de estados',
+      ],
+      goal: 'Entender um contador em anel de Johnson: oito flip-flops em cadeia, cada um copiando o anterior a cada clock, com o último realimentando o primeiro invertido — produzindo um padrão de "luz correndo" com 16 estados.',
+      steps: [
+        'Dê Ticks um a um e acompanhe o LED aceso caminhando pela fileira.',
+        'Continue até os LEDs acesos começarem a apagar na mesma ordem em que acenderam.',
+        'Conte quantos Ticks (bordas de subida) até o padrão se repetir.',
+        'Rode o clock automático para ver o efeito completo.',
+      ],
+      ideas: [
+        'Um registrador de deslocamento simples só copia Q do estágio anterior para D do próximo, a cada clock.',
+        'Realimentar o último estágio invertido no primeiro (em vez de repetir o valor) faz o padrão de 1s crescer, depois o padrão de 0s crescer, sem nunca ficar preso em um único ciclo curto.',
+        'Um anel de Johnson de N estágios percorre 2×N estados distintos antes de repetir — aqui, 16.',
+        'Diferente do contador binário, cada estado usa exatamente um "degrau" — mais fácil de decodificar visualmente.',
+      ],
+      next: [],
+      observe: [
+        'Um novo LED acende a cada borda de subida, sem apagar os anteriores, até todos os 8 acenderem.',
+        'Depois disso, os LEDs apagam na mesma ordem em que acenderam.',
+        'O ciclo completo dura 16 bordas de subida (32 Ticks).',
+      ],
+      experiments: [
+        'Pare exatamente no estado 11110000 e confirme quantos Ticks levou.',
+        'Compare a forma de onda de Q0 com a de Q4: são o mesmo sinal, defasado.',
+        'Desconecte a realimentação (INV → Bit 0) e observe o padrão de 1s parar de se repetir.',
+      ],
+      challenge:
+        'Explique por que um anel sem inversão (Q7 direto para D do estágio 0) resultaria em só 2 estados úteis (tudo 0 ou tudo 1), em vez de 16.',
+      exercises: [
+        'Anote a sequência completa dos 16 estados de Estágio 0..7.',
+        'Identifique em qual estado o padrão é um "espelho" do estado inicial.',
+        'Descreva como usar os 16 estados de um anel de Johnson para gerar um efeito de luz de neon sequencial.',
       ],
     };
   }
@@ -4034,6 +5468,6 @@ export const CIRCUIT_LESSONS: CircuitLesson[] = [
     'clocked-systems',
     'Aula 5 — Clock, flip-flops e registradores',
     'Circuitos sincronizados pelo Tick ou pelo clock automático.',
-    ['d-flip-flop-basic', 'register-4-basic'],
+    ['d-flip-flop-basic', 'register-4-basic', 'sync-counter-8bit', 'johnson-counter-8bit'],
   ),
 ];
