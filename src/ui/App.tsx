@@ -131,7 +131,6 @@ export function App() {
     autoClockIntervalMs,
     setAutoClockIntervalMs,
     simulationResult,
-    evaluation,
     canvasEvaluation,
     canvasChangedSignals,
     historyTick,
@@ -474,10 +473,11 @@ export function App() {
             <div role="tabpanel">
               <div className="panel-header">
                 {hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}
+                {historyTick !== null && ` (tick ${historyTick})`}
               </div>
               <CircuitTruthTable
                 circuit={circuit}
-                evaluation={evaluation}
+                evaluation={canvasEvaluation}
                 unstable={simulationResult.unstable}
                 hasFeedback={hasFeedback}
               />
