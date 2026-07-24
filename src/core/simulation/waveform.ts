@@ -17,13 +17,24 @@ export interface WaveformSignal {
   label: string;
 }
 
+// O que fica gravado por tick: o snapshot bruto da avaliação inteira, não
+// só os sinais observados no momento — permite inspecionar qualquer fio no
+// passado (cursor de tempo) e reconstruir corretamente o histórico de um
+// sinal observado depois de já existirem amostras.
+export interface WaveformSnapshot {
+  tick: number;
+  evaluation: EvaluationResult;
+}
+
+// Formato de exibição, derivado sob demanda (ver deriveWaveformSamples) a
+// partir dos snapshots + dos sinais observados no momento da renderização.
 export interface WaveformSample {
   tick: number;
   values: Record<string, LogicValue>;
 }
 
 export interface WaveformRecorder {
-  samples: WaveformSample[];
+  samples: WaveformSnapshot[];
   lastRecordedTick: number;
 }
 
@@ -138,19 +149,42 @@ export function createWaveformRecorder(): WaveformRecorder {
 // Grava no máximo uma amostra por tick, sempre a partir de uma avaliação que
 // já reflete o circuito pós-tick: o worker processa em FIFO e o runtime só
 // aceita a resposta da última requisição, então um resultado que chega após
-// o tick N nunca corresponde a um circuito anterior a ele.
+// o tick N nunca corresponde a um circuito anterior a ele. Guarda o
+// snapshot bruto — quais sinais exibir é decidido na hora de renderizar
+// (ver deriveWaveformSamples), não aqui.
 export function recordTickSample(
   recorder: WaveformRecorder,
   tick: number,
-  circuit: CircuitDocument,
   evaluation: EvaluationResult,
-  watchedKeys: string[] | undefined,
   capacity = MAX_WAVEFORM_SAMPLES,
 ): WaveformRecorder {
   if (tick <= recorder.lastRecordedTick) return recorder;
-  const sample: WaveformSample = { tick, values: sampleSignals(circuit, evaluation, watchedKeys) };
   return {
-    samples: [...recorder.samples, sample].slice(-capacity),
+    samples: [...recorder.samples, { tick, evaluation }].slice(-capacity),
     lastRecordedTick: tick,
   };
+}
+
+// Formato de exibição (o gráfico e o cursor de tempo consultam isto):
+// deriva os valores dos sinais atualmente observados a partir dos
+// snapshots brutos — assim um sinal observado depois de já existirem
+// amostras reconstrói corretamente o histórico anterior.
+export function deriveWaveformSamples(
+  snapshots: WaveformSnapshot[],
+  circuit: CircuitDocument,
+  watchedKeys: string[] | undefined,
+): WaveformSample[] {
+  return snapshots.map((snapshot) => ({
+    tick: snapshot.tick,
+    values: sampleSignals(circuit, snapshot.evaluation, watchedKeys),
+  }));
+}
+
+// Usado pelos testes; o hook (useWaveformHistory) mantém um Map próprio
+// para essa busca ser O(1) em vez de repetir isto a cada render.
+export function evaluationAtTick(
+  snapshots: WaveformSnapshot[],
+  tick: number,
+): EvaluationResult | undefined {
+  return snapshots.find((snapshot) => snapshot.tick === tick)?.evaluation;
 }

@@ -5,7 +5,7 @@ import { toggleWatchedSignal as toggleWatchedSignalKey } from '../../core/simula
 import { useSimulationRuntime } from './useSimulationRuntime';
 import { useWaveformHistory } from './useWaveformHistory';
 import { useAutoClock } from './useAutoClock';
-import { useEvaluationChangeFlashes } from './useEvaluationChangeFlashes';
+import { EMPTY_CHANGED_SIGNALS, useEvaluationChangeFlashes } from './useEvaluationChangeFlashes';
 import type { SetStateAction } from 'react';
 
 interface Options {
@@ -41,7 +41,14 @@ export function useSimulationController({
   // (não circuit/tickCount direto): sob carga pesada, o React pode juntar
   // o avanço do próximo tick no mesmo commit da resposta do tick anterior,
   // e ler circuit/tickCount "atuais" nesse caso gravaria a amostra errada.
-  const { waveformSamples, waveformSignals, clearWaveformHistory } = useWaveformHistory({
+  const {
+    waveformSamples,
+    waveformSignals,
+    clearWaveformHistory,
+    historyTick,
+    historyEvaluation,
+    selectHistoryTick: selectHistoryTickRaw,
+  } = useWaveformHistory({
     circuit: simulationCircuit,
     simulationResult,
     tickCount: simulationTick,
@@ -49,6 +56,17 @@ export function useSimulationController({
   });
 
   const { changedSignals, resetChangeFlashes } = useEvaluationChangeFlashes(evaluation);
+
+  // Ver um tick do passado pausa o clock automático — senão o próprio
+  // auto-clock devolveria pro "ao vivo" a cada tick (useWaveformHistory
+  // sai do modo histórico assim que uma avaliação nova ao vivo chega).
+  function selectHistoryTick(tick: number | null) {
+    if (tick !== null && autoClockRunning) setAutoClockRunning(false);
+    selectHistoryTickRaw(tick);
+  }
+
+  const canvasEvaluation = historyEvaluation ?? evaluation;
+  const canvasChangedSignals = historyTick !== null ? EMPTY_CHANGED_SIGNALS : changedSignals;
 
   function toggleWatchedSignal(componentId: string, pinId: string) {
     setWatchedSignals(toggleWatchedSignalKey(circuit, watchedSignals, componentId, pinId));
@@ -124,6 +142,10 @@ export function useSimulationController({
     simulationResult,
     evaluation,
     changedSignals,
+    canvasEvaluation,
+    canvasChangedSignals,
+    historyTick,
+    selectHistoryTick,
     hasSequentialComponents,
     tickCount,
     waveformSamples,

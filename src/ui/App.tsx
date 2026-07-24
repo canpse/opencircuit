@@ -132,7 +132,10 @@ export function App() {
     setAutoClockIntervalMs,
     simulationResult,
     evaluation,
-    changedSignals,
+    canvasEvaluation,
+    canvasChangedSignals,
+    historyTick,
+    selectHistoryTick,
     hasSequentialComponents,
     waveformSamples,
     waveformSignals,
@@ -326,11 +329,19 @@ export function App() {
             onCreate={createNewDocument}
           />
           <div className="editor-panel">
+            {historyTick !== null && (
+              <div className="history-view-banner">
+                <span>
+                  Visualizando tick <strong>{historyTick}</strong> (histórico)
+                </span>
+                <button onClick={() => selectHistoryTick(null)}>Voltar ao vivo</button>
+              </div>
+            )}
             <Profiler id="CircuitCanvas" onRender={recordReactProfile}>
               <CircuitCanvas
                 circuit={circuit}
-                evaluation={evaluation}
-                changedSignals={changedSignals}
+                evaluation={canvasEvaluation}
+                changedSignals={canvasChangedSignals}
                 selectedTool={selectedTool}
                 wireStyle={wireStyle}
                 pendingWire={pendingWire}
@@ -420,6 +431,8 @@ export function App() {
                   autoClockRunning={autoClockRunning}
                   onClear={clearWaveformHistory}
                   onRemoveSignal={toggleWatchedSignal}
+                  historyTick={historyTick}
+                  onSelectTick={selectHistoryTick}
                 />
               </div>
             )}

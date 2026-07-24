@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { simulateCircuit, stepCircuit } from '../../src/core/evaluateCircuit';
 import {
   createWaveformRecorder,
+  deriveWaveformSamples,
   effectiveWatchedSignalKeys,
+  evaluationAtTick,
   listObservableSignals,
   recordTickSample,
   resolveWaveformSignals,
@@ -157,15 +159,15 @@ test('recordTickSample grava uma amostra por tick e respeita a capacidade', () =
   const evaluation = simulateCircuit(circuit).values;
   let recorder = createWaveformRecorder();
 
-  recorder = recordTickSample(recorder, 0, circuit, evaluation, undefined);
+  recorder = recordTickSample(recorder, 0, evaluation);
   assert.equal(recorder.samples.length, 1);
   assert.equal(recorder.lastRecordedTick, 0);
 
-  const unchanged = recordTickSample(recorder, 0, circuit, evaluation, undefined);
+  const unchanged = recordTickSample(recorder, 0, evaluation);
   assert.equal(unchanged, recorder, 'tick já gravado devolve o gravador intacto');
 
   for (let tick = 1; tick <= 5; tick += 1) {
-    recorder = recordTickSample(recorder, tick, circuit, evaluation, undefined, 3);
+    recorder = recordTickSample(recorder, tick, evaluation, 3);
   }
   assert.deepEqual(
     recorder.samples.map((sample) => sample.tick),
@@ -189,28 +191,34 @@ test('fluxo do auto-clock: amostras acompanham a captura do flip-flop tick a tic
   let recorder = createWaveformRecorder();
 
   // Montagem: o primeiro resultado grava o estado inicial como tick 0.
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
+  recorder = recordTickSample(recorder, tickCount, simulate(circuit).values);
 
   // Tick 1: clock sobe, flip-flop captura D=1.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
+  recorder = recordTickSample(recorder, tickCount, simulate(circuit).values);
 
   // Tick 2: clock desce, Q segue retido em 1.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
+  recorder = recordTickSample(recorder, tickCount, simulate(circuit).values);
 
+  const samples = deriveWaveformSamples(recorder.samples, circuit, undefined);
   const q = signalKey('Q', 'in');
   const clk = signalKey('CLK', 'CLK');
   assert.deepEqual(
-    recorder.samples.map((sample) => [sample.tick, sample.values[clk], sample.values[q]]),
+    samples.map((sample) => [sample.tick, sample.values[clk], sample.values[q]]),
     [
       [0, false, false],
       [1, true, true],
       [2, false, true],
     ],
     'a forma de onda registra a subida do clock e a captura de Q',
+  );
+  assert.equal(
+    evaluationAtTick(recorder.samples, 1)?.CLK?.CLK,
+    true,
+    'o snapshot bruto do tick 1 também fica disponível para o cursor de tempo',
   );
 });
 
@@ -230,7 +238,7 @@ test('clock rápido: tick sem resposta do worker fica sem amostra, sem corromper
   let tickCount = 0;
   let recorder = createWaveformRecorder();
 
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
+  recorder = recordTickSample(recorder, tickCount, simulate(circuit).values);
 
   // Tick 1: clock sobe. O worker simula (estado encadeia), mas a resposta
   // é descartada na thread principal — nada é gravado.
@@ -241,16 +249,35 @@ test('clock rápido: tick sem resposta do worker fica sem amostra, sem corromper
   // Tick 2: clock desce. Só esta resposta chega e é gravada.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
+  recorder = recordTickSample(recorder, tickCount, simulate(circuit).values);
 
+  const samples = deriveWaveformSamples(recorder.samples, circuit, undefined);
   const q = signalKey('Q', 'in');
   assert.deepEqual(
-    recorder.samples.map((sample) => [sample.tick, sample.values[q]]),
+    samples.map((sample) => [sample.tick, sample.values[q]]),
     [
       [0, false],
       [2, true],
     ],
     'o tick 1 fica sem amostra, mas o tick 2 reflete a captura feita na subida',
+  );
+});
+
+test('deriveWaveformSamples reconstrói o histórico de um sinal observado depois de já existirem amostras', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  circuit.components.push({ id: 'G1', type: 'and', x: 0, y: 200 });
+  let recorder = createWaveformRecorder();
+  recorder = recordTickSample(recorder, 0, { G1: { out: true } });
+  recorder = recordTickSample(recorder, 1, { G1: { out: false } });
+
+  // G1 nunca foi observado nos ticks 0/1 (watchedSignals só passou a
+  // incluí-lo depois) — como o snapshot bruto guarda a avaliação inteira,
+  // o histórico anterior aparece corretamente assim mesmo.
+  const samples = deriveWaveformSamples(recorder.samples, circuit, [signalKey('G1', 'out')]);
+
+  assert.deepEqual(
+    samples.map((sample) => sample.values[signalKey('G1', 'out')]),
+    [true, false],
   );
 });
 
