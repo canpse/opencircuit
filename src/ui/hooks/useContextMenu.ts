@@ -17,6 +17,7 @@ interface Options {
   removeWire: (id: string) => void;
   removeWireWaypoint: (wireId: string, waypointIndex: number) => void;
   toggleWireDisplay: (id: string) => void;
+  toggleWatchedSignalForWire: (wireId: string) => void;
   setRenameRequest: Dispatch<SetStateAction<{ componentId: string; nonce: number } | null>>;
 }
 
@@ -33,6 +34,7 @@ export function useContextMenuManager({
   removeWire,
   removeWireWaypoint,
   toggleWireDisplay,
+  toggleWatchedSignalForWire,
   setRenameRequest,
 }: Options) {
   const [contextMenu, setContextMenu] = useState<ContextMenu>(null);
@@ -109,6 +111,12 @@ export function useContextMenuManager({
     setContextMenu(null);
   }
 
+  function toggleWatchedSignalContextTarget() {
+    if (!contextMenu || contextMenu.kind !== 'wire') return;
+    toggleWatchedSignalForWire(contextMenu.wireId);
+    setContextMenu(null);
+  }
+
   return {
     contextMenu,
     closeContextMenu,
@@ -119,6 +127,7 @@ export function useContextMenuManager({
     addComponentFromContextMenu,
     renameContextTarget,
     toggleWireContextTarget,
+    toggleWatchedSignalContextTarget,
     removeContextTarget,
   };
 }

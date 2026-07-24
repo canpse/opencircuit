@@ -14,6 +14,10 @@ export type WorkspaceDocument = {
   everSaved: boolean;
   remoteId?: string | null;
   revision?: number | null;
+  // undefined = a forma de onda usa detecção automática de sinais
+  // (comportamento de sempre); definido na primeira vez que o usuário
+  // adiciona/remove um sinal pelo canvas (ver toggleWatchedSignal).
+  watchedSignals?: string[];
 };
 
 export type WorkspaceState = {
@@ -164,6 +168,9 @@ function isStoredWorkspaceDocument(value: unknown): value is StoredWorkspaceDocu
       typeof document.remoteId === 'string') &&
     (document.revision === undefined ||
       document.revision === null ||
-      (Number.isSafeInteger(document.revision) && Number(document.revision) > 0)),
+      (Number.isSafeInteger(document.revision) && Number(document.revision) > 0)) &&
+    (document.watchedSignals === undefined ||
+      (Array.isArray(document.watchedSignals) &&
+        document.watchedSignals.every((key) => typeof key === 'string'))),
   );
 }

@@ -104,6 +104,7 @@ test('Amostra da forma de onda nunca mistura o resultado de um tick com o circui
       runtime.simulationState.tick,
       runtime.simulationState.circuit,
       runtime.simulationState.result.values,
+      undefined,
     );
   }
 

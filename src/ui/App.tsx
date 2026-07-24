@@ -8,6 +8,7 @@ import { CircuitTruthTable } from './panels/CircuitTruthTable';
 import { LessonPanel } from './panels/LessonPanel';
 import { WaveformPanel } from './panels/WaveformPanel';
 import { circuitHasFeedback } from '../core/simulation/graph';
+import { effectiveWatchedSignalKeys, signalKey } from '../core/simulation/waveform';
 import { CommandBar } from './commandbar/CommandBar';
 import { useAutoSaveWorkspace } from './hooks/useAutoSaveWorkspace';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
@@ -45,6 +46,7 @@ export function App() {
     circuit,
     currentExampleId,
     setCircuit,
+    setWatchedSignals,
     selectDocument,
     createNewDocument,
     requestCloseDocument,
@@ -125,6 +127,32 @@ export function App() {
   );
 
   const {
+    autoClockRunning,
+    autoClockIntervalMs,
+    setAutoClockIntervalMs,
+    simulationResult,
+    evaluation,
+    changedSignals,
+    hasSequentialComponents,
+    waveformSamples,
+    waveformSignals,
+    clearWaveformHistory,
+    toggleWatchedSignal,
+    toggleWatchedSignalForWire,
+    tickSequentialCircuit,
+    toggleAutoClock,
+    resetSimulation,
+    resetSimulationState,
+  } = useSimulationController({
+    circuit,
+    setCircuit,
+    watchedSignals: activeDocument.watchedSignals,
+    setWatchedSignals,
+    rememberCircuit,
+    onMessage: setMessage,
+  });
+
+  const {
     contextMenu,
     closeContextMenu,
     openCanvasMenu,
@@ -134,6 +162,7 @@ export function App() {
     addComponentFromContextMenu,
     renameContextTarget,
     toggleWireContextTarget,
+    toggleWatchedSignalContextTarget,
     removeContextTarget,
   } = useContextMenuManager({
     selection,
@@ -148,29 +177,8 @@ export function App() {
     removeWire,
     removeWireWaypoint,
     toggleWireDisplay,
+    toggleWatchedSignalForWire,
     setRenameRequest,
-  });
-
-  const {
-    autoClockRunning,
-    autoClockIntervalMs,
-    setAutoClockIntervalMs,
-    simulationResult,
-    evaluation,
-    changedSignals,
-    hasSequentialComponents,
-    waveformSamples,
-    waveformSignals,
-    clearWaveformHistory,
-    tickSequentialCircuit,
-    toggleAutoClock,
-    resetSimulation,
-    resetSimulationState,
-  } = useSimulationController({
-    circuit,
-    setCircuit,
-    rememberCircuit,
-    onMessage: setMessage,
   });
 
   const [wireStyle, setWireStyle] = useWireStylePreference(WIRE_STYLE_STORAGE_KEY);
@@ -411,6 +419,7 @@ export function App() {
                   samples={waveformSamples}
                   autoClockRunning={autoClockRunning}
                   onClear={clearWaveformHistory}
+                  onRemoveSignal={toggleWatchedSignal}
                 />
               </div>
             )}
@@ -555,6 +564,15 @@ export function App() {
               (wire) => wire.id === contextMenu.wireId && wire.display === 'tunnel',
             )
           }
+          onToggleWatchedSignal={toggleWatchedSignalContextTarget}
+          wireSignalWatched={(() => {
+            if (contextMenu.kind !== 'wire') return false;
+            const wire = circuit.wires.find((candidate) => candidate.id === contextMenu.wireId);
+            if (!wire) return false;
+            return effectiveWatchedSignalKeys(circuit, activeDocument.watchedSignals).includes(
+              signalKey(wire.from.componentId, wire.from.pinId),
+            );
+          })()}
           onRemove={removeContextTarget}
           onClose={closeContextMenu}
         />

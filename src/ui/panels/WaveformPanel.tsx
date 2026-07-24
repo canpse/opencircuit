@@ -14,9 +14,16 @@ interface WaveformPanelProps {
   samples: WaveformSample[];
   autoClockRunning: boolean;
   onClear: () => void;
+  onRemoveSignal: (componentId: string, pinId: string) => void;
 }
 
-export function WaveformPanel({ signals, samples, autoClockRunning, onClear }: WaveformPanelProps) {
+export function WaveformPanel({
+  signals,
+  samples,
+  autoClockRunning,
+  onClear,
+  onRemoveSignal,
+}: WaveformPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldFollowLatestRef = useRef(true);
   const firstTick = samples[0]?.tick ?? 0;
@@ -65,11 +72,21 @@ export function WaveformPanel({ signals, samples, autoClockRunning, onClear }: W
         </div>
       ) : (
         <div className="waveform-card">
-          <div className="waveform-labels" aria-hidden="true">
-            <div className="waveform-label-axis">Sinal</div>
+          <div className="waveform-labels">
+            <div className="waveform-label-axis" aria-hidden="true">
+              Sinal
+            </div>
             {signals.map((signal) => (
               <div className="waveform-signal-label" key={signal.key} title={signal.label}>
-                {signal.label}
+                <span>{signal.label}</span>
+                <button
+                  className="waveform-signal-remove"
+                  onClick={() => onRemoveSignal(signal.componentId, signal.pinId)}
+                  aria-label={`Remover ${signal.label} da forma de onda`}
+                  title="Remover da forma de onda"
+                >
+                  ×
+                </button>
               </div>
             ))}
           </div>

@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 import { simulateCircuit, stepCircuit } from '../../src/core/evaluateCircuit';
 import {
   createWaveformRecorder,
+  effectiveWatchedSignalKeys,
   listObservableSignals,
   recordTickSample,
+  resolveWaveformSignals,
   sampleSignals,
   signalKey,
+  toggleWatchedSignal,
 } from '../../src/core/simulation/waveform';
 import type { CircuitDocument, SimulationState } from '../../src/core/types';
 import { buildSquareWavePath, waveformIsAtEnd } from '../../src/ui/panels/WaveformPanel';
@@ -69,17 +72,79 @@ test('listObservableSignals expõe clock, entradas, memórias e LEDs na ordem de
   );
 });
 
+test('resolveWaveformSignals sem watchedKeys usa a detecção automática de sempre', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  assert.deepEqual(resolveWaveformSignals(circuit, undefined), listObservableSignals(circuit));
+});
+
+test('resolveWaveformSignals com lista explícita alcança sinais fora da detecção automática', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  circuit.components.push({ id: 'G1', type: 'and', x: 0, y: 200, label: 'AND1' });
+  // Porta AND nunca aparece em listObservableSignals (fora do SIGNAL_RANK) —
+  // observar manualmente pelo canvas deve conseguir alcançá-la mesmo assim.
+  const watched = [signalKey('G1', 'out'), signalKey('CLK', 'CLK')];
+
+  const signals = resolveWaveformSignals(circuit, watched);
+
+  assert.deepEqual(
+    signals.map((signal) => signal.key),
+    watched,
+    'mantém a ordem da lista observada, não a ordem de diagrama',
+  );
+  assert.equal(signals[0].label, 'AND1');
+});
+
+test('resolveWaveformSignals ignora chaves de componente ou pino que não existem mais', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  const watched = [
+    signalKey('CLK', 'CLK'),
+    signalKey('removido', 'out'), // componente apagado depois de observado
+    signalKey('CLK', 'pino-que-nao-existe'),
+  ];
+
+  assert.deepEqual(resolveWaveformSignals(circuit, watched), [
+    { key: 'CLK:CLK', componentId: 'CLK', pinId: 'CLK', label: 'Clock' },
+  ]);
+});
+
+test('effectiveWatchedSignalKeys materializa a partir do automático quando ainda não customizado', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  assert.deepEqual(
+    effectiveWatchedSignalKeys(circuit, undefined),
+    listObservableSignals(circuit).map((signal) => signal.key),
+  );
+  assert.deepEqual(effectiveWatchedSignalKeys(circuit, ['X:y']), ['X:y']);
+});
+
+test('toggleWatchedSignal materializa o automático na primeira mudança e depois alterna', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  circuit.components.push({ id: 'G1', type: 'and', x: 0, y: 200 });
+  const autoKeys = listObservableSignals(circuit).map((signal) => signal.key);
+
+  // Primeira mudança: parte do automático e adiciona a saída da porta AND.
+  const afterAdd = toggleWatchedSignal(circuit, undefined, 'G1', 'out');
+  assert.deepEqual(afterAdd, [...autoKeys, 'G1:out']);
+
+  // Alternar de novo (lista já explícita) remove o que acabou de adicionar.
+  const afterRemove = toggleWatchedSignal(circuit, afterAdd, 'G1', 'out');
+  assert.deepEqual(afterRemove, autoKeys);
+
+  // Remover um sinal que fazia parte do automático também funciona.
+  const afterRemoveClock = toggleWatchedSignal(circuit, afterRemove, 'CLK', 'CLK');
+  assert.ok(!afterRemoveClock.includes('CLK:CLK'));
+});
+
 test('sampleSignals lê a avaliação por sinal e assume false para valores ausentes', () => {
   const circuit = buildFlipFlopCircuit(true);
   const evaluation = simulateCircuit(circuit).values;
 
-  const sample = sampleSignals(circuit, evaluation);
+  const sample = sampleSignals(circuit, evaluation, undefined);
 
   assert.equal(sample[signalKey('D', 'out')], true, 'entrada ligada aparece como true');
   assert.equal(sample[signalKey('CLK', 'CLK')], false, 'clock começa baixo');
   assert.equal(sample[signalKey('Q', 'in')], false, 'flip-flop ainda não capturou D');
 
-  const partialSample = sampleSignals(circuit, {});
+  const partialSample = sampleSignals(circuit, {}, undefined);
   assert.deepEqual(
     Object.values(partialSample),
     [false, false, false, false],
@@ -92,15 +157,15 @@ test('recordTickSample grava uma amostra por tick e respeita a capacidade', () =
   const evaluation = simulateCircuit(circuit).values;
   let recorder = createWaveformRecorder();
 
-  recorder = recordTickSample(recorder, 0, circuit, evaluation);
+  recorder = recordTickSample(recorder, 0, circuit, evaluation, undefined);
   assert.equal(recorder.samples.length, 1);
   assert.equal(recorder.lastRecordedTick, 0);
 
-  const unchanged = recordTickSample(recorder, 0, circuit, evaluation);
+  const unchanged = recordTickSample(recorder, 0, circuit, evaluation, undefined);
   assert.equal(unchanged, recorder, 'tick já gravado devolve o gravador intacto');
 
   for (let tick = 1; tick <= 5; tick += 1) {
-    recorder = recordTickSample(recorder, tick, circuit, evaluation, 3);
+    recorder = recordTickSample(recorder, tick, circuit, evaluation, undefined, 3);
   }
   assert.deepEqual(
     recorder.samples.map((sample) => sample.tick),
@@ -124,17 +189,17 @@ test('fluxo do auto-clock: amostras acompanham a captura do flip-flop tick a tic
   let recorder = createWaveformRecorder();
 
   // Montagem: o primeiro resultado grava o estado inicial como tick 0.
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values);
+  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
 
   // Tick 1: clock sobe, flip-flop captura D=1.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values);
+  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
 
   // Tick 2: clock desce, Q segue retido em 1.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values);
+  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
 
   const q = signalKey('Q', 'in');
   const clk = signalKey('CLK', 'CLK');
@@ -165,7 +230,7 @@ test('clock rápido: tick sem resposta do worker fica sem amostra, sem corromper
   let tickCount = 0;
   let recorder = createWaveformRecorder();
 
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values);
+  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
 
   // Tick 1: clock sobe. O worker simula (estado encadeia), mas a resposta
   // é descartada na thread principal — nada é gravado.
@@ -176,7 +241,7 @@ test('clock rápido: tick sem resposta do worker fica sem amostra, sem corromper
   // Tick 2: clock desce. Só esta resposta chega e é gravada.
   circuit = stepCircuit(circuit);
   tickCount += 1;
-  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values);
+  recorder = recordTickSample(recorder, tickCount, circuit, simulate(circuit).values, undefined);
 
   const q = signalKey('Q', 'in');
   assert.deepEqual(

@@ -89,6 +89,15 @@ export function useWorkspaceManager({ onMessage }: Options) {
     [activeDocumentId, setDocuments],
   );
 
+  const setWatchedSignals = useCallback(
+    (watchedSignals: string[]) => {
+      setDocuments((current) =>
+        current.map((item) => (item.id === activeDocumentId ? { ...item, watchedSignals } : item)),
+      );
+    },
+    [activeDocumentId, setDocuments],
+  );
+
   function setSyncState(documentId: string, state: RemoteSyncState) {
     setSyncStates((current) => new Map(current).set(documentId, state));
   }
@@ -405,6 +414,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     currentExampleId,
     setCircuit,
     setActiveExampleId,
+    setWatchedSignals,
     selectDocument,
     createNewDocument,
     requestCloseDocument,
