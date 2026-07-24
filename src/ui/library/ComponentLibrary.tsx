@@ -1,5 +1,5 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
-import type { GateType } from '../../core/types';
+import type { CircuitDefinition, GateType } from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
 import clockSourceAsset from '../../assets/components/clock_source.png';
 import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
@@ -57,9 +57,25 @@ export const LOGIC_COMPONENT_TOOLS: GateType[] = TOOL_GROUPS.flatMap((group) => 
 interface ComponentLibraryProps {
   selectedTool: EditorTool;
   onSelectTool: (tool: EditorTool) => void;
+  definitions?: CircuitDefinition[];
+  /** The definition currently open for editing, if any -- excluded from the placeable list as a cheap deterrent against an instance directly containing itself (the authoritative cycle guard lives in flattenCircuit). */
+  excludeDefinitionId?: string | null;
+  selectedSubcircuitDefinitionId?: string | null;
+  onSelectSubcircuit?: (definitionId: string) => void;
 }
 
-export function ComponentLibrary({ selectedTool, onSelectTool }: ComponentLibraryProps) {
+export function ComponentLibrary({
+  selectedTool,
+  onSelectTool,
+  definitions = [],
+  excludeDefinitionId = null,
+  selectedSubcircuitDefinitionId = null,
+  onSelectSubcircuit,
+}: ComponentLibraryProps) {
+  const placeableDefinitions = definitions.filter(
+    (definition) => definition.id !== excludeDefinitionId,
+  );
+
   return (
     <aside className="library-panel" aria-label="Biblioteca de componentes">
       <div className="panel-header">Biblioteca</div>
@@ -84,6 +100,37 @@ export function ComponentLibrary({ selectedTool, onSelectTool }: ComponentLibrar
             </div>
           </section>
         ))}
+        {placeableDefinitions.length > 0 && (
+          <section className="tool-group" key="subcircuits">
+            <h2>Subcircuitos</h2>
+            <div className="tool-grid">
+              {placeableDefinitions.map((definition) => (
+                <button
+                  key={definition.id}
+                  className={`tool-card ${
+                    selectedTool === 'subcircuit' &&
+                    selectedSubcircuitDefinitionId === definition.id
+                      ? 'active'
+                      : ''
+                  }`}
+                  draggable
+                  onClick={() => onSelectSubcircuit?.(definition.id)}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData('application/opencircuit-gate', 'subcircuit');
+                    event.dataTransfer.setData(
+                      'application/opencircuit-subcircuit-definition',
+                      definition.id,
+                    );
+                  }}
+                >
+                  <span className="tool-button-content">
+                    <span>{definition.name}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </aside>
   );

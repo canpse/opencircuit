@@ -1,5 +1,9 @@
-import { COMPONENT_DEFINITIONS, getPinPosition } from '../../core/catalog';
-import type { LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import {
+  COMPONENT_DEFINITIONS,
+  getPinPosition,
+  resolveComponentDefinition,
+} from '../../core/catalog';
+import type { CircuitDefinition, LogicComponent, PinRef, Point, Wire } from '../../core/types';
 
 export type WireRoute = { wireId: string; points: Point[]; jumps: Point[]; fixedPoints?: Point[] };
 
@@ -16,8 +20,11 @@ export interface RectBounds {
   height: number;
 }
 
-export function componentBounds(component: LogicComponent): RectBounds {
-  const definition = COMPONENT_DEFINITIONS[component.type];
+export function componentBounds(
+  component: LogicComponent,
+  definitions: CircuitDefinition[] = [],
+): RectBounds {
+  const definition = resolveComponentDefinition(component, definitions);
   if (component.type === 'text') {
     const width = textComponentWidth(component);
     const lines = wrapText(component.label ?? definition.label, width - 42);
@@ -68,6 +75,7 @@ export function routeCircuitWires(
   wires: Wire[],
   componentById: Map<string, LogicComponent>,
   components: LogicComponent[],
+  definitions: CircuitDefinition[] = [],
 ): { routes: WireRoute[]; trunks: WireTrunk[] } {
   const routes = wires
     .filter((wire) => wire.display !== 'tunnel')
@@ -75,15 +83,15 @@ export function routeCircuitWires(
       const from = componentById.get(wire.from.componentId);
       const to = componentById.get(wire.to.componentId);
       if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
-      const start = getPinPosition(from, wire.from.pinId);
-      const end = getPinPosition(to, wire.to.pinId);
+      const start = getPinPosition(from, wire.from.pinId, definitions);
+      const end = getPinPosition(to, wire.to.pinId, definitions);
       const ignore = new Set([from.id, to.id]);
       const fixedPoints = wire.waypoints?.map((point) => ({ ...point }));
       const points = fixedPoints?.length
-        ? routeThroughWaypoints(start, end, fixedPoints, components, ignore, index)
+        ? routeThroughWaypoints(start, end, fixedPoints, components, ignore, index, definitions)
         : from.id === to.id
-          ? selfLoopRoute(from, start, end, index)
-          : routeBetweenPoints(start, end, components, ignore, index);
+          ? selfLoopRoute(from, start, end, index, definitions)
+          : routeBetweenPoints(start, end, components, ignore, index, undefined, definitions);
       return {
         wireId: wire.id,
         points: fixedPoints?.length ? points : mergeCollinearPoints(points),
@@ -292,8 +300,9 @@ export function selfLoopRoute(
   start: Point,
   end: Point,
   index: number,
+  definitions: CircuitDefinition[] = [],
 ): Point[] {
-  const bounds = componentBounds(component);
+  const bounds = componentBounds(component, definitions);
   const lane = 34 + (index % 4) * 14;
   const firstX = Math.max(start.x, bounds.x + bounds.width) + lane;
   const topY = bounds.y - lane;
@@ -316,6 +325,7 @@ export function routeBetweenPoints(
   ignoreComponentIds: Set<string>,
   index: number,
   pinStubs: { start: boolean; end: boolean } = { start: true, end: true },
+  definitions: CircuitDefinition[] = [],
 ): Point[] {
   const offset = ((index % 5) - 2) * 10;
   const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
@@ -327,8 +337,8 @@ export function routeBetweenPoints(
   const margin = 34 + Math.abs(offset);
   const obstacles = components
     .filter((component) => !ignoreComponentIds.has(component.id))
-    .map((component) => inflateRect(componentBounds(component), 14));
-  const allBounds = components.map(componentBounds);
+    .map((component) => inflateRect(componentBounds(component, definitions), 14));
+  const allBounds = components.map((component) => componentBounds(component, definitions));
   const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
   const maxY = Math.max(start.y, end.y, ...allBounds.map((rect) => rect.y + rect.height)) + margin;
   const candidates: Point[][] = [
@@ -414,6 +424,7 @@ export function routeThroughWaypoints(
   components: LogicComponent[],
   ignoreComponentIds: Set<string>,
   index: number,
+  definitions: CircuitDefinition[] = [],
 ): Point[] {
   const anchors = [start, ...waypoints, end];
   const points: Point[] = [];
@@ -427,6 +438,7 @@ export function routeThroughWaypoints(
         ignoreComponentIds,
         index + sectionIndex,
         { start: sectionIndex === 0, end: sectionIndex === anchors.length - 2 },
+        definitions,
       ),
     );
     points.push(...(sectionIndex === 0 ? section : section.slice(1)));
@@ -664,11 +676,12 @@ export function wireInRect(
   wire: Wire,
   componentById: Map<string, LogicComponent>,
   rect: RectBounds,
+  definitions: CircuitDefinition[] = [],
 ): boolean {
   const from = componentById.get(wire.from.componentId);
   const to = componentById.get(wire.to.componentId);
   if (!from || !to) return false;
-  const start = getPinPosition(from, wire.from.pinId);
-  const end = getPinPosition(to, wire.to.pinId);
+  const start = getPinPosition(from, wire.from.pinId, definitions);
+  const end = getPinPosition(to, wire.to.pinId, definitions);
   return containsPoint(rect, start) && containsPoint(rect, end);
 }

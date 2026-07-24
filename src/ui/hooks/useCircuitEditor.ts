@@ -1,5 +1,12 @@
 import { useState, type SetStateAction } from 'react';
-import type { CircuitDocument, GateType, PinRef, Point, Wire } from '../../core/types';
+import type {
+  CircuitDefinition,
+  CircuitDocument,
+  GateType,
+  PinRef,
+  Point,
+  Wire,
+} from '../../core/types';
 import {
   componentDefinitionLabel,
   createLogicComponent,
@@ -11,7 +18,7 @@ import {
   type CircuitClipboard,
 } from '../app/editorUtils';
 import type { Selection } from '../context-menu/ContextMenuView';
-import { settleSequentialCircuit } from '../../core/evaluateCircuit';
+import { settleHierarchical } from '../../core/hierarchy/simulate';
 
 const GRID = 20;
 export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
@@ -19,6 +26,7 @@ export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 interface Options {
   circuit: CircuitDocument;
   setCircuit: (action: SetStateAction<CircuitDocument>) => void;
+  definitions: CircuitDefinition[];
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
   onSelectTool: (tool: GateType | 'select' | 'wire' | 'pan') => void;
@@ -27,6 +35,7 @@ interface Options {
 export function useCircuitEditor({
   circuit,
   setCircuit,
+  definitions,
   rememberCircuit,
   onMessage,
   onSelectTool,
@@ -35,10 +44,10 @@ export function useCircuitEditor({
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
   const [clipboard, setClipboard] = useState<CircuitClipboard | null>(null);
 
-  function addComponent(type: GateType, point: Point) {
+  function addComponent(type: GateType, point: Point, definitionId?: string) {
     const snapped = snap(point, GRID);
     const id = nextId(type, circuit.components);
-    const component = createLogicComponent(type, id, snapped);
+    const component = createLogicComponent(type, id, snapped, definitionId);
     rememberCircuit();
     setCircuit((current) => ({ ...current, components: [...current.components, component] }));
     setSelection({ componentIds: [id], wireIds: [] });
@@ -56,14 +65,17 @@ export function useCircuitEditor({
   function toggleInput(componentId: string) {
     rememberCircuit();
     setCircuit((current) =>
-      settleSequentialCircuit({
-        ...current,
-        components: current.components.map((component) =>
-          component.id === componentId && component.type === 'input'
-            ? { ...component, state: !component.state }
-            : component,
-        ),
-      }),
+      settleHierarchical(
+        {
+          ...current,
+          components: current.components.map((component) =>
+            component.id === componentId && component.type === 'input'
+              ? { ...component, state: !component.state }
+              : component,
+          ),
+        },
+        definitions,
+      ),
     );
   }
 

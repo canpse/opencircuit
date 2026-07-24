@@ -24,7 +24,8 @@ export type GateType =
   | 'clock'
   | 'd-latch'
   | 'd-flip-flop'
-  | 'register-4';
+  | 'register-4'
+  | 'subcircuit';
 export type LogicValue = boolean;
 export type PinKind = 'input' | 'output';
 
@@ -42,6 +43,15 @@ export interface LogicComponent {
   state?: boolean;
   width?: number;
   memory?: Record<string, boolean>;
+  /** Only meaningful when type === 'subcircuit': id of the CircuitDefinition this instance renders/simulates. */
+  definitionId?: string;
+  /**
+   * Only meaningful when type === 'subcircuit'. Per-instance sequential state for
+   * components inside the referenced definition, keyed by dotted path relative to
+   * this instance (e.g. "G1" or "SUB2.G1" for a nested instance) — NOT stored on the
+   * shared definition template, since every instance needs independent state.
+   */
+  instanceMemory?: Record<string, Record<string, boolean>>;
 }
 
 export interface PinRef {
@@ -58,10 +68,19 @@ export interface Wire {
   waypoints?: Point[];
 }
 
+/** A named, reusable circuit graph that can be instantiated as a 'subcircuit' component. */
+export interface CircuitDefinition {
+  id: string;
+  name: string;
+  components: LogicComponent[];
+  wires: Wire[];
+}
+
 export interface CircuitDocument {
   version: 1;
   components: LogicComponent[];
   wires: Wire[];
+  definitions?: CircuitDefinition[];
 }
 
 export interface PinDefinition {
