@@ -883,7 +883,7 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
           y: 1000,
           width: 900,
           label:
-            'Contador binário síncrono de 8 bits. Todo bit é clocado pelo mesmo Clock mestre; a cadeia de portas AND à esquerda calcula, para cada bit, se todos os bits menos significativos já estão em 1 (a condição clássica de "vai um" de um contador síncrono). Cada Flip-Flop D alterna (XOR com o próprio Q) só quando essa condição está ativa. Desligue Enable para pausar a contagem sem perder o valor atual. Rode o clock automático e acompanhe os LEDs contando em binário de 0 a 255 — ou abra as Formas de onda e use o cursor de tempo para inspecionar qualquer instante do histórico.',
+            'Contador binário síncrono de 8 bits. Todo bit é clocado pelo mesmo Clock mestre; a cadeia de portas AND à esquerda calcula, para cada bit, se todos os bits menos significativos já estão em 1 (a condição clássica de "vai um" de um contador síncrono). Cada Flip-Flop D alterna (XOR com o próprio Q) só quando essa condição está ativa. Desligue Enable para pausar a contagem sem perder o valor atual. Rode o clock automático e acompanhe os LEDs contando em binário de 0 a 255 — ou abra as Formas de onda e use o cursor de tempo para inspecionar qualquer instante do histórico. Importante: este simulador resolve cada Tick como um único passo síncrono — toda a lógica combinacional é calculada de uma vez a partir do estado anterior, e só então todos os Flip-Flops travam o novo valor ao mesmo tempo. Por isso um projeto como este, com um clock único compartilhado, sempre conta certo. Veja o exemplo "Ripple counter (não funciona)" para o caso em que essa premissa é quebrada.',
         },
       ],
       wires: [
@@ -1479,6 +1479,310 @@ const RAW_CIRCUIT_EXAMPLES: RawCircuitExample[] = [
           to: {
             componentId: 'L7',
             pinId: 'in',
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: 'ripple-counter-broken',
+    name: 'Ripple counter assíncrono (não funciona)',
+    circuit: {
+      version: 1,
+      components: [
+        {
+          id: 'CLK',
+          type: 'clock',
+          x: 40,
+          y: 72,
+          label: 'Clock',
+          state: false,
+        },
+        {
+          id: 'FF0',
+          type: 'd-flip-flop',
+          x: 280,
+          y: 60,
+          label: 'Bit 0',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'N0',
+          type: 'not',
+          x: 480,
+          y: 69,
+          label: 'T0',
+        },
+        {
+          id: 'L0',
+          type: 'led',
+          x: 650,
+          y: 71,
+          label: 'Q0',
+        },
+        {
+          id: 'FF1',
+          type: 'd-flip-flop',
+          x: 280,
+          y: 160,
+          label: 'Bit 1',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'N1',
+          type: 'not',
+          x: 480,
+          y: 169,
+          label: 'T1',
+        },
+        {
+          id: 'L1',
+          type: 'led',
+          x: 650,
+          y: 171,
+          label: 'Q1',
+        },
+        {
+          id: 'FF2',
+          type: 'd-flip-flop',
+          x: 280,
+          y: 260,
+          label: 'Bit 2',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'N2',
+          type: 'not',
+          x: 480,
+          y: 269,
+          label: 'T2',
+        },
+        {
+          id: 'L2',
+          type: 'led',
+          x: 650,
+          y: 271,
+          label: 'Q2',
+        },
+        {
+          id: 'FF3',
+          type: 'd-flip-flop',
+          x: 280,
+          y: 360,
+          label: 'Bit 3',
+          memory: {
+            q: false,
+            previousClk: false,
+          },
+        },
+        {
+          id: 'N3',
+          type: 'not',
+          x: 480,
+          y: 369,
+          label: 'T3',
+        },
+        {
+          id: 'L3',
+          type: 'led',
+          x: 650,
+          y: 371,
+          label: 'Q3',
+        },
+        {
+          id: 'TXT1',
+          type: 'text',
+          x: 40,
+          y: 480,
+          width: 780,
+          label:
+            'Contador ripple assíncrono de 4 bits — QUEBRADO DE PROPÓSITO. Cada bit é um Flip-Flop T (D = NOT(Q), alterna a cada borda de subida do próprio clock) e o clock de cada bit vem do Q do bit anterior — o desenho clássico de livro-texto para um contador assíncrono. Antes de dar Tick, preveja: o valor deveria contar 1, 2, 3, 4, 5, 6... Rode e compare com o que os LEDs realmente mostram. Ele não conta certo neste simulador: cada Tick resolve o circuito inteiro em um único passo síncrono (toda a lógica é calculada de uma vez a partir do estado anterior, e só depois os Flip-Flops travam o novo valor) — não existe um "meio do caminho" entre um tick e o outro onde o atraso de propagação de um estágio para o outro possa se resolver, como aconteceria em hardware de verdade. O resultado é um valor que pula de forma imprevisível em vez de contar. Veja o exemplo "Contador binário síncrono (8 bits)" para a versão que funciona: todos os bits no mesmo clock, com uma cadeia de portas decidindo quem deve alternar — sem depender de nenhum atraso entre estágios.',
+        },
+      ],
+      wires: [
+        {
+          id: 'W1',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'N0',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W2',
+          from: {
+            componentId: 'N0',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W3',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L0',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W4',
+          from: {
+            componentId: 'CLK',
+            pinId: 'CLK',
+          },
+          to: {
+            componentId: 'FF0',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W5',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'N1',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W6',
+          from: {
+            componentId: 'N1',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W7',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L1',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W8',
+          from: {
+            componentId: 'FF0',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF1',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W9',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'N2',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W10',
+          from: {
+            componentId: 'N2',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W11',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L2',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W12',
+          from: {
+            componentId: 'FF1',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF2',
+            pinId: 'CLK',
+          },
+        },
+        {
+          id: 'W13',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'N3',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W14',
+          from: {
+            componentId: 'N3',
+            pinId: 'out',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'D',
+          },
+        },
+        {
+          id: 'W15',
+          from: {
+            componentId: 'FF3',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'L3',
+            pinId: 'in',
+          },
+        },
+        {
+          id: 'W16',
+          from: {
+            componentId: 'FF2',
+            pinId: 'Q',
+          },
+          to: {
+            componentId: 'FF3',
+            pinId: 'CLK',
           },
         },
       ],
@@ -5306,8 +5610,9 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
         'Como todo Flip-Flop D é clocado pelo mesmo sinal, o valor novo inteiro é decidido em um único instante — sem os atrasos de propagação de um contador assíncrono (ripple) real.',
         'Um Flip-Flop D com D = XOR(Q, T) funciona como um Flip-Flop T: alterna quando T=1, mantém quando T=0.',
         'O bit mais significativo muda com metade da frequência do bit anterior — o padrão clássico de contagem binária.',
+        'Este simulador resolve cada Tick num único passo síncrono: primeiro toda a lógica combinacional é calculada a partir do estado anterior, só depois todos os Flip-Flops travam o novo valor ao mesmo tempo. Um circuito com clock único, como este, é exatamente o que esse modelo representa fielmente.',
       ],
-      next: [],
+      next: ['ripple-counter-broken'],
       observe: [
         'Bit 0 alterna a cada clock; Bit 1 alterna a cada dois clocks; cada bit seguinte é duas vezes mais lento.',
         'Com Enable desligado, nenhum bit muda mesmo com Tick.',
@@ -5324,6 +5629,55 @@ function metadataFor(example: RawCircuitExample): ExampleMetadata {
         'Pare a contagem em 42 (00101010) usando Tick e confirme os LEDs.',
         'Meça quantos Ticks são necessários para o Bit 3 mudar de valor pela primeira vez.',
         'Modifique o circuito (ou desenhe no papel) um contador de 4 bits reaproveitando só os quatro primeiros estágios.',
+      ],
+    };
+  }
+  if (example.id === 'ripple-counter-broken') {
+    return {
+      ...common,
+      moduleId: 'systems',
+      familyIds: ['counters', 'flip-flops'],
+      trackIds: ['sequential', 'architecture'],
+      difficulty: 4,
+      level: 'concept',
+      prerequisites: ['sync-counter-8bit'],
+      concepts: [
+        'contador ripple assíncrono',
+        'atraso de propagação',
+        'passo síncrono único por Tick',
+        'clock encadeado entre estágios',
+      ],
+      goal: 'Entender, prevendo e depois observando uma falha real, por que este simulador só representa corretamente circuitos síncronos — e não um contador ripple assíncrono clássico de livro-texto.',
+      steps: [
+        'Antes de clicar em qualquer coisa, escreva a sequência que você espera: 1, 2, 3, 4, 5, 6...',
+        'Dê Tick uma vez e compare o valor dos LEDs com sua previsão.',
+        'Continue dando Tick um a um, sempre comparando: 1, 3, 6, 14, 15, 13, 12, 12, 13, 15, 10...',
+        'Volte ao exemplo "Contador binário síncrono (8 bits)" e repita os mesmos primeiros Ticks para comparar lado a lado.',
+      ],
+      ideas: [
+        'Este circuito é o desenho clássico de contador ripple: cada Flip-Flop é um T (D = NOT(Q), alterna a cada borda), e o clock de cada estágio vem do Q do estágio anterior.',
+        'Em hardware real isso funciona porque cada porta tem um atraso físico de nanossegundos, muito menor que o período do clock — dá tempo de tudo se acomodar entre uma borda e outra.',
+        'Este simulador resolve cada Tick como um único passo síncrono: calcula toda a lógica combinacional de uma vez a partir do estado anterior, e só então trava os Flip-Flops — não existe um "meio do caminho" onde um atraso de propagação possa se resolver.',
+        'Por isso, cada estágio só "percebe" a mudança do estágio anterior um Tick inteiro depois — e como novos Ticks continuam chegando, várias dessas ondas atrasadas se sobrepõem e o valor deixa de ser uma contagem.',
+        'A correção não é uma questão de fiação: é trocar o desenho por um síncrono, com um clock único e uma lógica combinacional decidindo quem deve alternar (veja o contador de 8 bits).',
+      ],
+      next: [],
+      observe: [
+        'O valor muda a cada Tick, mas não sobe de 1 em 1 — ele salta de forma imprevisível.',
+        'Volte ao contador síncrono e repita os mesmos Ticks: lá a sequência é limpa, 1, 2, 3, 4...',
+        'Quanto mais bits o contador tem, mais caótica fica a sequência aqui — o oposto do que se esperaria de "só adicionar mais um atraso".',
+      ],
+      experiments: [
+        'Grave a sequência dos primeiros 10 valores e confirme se bate com 1, 3, 6, 14, 15, 13, 12, 12, 13, 15.',
+        'Pause e reinicie o clock automático algumas vezes e veja se o padrão de erro se repete sempre igual (ele deveria, já que é determinístico).',
+        'Desconecte o Flip-Flop do Bit 3 e observe se os 3 bits restantes sozinhos também divergem.',
+      ],
+      challenge:
+        'Reprojete este circuito para que ele conte corretamente neste simulador, sem mudar a quantidade de bits — qual é a mudança mínima de fiação necessária?',
+      exercises: [
+        'Transforme este contador de 4 bits em um síncrono, reaproveitando a ideia do exemplo de 8 bits.',
+        'Explique, em uma frase, por que "mais um tick de atraso por estágio" quebra a contagem em vez de só atrasá-la.',
+        'Monte uma tabela com tick, valor esperado e valor observado para os primeiros 8 Ticks.',
       ],
     };
   }
@@ -5468,6 +5822,12 @@ export const CIRCUIT_LESSONS: CircuitLesson[] = [
     'clocked-systems',
     'Aula 5 — Clock, flip-flops e registradores',
     'Circuitos sincronizados pelo Tick ou pelo clock automático.',
-    ['d-flip-flop-basic', 'register-4-basic', 'sync-counter-8bit', 'johnson-counter-8bit'],
+    [
+      'd-flip-flop-basic',
+      'register-4-basic',
+      'sync-counter-8bit',
+      'ripple-counter-broken',
+      'johnson-counter-8bit',
+    ],
   ),
 ];
