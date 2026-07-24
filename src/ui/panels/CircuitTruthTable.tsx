@@ -14,12 +14,15 @@ export function CircuitTruthTable({
   unstable,
   hasFeedback,
   definitions = [],
+  scopeName,
 }: {
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
   unstable: boolean;
   hasFeedback: boolean;
   definitions?: CircuitDefinition[];
+  /** Name of the subcircuit definition currently being viewed, if any -- shown in the panel title so it's clear the table reflects just that definition, not the whole document. */
+  scopeName?: string;
 }) {
   const sequentialComponents = circuit.components.filter((component) =>
     isSequentialType(component.type),
@@ -32,6 +35,7 @@ export function CircuitTruthTable({
         evaluation={evaluation}
         unstable={unstable}
         hasFeedback={hasFeedback}
+        scopeName={scopeName}
       />
     );
   }
@@ -70,7 +74,9 @@ export function CircuitTruthTable({
 
   return (
     <div className="properties-card truth-table-card">
-      <span className="property-subtitle">Circuito inteiro</span>
+      <span className="property-subtitle">
+        {scopeName ? `Definição: ${scopeName}` : 'Circuito inteiro'}
+      </span>
       <div className="truth-table-wrap">
         <table className="truth-table circuit-truth-table">
           <thead>
@@ -120,12 +126,14 @@ function SequentialStatePanel({
   evaluation,
   unstable,
   hasFeedback,
+  scopeName,
 }: {
   circuit: CircuitDocument;
   components: LogicComponent[];
   evaluation: EvaluationResult;
   unstable: boolean;
   hasFeedback: boolean;
+  scopeName?: string;
 }) {
   const observedComponents =
     components.length > 0
@@ -133,10 +141,11 @@ function SequentialStatePanel({
       : circuit.components.filter((component) =>
           ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'].includes(component.type),
         );
+  const subtitle = hasFeedback ? 'Realimentação / memória' : 'Circuito sequencial';
   return (
     <div className="properties-card sequential-state-card">
       <span className="property-subtitle">
-        {hasFeedback ? 'Realimentação / memória' : 'Circuito sequencial'}
+        {scopeName ? `${subtitle} — ${scopeName}` : subtitle}
       </span>
       <p className="muted-card">
         {hasFeedback ? (
