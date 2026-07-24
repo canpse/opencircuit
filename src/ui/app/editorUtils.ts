@@ -5,6 +5,7 @@ import type {
   CircuitDocument,
   GateType,
   LogicComponent,
+  PinRef,
   Point,
   Wire,
 } from '../../core/types';
@@ -81,6 +82,8 @@ export function normalizeCircuitForEditor(circuit: CircuitDocument): CircuitDocu
 export function hasSelection(selection: Selection): boolean {
   return selection.componentIds.length > 0 || selection.wireIds.length > 0;
 }
+
+export const GRID = 20;
 
 export function snap(point: Point, grid: number): Point {
   return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
@@ -270,4 +273,180 @@ function defaultLabel(type: GateType, id: string): string {
   if (type === 'led') return 'LED';
   if (type === 'text') return 'Texto';
   return COMPONENT_DEFINITIONS[type].label;
+}
+
+function pinKey(ref: PinRef): string {
+  return `${ref.componentId}::${ref.pinId}`;
+}
+
+function mintWireId(usedIds: Set<string>): string {
+  const timestamp = Date.now();
+  let index = 0;
+  let id = `W${timestamp}_${index}`;
+  while (usedIds.has(id)) {
+    index += 1;
+    id = `W${timestamp}_${index}`;
+  }
+  usedIds.add(id);
+  return id;
+}
+
+export interface ExtractedSubcircuit {
+  scope: CircuitDocument;
+  definition: CircuitDefinition;
+  instanceId: string;
+}
+
+/**
+ * Extracts a selection of components (plus whatever wires connect them) out of
+ * `scope` into a brand-new CircuitDefinition, replacing the selection in `scope`
+ * with a single subcircuit instance. Wires crossing the selection boundary get an
+ * input/clock or LED marker synthesized inside the new definition (mirroring the
+ * type-based pin rule from deriveSubcircuitPins), and get rewired to the new
+ * instance's derived pin instead of the original inner component.
+ *
+ * This relies on a global invariant enforced by isCircuitDocument: every Wire.from
+ * is always an output-kind pin and every Wire.to is always an input-kind pin. That
+ * lets boundary-wire direction alone (which endpoint is `from` vs `to`) decide
+ * whether the inside endpoint needs an input marker or an output marker, with no
+ * need to resolve pin kinds here -- this function does not re-validate `scope`,
+ * it trusts that invariant already holds.
+ */
+export function extractSelectionIntoDefinition(
+  scope: CircuitDocument,
+  componentIds: string[],
+  definitionId: string,
+  definitionName: string,
+  grid: number,
+): ExtractedSubcircuit | null {
+  const selectedIds = new Set(
+    componentIds.filter((id) => scope.components.some((component) => component.id === id)),
+  );
+  if (selectedIds.size === 0) return null;
+
+  const selectedComponents = scope.components.filter((component) => selectedIds.has(component.id));
+  const remainingComponents = scope.components.filter(
+    (component) => !selectedIds.has(component.id),
+  );
+  const componentById = new Map(scope.components.map((component) => [component.id, component]));
+
+  const internalWires: Wire[] = [];
+  const externalWires: Wire[] = [];
+  // Boundary wire whose `to` is inside: grouped by the outside `from` source, so
+  // several wires sharing the same external driver collapse into one marker.
+  const inboundGroups = new Map<string, { source: PinRef; targets: PinRef[] }>();
+  // Boundary wire whose `from` is inside: grouped by the inside `from` source, so
+  // one inside output read by several external destinations shares one marker.
+  const outboundGroups = new Map<string, { source: PinRef; wires: Wire[] }>();
+
+  for (const wire of scope.wires) {
+    const fromInside = selectedIds.has(wire.from.componentId);
+    const toInside = selectedIds.has(wire.to.componentId);
+    if (fromInside && toInside) {
+      internalWires.push(wire);
+    } else if (!fromInside && !toInside) {
+      externalWires.push(wire);
+    } else if (toInside) {
+      const key = pinKey(wire.from);
+      const entry = inboundGroups.get(key) ?? { source: wire.from, targets: [] };
+      entry.targets.push(wire.to);
+      inboundGroups.set(key, entry);
+    } else {
+      const key = pinKey(wire.from);
+      const entry = outboundGroups.get(key) ?? { source: wire.from, wires: [] };
+      entry.wires.push(wire);
+      outboundGroups.set(key, entry);
+    }
+  }
+
+  const definitionComponents: LogicComponent[] = [...selectedComponents];
+  const definitionWires: Wire[] = [...internalWires];
+  const definitionUsedWireIds = new Set(internalWires.map((wire) => wire.id));
+  const scopeUsedWireIds = new Set(scope.wires.map((wire) => wire.id));
+  const rewrittenBoundaryWires: Wire[] = [];
+
+  const xs = selectedComponents.map((component) => component.x);
+  const ys = selectedComponents.map((component) => component.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+
+  const instanceId = nextId('subcircuit', remainingComponents);
+
+  let inputIndex = 0;
+  for (const { source, targets } of inboundGroups.values()) {
+    const outsideComponent = componentById.get(source.componentId);
+    const markerType: GateType = outsideComponent?.type === 'clock' ? 'clock' : 'input';
+    const markerId = nextId(markerType, definitionComponents);
+    definitionComponents.push(
+      createLogicComponent(markerType, markerId, { x: minX - 160, y: minY + inputIndex * 80 }),
+    );
+    inputIndex += 1;
+
+    const markerOutPin = markerType === 'clock' ? 'CLK' : 'out';
+    for (const target of targets) {
+      definitionWires.push({
+        id: mintWireId(definitionUsedWireIds),
+        from: { componentId: markerId, pinId: markerOutPin },
+        to: target,
+      });
+    }
+
+    rewrittenBoundaryWires.push({
+      id: mintWireId(scopeUsedWireIds),
+      from: source,
+      to: { componentId: instanceId, pinId: markerId },
+    });
+  }
+
+  let outputIndex = 0;
+  for (const { source, wires: originalWires } of outboundGroups.values()) {
+    const markerId = nextId('led', definitionComponents);
+    definitionComponents.push(
+      createLogicComponent('led', markerId, { x: maxX + 160, y: minY + outputIndex * 80 }),
+    );
+    outputIndex += 1;
+
+    definitionWires.push({
+      id: mintWireId(definitionUsedWireIds),
+      from: source,
+      to: { componentId: markerId, pinId: 'in' },
+    });
+
+    for (const original of originalWires) {
+      rewrittenBoundaryWires.push({
+        ...original,
+        from: { componentId: instanceId, pinId: markerId },
+      });
+    }
+  }
+
+  const instancePosition = snap(
+    {
+      x: Math.round(xs.reduce((sum, x) => sum + x, 0) / xs.length),
+      y: Math.round(ys.reduce((sum, y) => sum + y, 0) / ys.length),
+    },
+    grid,
+  );
+  const instanceComponent = createLogicComponent(
+    'subcircuit',
+    instanceId,
+    instancePosition,
+    definitionId,
+  );
+
+  return {
+    scope: {
+      ...scope,
+      components: [...remainingComponents, instanceComponent],
+      wires: [...externalWires, ...rewrittenBoundaryWires],
+    },
+    definition: {
+      id: definitionId,
+      name: definitionName,
+      components: definitionComponents,
+      wires: definitionWires,
+    },
+    instanceId,
+  };
 }

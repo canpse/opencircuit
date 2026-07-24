@@ -10,6 +10,7 @@ import type {
 import {
   componentDefinitionLabel,
   createLogicComponent,
+  GRID,
   hasSelection,
   moveComponentsWithWaypoints,
   nextId,
@@ -20,7 +21,6 @@ import {
 import type { Selection } from '../context-menu/ContextMenuView';
 import { settleHierarchical } from '../../core/hierarchy/simulate';
 
-const GRID = 20;
 export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 
 interface Options {
