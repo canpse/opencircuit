@@ -1,19 +1,26 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
+import { dirname, extname, join, normalize } from 'node:path';
 import { CircuitRepository } from './circuit-repository.mjs';
 import { createApiHandler } from './api.mjs';
+import { LibraryRepository } from './library-repository.mjs';
+import { createLibraryApiHandler } from './library-api.mjs';
 
 const port = Number(process.env.PORT ?? 4173);
 const databasePath = process.env.OPENCIRCUIT_DB ?? 'data/opencircuit.sqlite';
 mkdirSync(join(databasePath, '..'), { recursive: true });
 const repository = new CircuitRepository(databasePath);
 const api = createApiHandler(repository);
+const libraryDatabasePath =
+  process.env.OPENCIRCUIT_LIBRARY_DB ?? join(dirname(databasePath), 'library.sqlite');
+const libraryRepository = new LibraryRepository(libraryDatabasePath);
+const libraryApi = createLibraryApiHandler(libraryRepository);
 const dist = join(process.cwd(), 'dist');
 
 const server = createServer(async (request, response) => {
   if (await api(request, response)) return;
+  if (await libraryApi(request, response)) return;
   const pathname = new URL(request.url, 'http://localhost').pathname;
   const relative = normalize(pathname)
     .replace(/^(\.\.(\/|\\|$))+/, '')
@@ -39,6 +46,7 @@ server.listen(port, () => console.log(`OpenCircuit em http://localhost:${port}`)
 process.on('SIGTERM', () => {
   server.close();
   repository.close();
+  libraryRepository.close();
 });
 
 function mime(extension) {

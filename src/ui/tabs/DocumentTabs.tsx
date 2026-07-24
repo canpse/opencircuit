@@ -6,6 +6,7 @@ interface Props {
   documents: WorkspaceDocument[];
   activeDocumentId: string;
   remoteDocumentIds: ReadonlySet<string>;
+  libraryDocumentIds: ReadonlySet<string>;
   onSelect: (documentId: string) => void;
   onRequestClose: (documentId: string) => void;
   onRename: (documentId: string, name: string) => void;
@@ -16,6 +17,7 @@ export function DocumentTabs({
   documents,
   activeDocumentId,
   remoteDocumentIds,
+  libraryDocumentIds,
   onSelect,
   onRequestClose,
   onRename,
@@ -72,14 +74,20 @@ export function DocumentTabs({
             <button
               className="document-tab-title"
               title={
-                remoteDocumentIds.has(document.id)
-                  ? 'Salvo no servidor — duplo clique para renomear'
-                  : 'Duplo clique para renomear'
+                libraryDocumentIds.has(document.id)
+                  ? 'Componente de biblioteca — duplo clique para renomear'
+                  : remoteDocumentIds.has(document.id)
+                    ? 'Salvo no servidor — duplo clique para renomear'
+                    : 'Duplo clique para renomear'
               }
               onClick={() => onSelect(document.id)}
               onDoubleClick={() => startEditing(document)}
             >
-              {remoteDocumentIds.has(document.id) ? '☁ ' : ''}
+              {libraryDocumentIds.has(document.id)
+                ? '🧩 '
+                : remoteDocumentIds.has(document.id)
+                  ? '☁ '
+                  : ''}
               {document.name}
             </button>
           )}

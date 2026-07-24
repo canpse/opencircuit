@@ -20,6 +20,7 @@ interface Props {
   autoClockIntervalMs: number;
   fileInputRef: RefObject<HTMLInputElement | null>;
   onOpen: () => void;
+  onOpenLibrary: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   onDownloadJson: () => void;
@@ -47,6 +48,7 @@ export function CommandBar({
   autoClockIntervalMs,
   fileInputRef,
   onOpen,
+  onOpenLibrary,
   onSave,
   onSaveAs,
   onDownloadJson,
@@ -106,6 +108,9 @@ export function CommandBar({
             <button role="menuitem" onClick={() => runMenuAction(onOpen)}>
               <span>Meus circuitos</span>
               <kbd>Ctrl+O</kbd>
+            </button>
+            <button role="menuitem" onClick={() => runMenuAction(onOpenLibrary)}>
+              <span>Minha biblioteca</span>
             </button>
             <span className="toolbar-menu-divider" />
             <button role="menuitem" onClick={() => runMenuAction(onSave)}>

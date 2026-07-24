@@ -31,6 +31,8 @@ export function ContextMenuView({
   onToggleWatchedSignal,
   wireSignalWatched,
   onTransformSelection,
+  componentIsSubcircuitInstance,
+  onSaveToLibrary,
   onRemove,
   onClose,
 }: {
@@ -43,6 +45,8 @@ export function ContextMenuView({
   onToggleWatchedSignal: () => void;
   wireSignalWatched: boolean;
   onTransformSelection: () => void;
+  componentIsSubcircuitInstance: boolean;
+  onSaveToLibrary: () => void;
   onRemove: () => void;
   onClose: () => void;
 }) {
@@ -94,6 +98,11 @@ export function ContextMenuView({
             (menu.kind === 'wire' && selection.componentIds.length > 0)) && (
             <button onClick={onTransformSelection} role="menuitem">
               Transformar em subcircuito
+            </button>
+          )}
+          {menu.kind === 'component' && componentIsSubcircuitInstance && (
+            <button onClick={onSaveToLibrary} role="menuitem">
+              Salvar na biblioteca
             </button>
           )}
           <button disabled={!canRemove} onClick={onRemove} role="menuitem">
