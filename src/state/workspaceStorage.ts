@@ -14,6 +14,10 @@ export type WorkspaceDocument = {
   everSaved: boolean;
   remoteId?: string | null;
   revision?: number | null;
+  // Id do componente de biblioteca sendo editado, quando a aba foi aberta via
+  // "Editar" no diálogo de biblioteca. Mutuamente exclusivo com remoteId: uma
+  // aba nunca é ao mesmo tempo um circuito salvo e um componente de biblioteca.
+  libraryId?: string | null;
   // undefined = a forma de onda usa detecção automática de sinais
   // (comportamento de sempre); definido na primeira vez que o usuário
   // adiciona/remove um sinal pelo canvas (ver toggleWatchedSignal).
@@ -41,6 +45,7 @@ export function createInitialWorkspace(): WorkspaceState {
         everSaved: true,
         remoteId: null,
         revision: null,
+        libraryId: null,
       },
     ],
   };
@@ -69,6 +74,7 @@ export function migrateWorkspace(parsed: unknown): WorkspaceState | null {
       everSaved: raw.everSaved ?? raw.saved,
       remoteId: raw.remoteId ?? null,
       revision: raw.revision ?? null,
+      libraryId: raw.libraryId ?? null,
     });
   }
   if (new Set(documents.map((document) => document.id)).size !== documents.length) return null;
@@ -145,6 +151,7 @@ export function createUntitledDocument(index: number): WorkspaceDocument {
     everSaved: false,
     remoteId: null,
     revision: null,
+    libraryId: null,
   };
 }
 
@@ -169,6 +176,9 @@ function isStoredWorkspaceDocument(value: unknown): value is StoredWorkspaceDocu
     (document.revision === undefined ||
       document.revision === null ||
       (Number.isSafeInteger(document.revision) && Number(document.revision) > 0)) &&
+    (document.libraryId === undefined ||
+      document.libraryId === null ||
+      typeof document.libraryId === 'string') &&
     (document.watchedSignals === undefined ||
       (Array.isArray(document.watchedSignals) &&
         document.watchedSignals.every((key) => typeof key === 'string'))),

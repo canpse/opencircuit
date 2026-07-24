@@ -62,6 +62,7 @@ interface ComponentLibraryProps {
   excludeDefinitionIds?: string[];
   selectedSubcircuitDefinitionId?: string | null;
   onSelectSubcircuit?: (definitionId: string) => void;
+  onSaveDefinitionToLibrary?: (definitionId: string) => void;
 }
 
 export function ComponentLibrary({
@@ -71,6 +72,7 @@ export function ComponentLibrary({
   excludeDefinitionIds = [],
   selectedSubcircuitDefinitionId = null,
   onSelectSubcircuit,
+  onSaveDefinitionToLibrary,
 }: ComponentLibraryProps) {
   const placeableDefinitions = definitions.filter(
     (definition) => !excludeDefinitionIds.includes(definition.id),
@@ -122,6 +124,11 @@ export function ComponentLibrary({
                       definition.id,
                     );
                   }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    onSaveDefinitionToLibrary?.(definition.id);
+                  }}
+                  title="Botão direito: salvar na biblioteca"
                 >
                   <span className="tool-button-content">
                     <span>{definition.name}</span>

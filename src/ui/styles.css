@@ -652,6 +652,10 @@ button:disabled {
 .definitions-bar-create {
   color: var(--brand-strong);
 }
+.definitions-bar-save-library {
+  margin-left: auto;
+  color: var(--brand-strong);
+}
 .document-tab {
   display: inline-flex;
   align-items: center;

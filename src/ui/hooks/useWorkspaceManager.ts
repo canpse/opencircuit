@@ -8,6 +8,13 @@ import {
   type StoredCircuit,
   type StoredCircuitSummary,
 } from '../../state/circuitApi';
+import {
+  libraryApi,
+  LibraryApiError,
+  type LibraryComponentDefinition,
+  type StoredLibraryComponent,
+  type StoredLibraryComponentSummary,
+} from '../../state/libraryApi';
 import { downloadJson } from '../../state/storage';
 import {
   createUntitledDocument,
@@ -36,6 +43,13 @@ export function useWorkspaceManager({ onMessage }: Options) {
   const [conflict, setConflict] = useState<{ documentId: string; remote: StoredCircuit } | null>(
     null,
   );
+  const [libraryEntries, setLibraryEntries] = useState<StoredLibraryComponentSummary[]>([]);
+  const [libraryDialogOpen, setLibraryDialogOpen] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryConflict, setLibraryConflict] = useState<{
+    documentId: string;
+    remote: StoredLibraryComponent;
+  } | null>(null);
 
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
@@ -45,6 +59,10 @@ export function useWorkspaceManager({ onMessage }: Options) {
   const pendingCloseDocument = documents.find((item) => item.id === pendingCloseId) ?? null;
   const remoteDocumentIds = useMemo(
     () => new Set(documents.filter((item) => item.remoteId).map((item) => item.id)),
+    [documents],
+  );
+  const libraryDocumentIds = useMemo(
+    () => new Set(documents.filter((item) => item.libraryId).map((item) => item.id)),
     [documents],
   );
 
@@ -179,9 +197,42 @@ export function useWorkspaceManager({ onMessage }: Options) {
     setSyncState(target.id, 'saved');
   }
 
+  function applySavedLibrary(target: WorkspaceDocument, stored: StoredLibraryComponent) {
+    setDocuments((current) =>
+      current.map((document) =>
+        document.id === target.id
+          ? {
+              ...document,
+              name: stored.name,
+              libraryId: stored.id,
+              revision: stored.revision,
+              saved: document.circuit === target.circuit,
+              everSaved: true,
+            }
+          : document,
+      ),
+    );
+    setSyncState(target.id, 'saved');
+  }
+
+  function toLibraryDefinition(document: CircuitDocument): LibraryComponentDefinition {
+    return { components: document.components, wires: document.wires };
+  }
+
   async function saveDocument(target: WorkspaceDocument): Promise<boolean> {
     setSyncState(target.id, 'saving');
     try {
+      if (target.libraryId && target.revision) {
+        const stored = await libraryApi.update(
+          target.libraryId,
+          target.name,
+          toLibraryDefinition(target.circuit),
+          target.revision,
+        );
+        applySavedLibrary(target, stored);
+        onMessage(`Componente salvo na biblioteca: ${stored.name}.`);
+        return true;
+      }
       const stored =
         target.remoteId && target.revision
           ? await circuitApi.update(target.remoteId, target.name, target.circuit, target.revision)
@@ -202,20 +253,35 @@ export function useWorkspaceManager({ onMessage }: Options) {
       onMessage('Conflito: há uma versão mais nova no servidor.');
       return;
     }
-    const offline = error instanceof CircuitApiError && error.status === 0;
+    if (error instanceof LibraryApiError && error.status === 409 && error.remote) {
+      setLibraryConflict({ documentId, remote: error.remote });
+      setSyncState(documentId, 'conflict');
+      onMessage('Conflito: há uma versão mais nova do componente na biblioteca.');
+      return;
+    }
+    const offline =
+      (error instanceof CircuitApiError || error instanceof LibraryApiError) && error.status === 0;
     setSyncState(documentId, offline ? 'offline' : 'error');
     onMessage(error instanceof Error ? error.message : 'Não foi possível salvar.');
   }
 
   async function saveDocumentAs(target: WorkspaceDocument): Promise<boolean> {
     const suggested = target.name.replace(/\.json$/i, '');
-    const name = window.prompt('Nome do novo circuito:', suggested)?.trim();
+    const name = window
+      .prompt(target.libraryId ? 'Nome do novo componente:' : 'Nome do novo circuito:', suggested)
+      ?.trim();
     if (!name) {
       onMessage('Salvar como cancelado.');
       return false;
     }
     setSyncState(target.id, 'saving');
     try {
+      if (target.libraryId) {
+        const stored = await libraryApi.create(name, toLibraryDefinition(target.circuit));
+        applySavedLibrary(target, stored);
+        onMessage(`Nova cópia salva na biblioteca: ${stored.name}.`);
+        return true;
+      }
       const stored = await circuitApi.create(name, target.circuit);
       applySavedRemote(target, stored);
       onMessage(`Nova cópia salva: ${stored.name}.`);
@@ -303,6 +369,22 @@ export function useWorkspaceManager({ onMessage }: Options) {
     const trimmed = name.trim();
     const current = documents.find((item) => item.id === documentId);
     if (!current || !trimmed || trimmed === current.name) return;
+    if (current.libraryId && current.revision) {
+      setSyncState(documentId, 'saving');
+      try {
+        const stored = await libraryApi.update(
+          current.libraryId,
+          trimmed,
+          toLibraryDefinition(current.circuit),
+          current.revision,
+        );
+        applySavedLibrary(current, stored);
+        onMessage(`Componente renomeado: ${trimmed}.`);
+      } catch (error) {
+        handleSaveError(documentId, error);
+      }
+      return;
+    }
     if (!current.remoteId || !current.revision) {
       setDocuments((items) =>
         items.map((item) => (item.id === documentId ? { ...item, name: trimmed } : item)),
@@ -375,6 +457,128 @@ export function useWorkspaceManager({ onMessage }: Options) {
     event.target.value = '';
   }
 
+  async function refreshLibraryEntries(open = false) {
+    if (open) setLibraryDialogOpen(true);
+    setLibraryLoading(true);
+    try {
+      setLibraryEntries(await libraryApi.list());
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível listar a biblioteca.');
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  async function openLibraryEntryForEditing(id: string) {
+    const alreadyOpen = documents.find((item) => item.libraryId === id);
+    if (alreadyOpen) {
+      setActiveDocumentId(alreadyOpen.id);
+      setLibraryDialogOpen(false);
+      onMessage(`Componente já aberto: ${alreadyOpen.name}.`);
+      return;
+    }
+    try {
+      const stored = await libraryApi.get(id);
+      const document: WorkspaceDocument = {
+        id: `doc-${Date.now()}`,
+        name: stored.name,
+        circuit: normalizeCircuitForEditor({
+          version: 1,
+          components: stored.definition.components,
+          wires: stored.definition.wires,
+        }),
+        exampleId: null,
+        saved: true,
+        everSaved: true,
+        remoteId: null,
+        revision: stored.revision,
+        libraryId: stored.id,
+      };
+      setDocuments((current) => [...current, document]);
+      setActiveDocumentId(document.id);
+      setSyncState(document.id, 'saved');
+      setLibraryDialogOpen(false);
+      onMessage(`Componente aberto para edição: ${stored.name}.`);
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível abrir o componente.');
+    }
+  }
+
+  async function deleteLibraryEntry(id: string) {
+    const summary = libraryEntries.find((item) => item.id === id);
+    if (!summary || !window.confirm(`Excluir “${summary.name}” da biblioteca?`)) return;
+    try {
+      await libraryApi.delete(id);
+      setLibraryEntries((current) => current.filter((item) => item.id !== id));
+      setDocuments((current) =>
+        current.map((item) =>
+          item.libraryId === id ? { ...item, libraryId: null, revision: null, saved: false } : item,
+        ),
+      );
+      onMessage(`Componente excluído: ${summary.name}. A aba local foi preservada como rascunho.`);
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível excluir o componente.');
+    }
+  }
+
+  async function saveDefinitionToLibrary(
+    name: string,
+    definition: LibraryComponentDefinition,
+  ): Promise<boolean> {
+    try {
+      const stored = await libraryApi.create(name, definition);
+      setLibraryEntries((current) => [
+        {
+          id: stored.id,
+          name: stored.name,
+          revision: stored.revision,
+          createdAt: stored.createdAt,
+          updatedAt: stored.updatedAt,
+        },
+        ...current,
+      ]);
+      onMessage(`Componente salvo na biblioteca: ${stored.name}.`);
+      return true;
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : 'Não foi possível salvar na biblioteca.');
+      return false;
+    }
+  }
+
+  function reloadLibraryConflict() {
+    if (!libraryConflict) return;
+    const { documentId, remote } = libraryConflict;
+    setDocuments((current) =>
+      current.map((item) =>
+        item.id === documentId
+          ? {
+              ...item,
+              name: remote.name,
+              circuit: normalizeCircuitForEditor({
+                version: 1,
+                components: remote.definition.components,
+                wires: remote.definition.wires,
+              }),
+              libraryId: remote.id,
+              revision: remote.revision,
+              saved: true,
+              everSaved: true,
+            }
+          : item,
+      ),
+    );
+    setSyncState(documentId, 'saved');
+    setLibraryConflict(null);
+    onMessage('Versão mais nova da biblioteca carregada.');
+  }
+
+  function saveLibraryConflictAsCopy() {
+    if (!libraryConflict) return;
+    const target = documents.find((item) => item.id === libraryConflict.documentId);
+    setLibraryConflict(null);
+    if (target) void saveDocumentAs({ ...target, libraryId: null, revision: null });
+  }
+
   function reloadConflict() {
     if (!conflict) return;
     const { documentId, remote } = conflict;
@@ -442,5 +646,19 @@ export function useWorkspaceManager({ onMessage }: Options) {
     closeConflict: () => setConflict(null),
     reloadConflict,
     saveConflictAsCopy,
+    libraryDocumentIds,
+    libraryEntries,
+    libraryDialogOpen,
+    libraryLoading,
+    openLibraryDialog: () => void refreshLibraryEntries(true),
+    closeLibraryDialog: () => setLibraryDialogOpen(false),
+    refreshLibraryEntries: () => void refreshLibraryEntries(),
+    openLibraryEntryForEditing: (id: string) => void openLibraryEntryForEditing(id),
+    deleteLibraryEntry: (id: string) => void deleteLibraryEntry(id),
+    saveDefinitionToLibrary,
+    libraryConflict,
+    closeLibraryConflict: () => setLibraryConflict(null),
+    reloadLibraryConflict,
+    saveLibraryConflictAsCopy,
   };
 }

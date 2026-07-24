@@ -105,6 +105,47 @@ describe('API de circuitos', () => {
     ).toBe(400);
   });
 
+  test('circuito com instância de subcircuito e definições é aceito (regressão)', async () => {
+    const halfAdder = {
+      id: 'half-adder-def',
+      name: 'Meio Somador',
+      components: [
+        { id: 'a', type: 'input', x: 0, y: 0 },
+        { id: 'b', type: 'input', x: 0, y: 40 },
+        { id: 'xor1', type: 'xor', x: 100, y: 0 },
+        { id: 'sum-led', type: 'led', x: 200, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'w1',
+          from: { componentId: 'a', pinId: 'out' },
+          to: { componentId: 'xor1', pinId: 'a' },
+        },
+        {
+          id: 'w2',
+          from: { componentId: 'b', pinId: 'out' },
+          to: { componentId: 'xor1', pinId: 'b' },
+        },
+        {
+          id: 'w3',
+          from: { componentId: 'xor1', pinId: 'out' },
+          to: { componentId: 'sum-led', pinId: 'in' },
+        },
+      ],
+    };
+    const circuitWithSubcircuit = {
+      version: 1,
+      definitions: [halfAdder],
+      components: [{ id: 'u1', type: 'subcircuit', x: 0, y: 0, definitionId: halfAdder.id }],
+      wires: [],
+    };
+    const response = await call('/api/circuits', 'user-a', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Com subcircuito', circuit: circuitWithSubcircuit }),
+    });
+    expect(response.status).toBe(201);
+  });
+
   test('migração é idempotente', () => {
     repository.migrate();
     repository.migrate();

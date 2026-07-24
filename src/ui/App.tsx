@@ -1,5 +1,5 @@
 import { Profiler, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
-import type { CircuitDocument, GateType } from '../core/types';
+import type { CircuitDefinition, CircuitDocument, GateType } from '../core/types';
 import { flattenCircuit } from '../core/hierarchy/flatten';
 import { nextDefinitionId } from '../core/hierarchy/scope';
 import { CircuitCanvas } from './editor/CircuitCanvas';
@@ -30,7 +30,9 @@ import { DefinitionBreadcrumb } from './panels/DefinitionBreadcrumb';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
 import { RemoteCircuitsDialog } from './dialogs/RemoteCircuitsDialog';
+import { LibraryDialog } from './dialogs/LibraryDialog';
 import { ConflictDialog } from './dialogs/ConflictDialog';
+import { libraryApi } from '../state/libraryApi';
 import { DocumentTabs } from './tabs/DocumentTabs';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
@@ -84,6 +86,20 @@ export function App() {
     closeConflict,
     reloadConflict,
     saveConflictAsCopy,
+    libraryDocumentIds,
+    libraryEntries,
+    libraryDialogOpen,
+    libraryLoading,
+    openLibraryDialog,
+    closeLibraryDialog,
+    refreshLibraryEntries,
+    openLibraryEntryForEditing,
+    deleteLibraryEntry,
+    saveDefinitionToLibrary,
+    libraryConflict,
+    closeLibraryConflict,
+    reloadLibraryConflict,
+    saveLibraryConflictAsCopy,
   } = useWorkspaceManager({
     onMessage: setMessage,
   });
@@ -223,6 +239,69 @@ export function App() {
     setMessage(`Subcircuito "${name.trim()}" criado.`);
   }
 
+  async function saveDefinitionToLibraryFlow(definition: CircuitDefinition) {
+    if (definition.components.some((component) => component.type === 'subcircuit')) {
+      setMessage(
+        'Não é possível salvar na biblioteca: essa definição referencia outro subcircuito, e a biblioteca ainda não suporta aninhamento.',
+      );
+      return;
+    }
+    const name = window.prompt('Nome do componente na biblioteca:', definition.name)?.trim();
+    if (!name) return;
+    await saveDefinitionToLibrary(name, {
+      components: definition.components,
+      wires: definition.wires,
+    });
+  }
+
+  async function saveActiveDefinitionToLibrary() {
+    if (!activeDefinition) return;
+    await saveDefinitionToLibraryFlow(activeDefinition);
+  }
+
+  function saveDefinitionByIdToLibrary(definitionId: string) {
+    const definition = definitions.find((item) => item.id === definitionId);
+    if (!definition) return;
+    void saveDefinitionToLibraryFlow(definition);
+  }
+
+  function saveComponentDefinitionToLibrary(componentId: string) {
+    const component = scopedCircuit.components.find((item) => item.id === componentId);
+    if (!component || component.type !== 'subcircuit' || !component.definitionId) return;
+    const definition = definitions.find((item) => item.id === component.definitionId);
+    if (!definition) {
+      setMessage('Definição do subcircuito não encontrada.');
+      return;
+    }
+    void saveDefinitionToLibraryFlow(definition);
+  }
+
+  async function insertLibraryDefinition(id: string) {
+    try {
+      const stored = await libraryApi.get(id);
+      const freshId = nextDefinitionId(definitions);
+      rememberCircuit();
+      setCircuit((current) => ({
+        ...current,
+        definitions: [
+          ...(current.definitions ?? []),
+          {
+            id: freshId,
+            name: stored.name,
+            components: stored.definition.components,
+            wires: stored.definition.wires,
+          },
+        ],
+      }));
+      closeLibraryDialog();
+      setPendingSubcircuitDefinitionId(freshId);
+      setSelectedTool('subcircuit');
+      setMessage(`Componente "${stored.name}" pronto para posicionar no canvas.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Não foi possível inserir o componente.');
+    }
+  }
+
   const {
     canUndo,
     canRedo,
@@ -315,6 +394,7 @@ export function App() {
     toggleWatchedSignalContextTarget,
     removeContextTarget,
     transformContextTarget,
+    saveToLibraryContextTarget,
   } = useContextMenuManager({
     selection,
     pendingWire,
@@ -330,6 +410,7 @@ export function App() {
     toggleWireDisplay,
     toggleWatchedSignalForWire,
     transformSelection: transformSelectionIntoSubcircuit,
+    saveComponentToLibrary: saveComponentDefinitionToLibrary,
     setRenameRequest,
   });
 
@@ -354,7 +435,12 @@ export function App() {
     selection,
     pendingWire,
     contextMenu,
-    dialogOpen: pendingCloseDocument !== null || remoteBrowserOpen || conflict !== null,
+    dialogOpen:
+      pendingCloseDocument !== null ||
+      remoteBrowserOpen ||
+      conflict !== null ||
+      libraryDialogOpen ||
+      libraryConflict !== null,
     hasSelection,
     onCancelContextMenu: closeContextMenu,
     onCancelPendingWire: () => setPendingWire(null),
@@ -461,6 +547,7 @@ export function App() {
         autoClockIntervalMs={autoClockIntervalMs}
         fileInputRef={fileInputRef}
         onOpen={openRemoteBrowser}
+        onOpenLibrary={openLibraryDialog}
         onSave={saveActiveDocument}
         onSaveAs={saveActiveDocumentAs}
         onDownloadJson={downloadActiveDocument}
@@ -492,6 +579,7 @@ export function App() {
             setPendingSubcircuitDefinitionId(definitionId);
             setSelectedTool('subcircuit');
           }}
+          onSaveDefinitionToLibrary={saveDefinitionByIdToLibrary}
         />
 
         <div className="center-panel">
@@ -499,6 +587,7 @@ export function App() {
             documents={documents}
             activeDocumentId={activeDocumentId}
             remoteDocumentIds={remoteDocumentIds}
+            libraryDocumentIds={libraryDocumentIds}
             onSelect={selectDocument}
             onRequestClose={requestCloseDocument}
             onRename={renameDocument}
@@ -521,6 +610,14 @@ export function App() {
             <button className="definitions-bar-create" onClick={createDefinition}>
               + Nova definição
             </button>
+            {activeDefinition && (
+              <button
+                className="definitions-bar-save-library"
+                onClick={() => void saveActiveDefinitionToLibrary()}
+              >
+                Salvar na biblioteca
+              </button>
+            )}
           </div>
           <div className="editor-panel">
             <DefinitionBreadcrumb
@@ -768,6 +865,29 @@ export function App() {
         />
       )}
 
+      {libraryDialogOpen && (
+        <LibraryDialog
+          entries={libraryEntries}
+          loading={libraryLoading}
+          onInsert={(id) => void insertLibraryDefinition(id)}
+          onEdit={openLibraryEntryForEditing}
+          onDelete={deleteLibraryEntry}
+          onRefresh={refreshLibraryEntries}
+          onClose={closeLibraryDialog}
+        />
+      )}
+
+      {libraryConflict && (
+        <ConflictDialog
+          documentName={
+            documents.find((item) => item.id === libraryConflict.documentId)?.name ?? 'componente'
+          }
+          onReload={reloadLibraryConflict}
+          onSaveCopy={saveLibraryConflictAsCopy}
+          onClose={closeLibraryConflict}
+        />
+      )}
+
       {contextMenu && (
         <ContextMenuView
           key={`${contextMenu.kind}-${contextMenu.x}-${contextMenu.y}`}
@@ -792,6 +912,12 @@ export function App() {
             );
           })()}
           onTransformSelection={transformContextTarget}
+          componentIsSubcircuitInstance={
+            contextMenu.kind === 'component' &&
+            scopedCircuit.components.find((component) => component.id === contextMenu.componentId)
+              ?.type === 'subcircuit'
+          }
+          onSaveToLibrary={saveToLibraryContextTarget}
           onRemove={removeContextTarget}
           onClose={closeContextMenu}
         />

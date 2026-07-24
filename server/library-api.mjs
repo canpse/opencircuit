@@ -1,10 +1,10 @@
-import { isCircuitDocument } from './circuit-validator.mjs';
+import { validateScope } from './circuit-validator.mjs';
 import { OWNER_PATTERN, readJson, send } from './api-helpers.mjs';
 
-export function createApiHandler(repository) {
+export function createLibraryApiHandler(repository) {
   return async function handle(request, response) {
     const url = new URL(request.url, 'http://localhost');
-    if (!url.pathname.startsWith('/api/circuits')) return false;
+    if (!url.pathname.startsWith('/api/library')) return false;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
 
@@ -12,23 +12,23 @@ export function createApiHandler(repository) {
       const ownerId = request.headers['x-opencircuit-user'];
       if (typeof ownerId !== 'string' || !OWNER_PATTERN.test(ownerId))
         return send(response, 401, { error: 'Identidade de usuário ausente ou inválida.' });
-      const match = url.pathname.match(/^\/api\/circuits(?:\/([0-9a-f-]+))?$/i);
+      const match = url.pathname.match(/^\/api\/library(?:\/([0-9a-f-]+))?$/i);
       if (!match) return send(response, 404, { error: 'Rota não encontrada.' });
       const id = match[1];
 
       if (request.method === 'GET' && !id) return send(response, 200, repository.list(ownerId));
       if (request.method === 'GET' && id) {
-        const circuit = repository.get(ownerId, id);
-        return circuit
-          ? send(response, 200, circuit)
-          : send(response, 404, { error: 'Circuito não encontrado.' });
+        const entry = repository.get(ownerId, id);
+        return entry
+          ? send(response, 200, entry)
+          : send(response, 404, { error: 'Componente não encontrado.' });
       }
       if (request.method === 'POST' && !id) {
         const body = await readJson(request);
         const error = validatePayload(body, false);
         return error
           ? send(response, 400, { error })
-          : send(response, 201, repository.create(ownerId, body.name.trim(), body.circuit));
+          : send(response, 201, repository.create(ownerId, body.name.trim(), body.definition));
       }
       if (request.method === 'PUT' && id) {
         const body = await readJson(request);
@@ -39,28 +39,28 @@ export function createApiHandler(repository) {
           id,
           body.revision,
           body.name.trim(),
-          body.circuit,
+          body.definition,
         );
         if (result.kind === 'not-found')
-          return send(response, 404, { error: 'Circuito não encontrado.' });
+          return send(response, 404, { error: 'Componente não encontrado.' });
         if (result.kind === 'conflict')
           return send(response, 409, {
-            error: 'O circuito foi alterado em outra aba.',
-            circuit: result.circuit,
+            error: 'O componente foi alterado em outra aba.',
+            definition: result.entry,
           });
-        return send(response, 200, result.circuit);
+        return send(response, 200, result.entry);
       }
       if (request.method === 'DELETE' && id)
         return repository.delete(ownerId, id)
           ? send(response, 204)
-          : send(response, 404, { error: 'Circuito não encontrado.' });
+          : send(response, 404, { error: 'Componente não encontrado.' });
       return send(response, 405, { error: 'Método não permitido.' });
     } catch (error) {
       if (error?.code === 'BODY_TOO_LARGE')
         return send(response, 413, { error: 'Documento excede 2 MB.' });
       if (error instanceof SyntaxError) return send(response, 400, { error: 'JSON inválido.' });
-      console.error('Circuit API error:', error instanceof Error ? error.message : error);
-      return send(response, 500, { error: 'Erro interno ao persistir circuito.' });
+      console.error('Library API error:', error instanceof Error ? error.message : error);
+      return send(response, 500, { error: 'Erro interno ao persistir componente.' });
     }
   };
 }
@@ -69,8 +69,13 @@ function validatePayload(body, needsRevision) {
   if (!body || typeof body !== 'object') return 'Corpo inválido.';
   if (typeof body.name !== 'string' || body.name.trim().length < 1 || body.name.trim().length > 120)
     return 'O nome deve ter entre 1 e 120 caracteres.';
-  if (!isCircuitDocument(body.circuit)) return 'CircuitDocument inválido.';
+  if (!isValidDefinition(body.definition)) return 'Definição de componente inválida.';
   if (needsRevision && (!Number.isSafeInteger(body.revision) || body.revision < 1))
     return 'Revisão inválida.';
   return null;
+}
+
+function isValidDefinition(definition) {
+  if (!definition || typeof definition !== 'object' || Array.isArray(definition)) return false;
+  return validateScope(definition.components, definition.wires, new Map());
 }
