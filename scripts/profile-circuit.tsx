@@ -85,6 +85,7 @@ function renderCircuit(
       onToggleInput={() => undefined}
       onSetButtonPressed={() => undefined}
       onPinClick={() => undefined}
+      onEnterInstance={() => undefined}
       onRenameWire={() => undefined}
       onAddWireWaypoint={() => undefined}
       onBeginMoveWireWaypoint={() => undefined}

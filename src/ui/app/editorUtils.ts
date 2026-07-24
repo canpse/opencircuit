@@ -450,3 +450,13 @@ export function extractSelectionIntoDefinition(
     instanceId,
   };
 }
+
+/** Drills one level deeper: double-clicking a subcircuit instance pushes onto the current navigation path. */
+export function pushDefinitionPath(path: string[], definitionId: string): string[] {
+  return [...path, definitionId];
+}
+
+/** Jumps to a breadcrumb segment: index -1 means the root (empty path), index N keeps path[0..N]. */
+export function truncateDefinitionPath(path: string[], index: number): string[] {
+  return path.slice(0, index + 1);
+}

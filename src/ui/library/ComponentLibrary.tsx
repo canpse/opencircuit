@@ -58,8 +58,8 @@ interface ComponentLibraryProps {
   selectedTool: EditorTool;
   onSelectTool: (tool: EditorTool) => void;
   definitions?: CircuitDefinition[];
-  /** The definition currently open for editing, if any -- excluded from the placeable list as a cheap deterrent against an instance directly containing itself (the authoritative cycle guard lives in flattenCircuit). */
-  excludeDefinitionId?: string | null;
+  /** Every definition currently on the navigation path (the one being edited plus any ancestor it was reached through) -- excluded from the placeable list as a cheap deterrent against an instance containing one of its own ancestors (the authoritative cycle guard lives in flattenCircuit). */
+  excludeDefinitionIds?: string[];
   selectedSubcircuitDefinitionId?: string | null;
   onSelectSubcircuit?: (definitionId: string) => void;
 }
@@ -68,12 +68,12 @@ export function ComponentLibrary({
   selectedTool,
   onSelectTool,
   definitions = [],
-  excludeDefinitionId = null,
+  excludeDefinitionIds = [],
   selectedSubcircuitDefinitionId = null,
   onSelectSubcircuit,
 }: ComponentLibraryProps) {
   const placeableDefinitions = definitions.filter(
-    (definition) => definition.id !== excludeDefinitionId,
+    (definition) => !excludeDefinitionIds.includes(definition.id),
   );
 
   return (
