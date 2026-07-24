@@ -1,5 +1,6 @@
-import type { CircuitDocument, LogicComponent } from '../types';
+import type { CircuitDefinition, CircuitDocument, LogicComponent } from '../types';
 import { evaluateCircuit } from './simulate';
+import { flattenCircuit } from '../hierarchy/flatten';
 
 export interface TruthTableRow {
   inputs: boolean[];
@@ -10,6 +11,7 @@ export function buildCircuitTruthRows(
   circuit: CircuitDocument,
   inputs: LogicComponent[],
   outputs: LogicComponent[],
+  definitions: CircuitDefinition[] = [],
 ): TruthTableRow[] {
   const rowCount = 2 ** inputs.length;
   return Array.from({ length: rowCount }, (_, rowIndex) => {
@@ -26,7 +28,11 @@ export function buildCircuitTruthRows(
           : component,
       ),
     };
-    const result = evaluateCircuit(testCircuit);
+    // Flatten before evaluating: a subcircuit instance's output would otherwise
+    // hit gates.ts's unreachable-in-practice 'subcircuit' case (always false),
+    // since evaluateCircuit alone never expands instances -- only flattenCircuit does.
+    const { flat } = flattenCircuit(testCircuit, definitions);
+    const result = evaluateCircuit(flat);
     return {
       inputs: inputValues,
       outputs: outputs.map((output) => Boolean(result[output.id]?.in)),

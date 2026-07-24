@@ -655,6 +655,7 @@ export function App() {
                 evaluation={canvasEvaluation}
                 unstable={simulationResult.unstable}
                 hasFeedback={hasFeedback}
+                definitions={definitions}
               />
               <div className="analysis-guide-card">
                 {hasSequentialComponents || hasFeedback ? (

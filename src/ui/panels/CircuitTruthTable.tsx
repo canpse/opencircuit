@@ -1,18 +1,25 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import { isSequentialType } from '../../core/evaluateCircuit';
 import { buildCircuitTruthRows, sameBooleanValues } from '../../core/simulation/truthTable';
-import type { CircuitDocument, EvaluationResult, LogicComponent } from '../../core/types';
+import type {
+  CircuitDefinition,
+  CircuitDocument,
+  EvaluationResult,
+  LogicComponent,
+} from '../../core/types';
 
 export function CircuitTruthTable({
   circuit,
   evaluation,
   unstable,
   hasFeedback,
+  definitions = [],
 }: {
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
   unstable: boolean;
   hasFeedback: boolean;
+  definitions?: CircuitDefinition[];
 }) {
   const sequentialComponents = circuit.components.filter((component) =>
     isSequentialType(component.type),
@@ -58,7 +65,7 @@ export function CircuitTruthTable({
     );
   }
 
-  const rows = buildCircuitTruthRows(circuit, inputs, outputs);
+  const rows = buildCircuitTruthRows(circuit, inputs, outputs, definitions);
   const currentInputValues = inputs.map((input) => Boolean(input.state));
 
   return (
