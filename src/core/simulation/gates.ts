@@ -1,5 +1,5 @@
 import type { CircuitDocument, EvaluationResult, LogicComponent } from '../types';
-import { inputValue, writeMany, writePin } from './signals';
+import { inputBusValue, inputValue, writeMany, writePin } from './signals';
 
 export function evaluateComponent(
   component: LogicComponent,
@@ -156,6 +156,24 @@ export function evaluateComponent(
       return writeMany(values, component.id, {
         DIFF: (a !== b) !== bin,
         Bout: (!a && b) || (bin && !(a !== b)),
+      });
+    }
+    // A bus-pin case must always write a FRESH array (never mutate one already in
+    // `values` in place) -- writePin/logicValuesEqual compares by value, but a mutated
+    // array would compare equal to itself and never register as "changed".
+    case 'merge-4': {
+      const bits = ['I0', 'I1', 'I2', 'I3'].map((id) =>
+        inputValue(circuit, values, componentById, component.id, id),
+      );
+      return writePin(values, { componentId: component.id, pinId: 'OUT' }, bits);
+    }
+    case 'split-4': {
+      const bus = inputBusValue(circuit, values, componentById, component.id, 'IN', 4);
+      return writeMany(values, component.id, {
+        O0: bus[0],
+        O1: bus[1],
+        O2: bus[2],
+        O3: bus[3],
       });
     }
     case 'subcircuit':

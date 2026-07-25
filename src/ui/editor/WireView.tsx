@@ -1,5 +1,5 @@
 import { memo, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { getPinPosition } from '../../core/catalog';
+import { getPinPosition, getPinWidth } from '../../core/catalog';
 import type { CircuitDefinition, LogicComponent, PinRef, Point, Wire } from '../../core/types';
 import {
   bezierPath,
@@ -60,6 +60,7 @@ export const WireView = memo(function WireView({
   const [draftLabel, setDraftLabel] = useState('');
   const start = getPinPosition(fromComponent, wire.from.pinId, definitions);
   const end = getPinPosition(toComponent, wire.to.pinId, definitions);
+  const isBus = getPinWidth(fromComponent, wire.from.pinId, definitions) > 1;
   const points =
     route?.points ??
     (fromComponent.id === toComponent.id
@@ -76,7 +77,7 @@ export const WireView = memo(function WireView({
 
   if (wire.display === 'tunnel') {
     const label = wire.label || 'Túnel';
-    const wireClass = `wire tunnel-stub ${active ? 'on' : ''} ${selected ? 'selected' : ''}`;
+    const wireClass = `wire tunnel-stub ${active ? 'on' : ''} ${selected ? 'selected' : ''} ${isBus ? 'bus' : ''}`;
     // Vários túneis podem sair do mesmo pino de origem; tunnelFromOffset
     // escalona o toco/rótulo desse lado em faixas para não empilhar tudo
     // no mesmo ponto (ver computeTunnelFromOffsets).
@@ -166,7 +167,7 @@ export const WireView = memo(function WireView({
     <>
       <path
         d={d}
-        className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''}`}
+        className={`wire ${wireStyle === 'orthogonal' ? 'orthogonal' : 'bezier'} ${active ? 'on' : ''} ${selected ? 'selected' : ''} ${isBus ? 'bus' : ''}`}
         onMouseDown={(event) => onWireMouseDown(event, wire.id)}
         onClick={(event) => {
           event.stopPropagation();
@@ -238,6 +239,7 @@ export function PendingWire({
   const component = componentById.get(pendingWire.componentId);
   if (!component) return null;
   const start = getPinPosition(component, pendingWire.pinId, definitions);
+  const isBus = getPinWidth(component, pendingWire.pinId, definitions) > 1;
   const end = mousePoint;
   const route =
     end && wireStyle === 'orthogonal'
@@ -259,7 +261,7 @@ export function PendingWire({
 
   return (
     <g className="pending-wire-preview">
-      {end && <path className={`wire pending ${wireStyle}`} d={d} />}
+      {end && <path className={`wire pending ${wireStyle} ${isBus ? 'bus' : ''}`} d={d} />}
       <circle className="pending-pulse" cx={start.x} cy={start.y} r="12" />
     </g>
   );

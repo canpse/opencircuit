@@ -129,6 +129,42 @@ describe('circuit-validator', () => {
     expect(isCircuitDocument(doc)).toBe(true);
   });
 
+  test('fio ligando pino de barramento (largura 4) a pino escalar (largura 1) é rejeitado', () => {
+    const doc = {
+      version: 1,
+      components: [
+        { id: 'm', type: 'merge-4', x: 0, y: 0 },
+        { id: 'led1', type: 'led', x: 160, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'w1',
+          from: { componentId: 'm', pinId: 'OUT' },
+          to: { componentId: 'led1', pinId: 'in' },
+        },
+      ],
+    };
+    expect(isCircuitDocument(doc)).toBe(false);
+  });
+
+  test('fio entre dois pinos de barramento de mesma largura é aceito', () => {
+    const doc = {
+      version: 1,
+      components: [
+        { id: 'm', type: 'merge-4', x: 0, y: 0 },
+        { id: 's', type: 'split-4', x: 160, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'w1',
+          from: { componentId: 'm', pinId: 'OUT' },
+          to: { componentId: 's', pinId: 'IN' },
+        },
+      ],
+    };
+    expect(isCircuitDocument(doc)).toBe(true);
+  });
+
   test('definição além do limite de componentes é rejeitada mesmo aninhada', () => {
     const bigDefinition = {
       id: 'big-def',

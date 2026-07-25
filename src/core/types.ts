@@ -25,8 +25,10 @@ export type GateType =
   | 'd-latch'
   | 'd-flip-flop'
   | 'register-4'
+  | 'merge-4'
+  | 'split-4'
   | 'subcircuit';
-export type LogicValue = boolean;
+export type LogicValue = boolean | boolean[];
 export type PinKind = 'input' | 'output';
 
 export interface Point {
@@ -88,6 +90,8 @@ export interface PinDefinition {
   kind: PinKind;
   label: string;
   offset: Point;
+  /** Bit width of this pin. undefined/1 = classic scalar (boolean) pin. */
+  width?: number;
 }
 
 export interface ComponentDefinition {

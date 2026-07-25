@@ -3,6 +3,7 @@ import type {
   CircuitDocument,
   EvaluationResult,
   LogicComponent,
+  LogicValue,
   PinRef,
   SimulationResult,
 } from '../types';
@@ -62,16 +63,49 @@ export function inputValue(
   if (!incoming) return false;
   const sourceComponent = componentById.get(incoming.from.componentId);
   if (!sourceComponent) return false;
-  return readPin(values, incoming.from);
+  const value = readPin(values, incoming.from);
+  return typeof value === 'boolean' ? value : false;
 }
 
-export function readPin(values: EvaluationResult, pin: PinRef): boolean {
-  return Boolean(values[pin.componentId]?.[pin.pinId]);
+export function inputBusValue(
+  circuit: CircuitDocument,
+  values: EvaluationResult,
+  componentById: Map<string, LogicComponent>,
+  componentId: string,
+  pinId: string,
+  width: number,
+): boolean[] {
+  const incoming = circuit.wires.find(
+    (wire) => wire.to.componentId === componentId && wire.to.pinId === pinId,
+  );
+  const fallback = () => new Array<boolean>(width).fill(false);
+  if (!incoming) return fallback();
+  const sourceComponent = componentById.get(incoming.from.componentId);
+  if (!sourceComponent) return fallback();
+  const value = readPin(values, incoming.from);
+  return Array.isArray(value) ? value : fallback();
 }
 
-export function writePin(values: EvaluationResult, pin: PinRef, value: boolean): boolean {
+export function readPin(values: EvaluationResult, pin: PinRef): LogicValue {
+  return values[pin.componentId]?.[pin.pinId] ?? false;
+}
+
+/**
+ * evaluateComponent for a bus pin always writes a fresh array (never mutates one in
+ * place), so reference equality would report "changed" every iteration even when the
+ * bits didn't -- compare by value instead, or the fixed-point loop in simulate.ts would
+ * never converge and every circuit with a bus component would falsely flag `unstable`.
+ */
+export function logicValuesEqual(a: LogicValue | undefined, b: LogicValue): boolean {
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((bit, index) => bit === b[index]);
+  }
+  return a === b;
+}
+
+export function writePin(values: EvaluationResult, pin: PinRef, value: LogicValue): boolean {
   if (!values[pin.componentId]) values[pin.componentId] = {};
-  if (values[pin.componentId][pin.pinId] === value) return false;
+  if (logicValuesEqual(values[pin.componentId][pin.pinId], value)) return false;
   values[pin.componentId][pin.pinId] = value;
   return true;
 }
@@ -79,7 +113,7 @@ export function writePin(values: EvaluationResult, pin: PinRef, value: boolean):
 export function writeMany(
   values: EvaluationResult,
   componentId: string,
-  outputs: Record<string, boolean>,
+  outputs: Record<string, LogicValue>,
 ): boolean {
   return Object.entries(outputs).reduce(
     (changed, [pinId, value]) => writePin(values, { componentId, pinId }, value) || changed,

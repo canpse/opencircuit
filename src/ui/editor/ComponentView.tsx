@@ -1,6 +1,12 @@
 import { memo, type MouseEvent } from 'react';
 import { resolveComponentDefinition } from '../../core/catalog';
-import type { CircuitDefinition, GateType, LogicComponent, PinRef } from '../../core/types';
+import type {
+  CircuitDefinition,
+  GateType,
+  LogicComponent,
+  LogicValue,
+  PinRef,
+} from '../../core/types';
 import andGateAsset from '../../assets/components/and_gate.png';
 import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
 import inputSwitchOnAsset from '../../assets/components/input_switch_on.png';
@@ -15,7 +21,7 @@ import outputPortAsset from '../../assets/components/output_port.png';
 import xnorGateAsset from '../../assets/components/xnor_gate.png';
 import xorGateAsset from '../../assets/components/xor_gate.png';
 import { textComponentWidth, wrapText } from './wireRouting';
-import { sameEvaluationValues } from './canvasMemo';
+import { isPinActive, sameEvaluationValues } from './canvasMemo';
 
 const GATE_ASSETS: Partial<Record<GateType, string>> = {
   and: andGateAsset,
@@ -29,7 +35,7 @@ const GATE_ASSETS: Partial<Record<GateType, string>> = {
 
 type ComponentViewProps = {
   component: LogicComponent;
-  values: Record<string, boolean> | undefined;
+  values: Record<string, LogicValue> | undefined;
   changedPins: ReadonlyMap<string, number> | undefined;
   selected: boolean;
   onMouseDown: (event: MouseEvent<SVGGElement>, componentId: string) => void;
@@ -306,7 +312,8 @@ export const ComponentView = memo(function ComponentView({
         </text>
       )}
       {definition.pins.map((pin) => {
-        const value = Boolean(values?.[pin.id]);
+        const value = isPinActive(values?.[pin.id]);
+        const isBus = Boolean(pin.width && pin.width > 1);
         return (
           <g
             key={pin.id}
@@ -327,10 +334,10 @@ export const ComponentView = memo(function ComponentView({
             }}
           >
             <circle
-              className={`pin ${pin.kind} ${value ? 'on' : ''}`}
+              className={`pin ${pin.kind} ${value ? 'on' : ''} ${isBus ? 'bus' : ''}`}
               cx={pin.offset.x}
               cy={pin.offset.y}
-              r="7"
+              r={isBus ? 9 : 7}
             />
             {changedPins?.has(pin.id) && (
               <circle

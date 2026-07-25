@@ -22,11 +22,21 @@ function twoInputGate(type: GateType, label: string, width = 92): ComponentDefin
   };
 }
 
+type PinSpec = string | { id: string; width: number };
+
+function pinSpecId(spec: PinSpec): string {
+  return typeof spec === 'string' ? spec : spec.id;
+}
+
+function pinSpecWidth(spec: PinSpec): number | undefined {
+  return typeof spec === 'string' ? undefined : spec.width;
+}
+
 function block(
   type: GateType,
   label: string,
-  inputs: string[],
-  outputs: string[],
+  inputs: PinSpec[],
+  outputs: PinSpec[],
   width = 140,
 ): ComponentDefinition {
   const height = Math.max(74, Math.max(inputs.length, outputs.length) * 24 + 22);
@@ -37,17 +47,19 @@ function block(
     width,
     height,
     pins: [
-      ...inputs.map((id, index): PinDefinition => ({
-        id,
+      ...inputs.map((spec, index): PinDefinition => ({
+        id: pinSpecId(spec),
         kind: 'input',
-        label: id,
+        label: pinSpecId(spec),
         offset: { x: 0, y: pinY(inputs.length, index) },
+        width: pinSpecWidth(spec),
       })),
-      ...outputs.map((id, index): PinDefinition => ({
-        id,
+      ...outputs.map((spec, index): PinDefinition => ({
+        id: pinSpecId(spec),
         kind: 'output',
-        label: id,
+        label: pinSpecId(spec),
         offset: { x: width, y: pinY(outputs.length, index) },
+        width: pinSpecWidth(spec),
       })),
     ],
   };
@@ -137,6 +149,8 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
     ['Q0', 'Q1', 'Q2', 'Q3'],
     180,
   ),
+  'merge-4': block('merge-4', 'Merge 4', ['I0', 'I1', 'I2', 'I3'], [{ id: 'OUT', width: 4 }], 140),
+  'split-4': block('split-4', 'Split 4', [{ id: 'IN', width: 4 }], ['O0', 'O1', 'O2', 'O3'], 140),
   // Static fallback only: a subcircuit instance's real pins are derived dynamically
   // from its definition by resolveComponentDefinition/deriveSubcircuitDefinition below.
   // This entry exists purely so COMPONENT_DEFINITIONS stays exhaustive over GateType.
@@ -277,6 +291,14 @@ export function getPinKind(
   definitions?: CircuitDefinition[],
 ) {
   return getPin(component, pinId, definitions)?.kind;
+}
+
+export function getPinWidth(
+  component: LogicComponent,
+  pinId: string,
+  definitions?: CircuitDefinition[],
+): number {
+  return getPin(component, pinId, definitions)?.width ?? 1;
 }
 
 export function samePin(a: PinRef, b: PinRef): boolean {
