@@ -48,16 +48,17 @@ const SIGNAL_RANK: Partial<Record<GateType, number>> = {
   'd-flip-flop': 2,
   'register-4': 2,
   led: 3,
+  'display-4': 3,
 };
 
 export function signalKey(componentId: string, pinId: string): string {
   return `${componentId}:${pinId}`;
 }
 
-// O LED é observado pela entrada (o valor que ele exibe); os demais tipos
-// pelas saídas que produzem.
+// O LED e o Display são observados pela entrada (o valor que eles exibem);
+// os demais tipos pelas saídas que produzem.
 function observedPins(component: LogicComponent): PinDefinition[] {
-  const kind = component.type === 'led' ? 'input' : 'output';
+  const kind = component.type === 'led' || component.type === 'display-4' ? 'input' : 'output';
   return COMPONENT_DEFINITIONS[component.type].pins.filter((pin) => pin.kind === kind);
 }
 

@@ -151,6 +151,7 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
   ),
   'merge-4': block('merge-4', 'Merge 4', ['I0', 'I1', 'I2', 'I3'], [{ id: 'OUT', width: 4 }], 140),
   'split-4': block('split-4', 'Split 4', [{ id: 'IN', width: 4 }], ['O0', 'O1', 'O2', 'O3'], 140),
+  'display-4': block('display-4', 'Display 4', [{ id: 'IN', width: 4 }], [], 120),
   // Static fallback only: a subcircuit instance's real pins are derived dynamically
   // from its definition by resolveComponentDefinition/deriveSubcircuitDefinition below.
   // This entry exists purely so COMPONENT_DEFINITIONS stays exhaustive over GateType.

@@ -1,5 +1,6 @@
 import { memo, type MouseEvent } from 'react';
 import { resolveComponentDefinition } from '../../core/catalog';
+import { formatBusHex } from '../../core/simulation/signals';
 import type {
   CircuitDefinition,
   GateType,
@@ -166,6 +167,16 @@ export const ComponentView = memo(function ComponentView({
           height="46"
           preserveAspectRatio="xMidYMid meet"
         />
+      )}
+      {component.type === 'display-4' && (
+        <text
+          className="display-value"
+          x={definition.width / 2}
+          y={definition.height / 2 + 26}
+          textAnchor="middle"
+        >
+          {formatBusHex(values?.IN)}
+        </text>
       )}
       {component.type === 'input' && (
         <image

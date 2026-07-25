@@ -120,3 +120,14 @@ export function writeMany(
     false,
   );
 }
+
+// Índice 0 do array = bit menos significativo (convenção já implícita desde a Fase 1:
+// merge-4 recebe I0..I3 nos slots [0..3], então I0 já É o bit 0/LSB por construção).
+export function busValueToNumber(value: LogicValue | undefined): number {
+  if (!Array.isArray(value)) return value ? 1 : 0;
+  return value.reduce((total, bit, index) => total + (bit ? 2 ** index : 0), 0);
+}
+
+export function formatBusHex(value: LogicValue | undefined): string {
+  return busValueToNumber(value).toString(16).toUpperCase();
+}

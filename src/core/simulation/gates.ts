@@ -37,6 +37,7 @@ export function evaluateComponent(
       });
     case 'led':
     case 'text':
+    case 'display-4':
       return false;
     case 'not':
       return writePin(
