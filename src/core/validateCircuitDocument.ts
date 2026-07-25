@@ -1,4 +1,4 @@
-import { COMPONENT_DEFINITIONS, getPinKind } from './catalog';
+import { COMPONENT_DEFINITIONS, getPinKind, getPinWidth } from './catalog';
 import type {
   CircuitDefinition,
   CircuitDocument,
@@ -137,6 +137,11 @@ function validateScope(
     if (!source || !target) return false;
     if (getPinKind(source, wire.from.pinId, definitions) !== 'output') return false;
     if (getPinKind(target, wire.to.pinId, definitions) !== 'input') return false;
+    if (
+      getPinWidth(source, wire.from.pinId, definitions) !==
+      getPinWidth(target, wire.to.pinId, definitions)
+    )
+      return false;
 
     const inputKey = connectedInputKey(wire.to.componentId, wire.to.pinId);
     if (connectedInputs.has(inputKey)) return false;

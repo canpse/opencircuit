@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { LogicComponent } from '../../core/types';
+import type { LogicComponent, LogicValue } from '../../core/types';
+import { logicValuesEqual } from '../../core/simulation/signals';
 
 // Campos que afetam a geometria do canvas (bounds, posição dos pinos e
 // roteamento dos fios). `state` e `memory` ficam de fora de propósito:
@@ -37,15 +38,22 @@ export function useCanvasLayoutComponents(components: LogicComponent[]): LogicCo
 }
 
 // Igualdade rasa entre as fatias de avaliação de um componente
-// (Record<pinId, boolean>). A simulação recria os objetos a cada tick,
-// então a comparação precisa ser por valor.
+// (Record<pinId, LogicValue>). A simulação recria os objetos a cada tick
+// (e um pino de barramento recria o próprio array a cada tick também), então a
+// comparação precisa ser por valor -- logicValuesEqual cobre os dois casos.
 export function sameEvaluationValues(
-  a: Record<string, boolean> | undefined,
-  b: Record<string, boolean> | undefined,
+  a: Record<string, LogicValue> | undefined,
+  b: Record<string, LogicValue> | undefined,
 ): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   const keys = Object.keys(a);
   if (keys.length !== Object.keys(b).length) return false;
-  return keys.every((key) => a[key] === b[key]);
+  return keys.every((key) => logicValuesEqual(a[key], b[key]));
+}
+
+// "Algum bit em 1 -> mostrado ativo": placeholder simples para Fase 1. Exibição
+// numérica de verdade (hex/decimal) fica para uma fase futura.
+export function isPinActive(value: LogicValue | undefined): boolean {
+  return Array.isArray(value) ? value.some(Boolean) : Boolean(value);
 }

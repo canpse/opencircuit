@@ -1639,6 +1639,9 @@ button:disabled {
   fill: var(--line-on);
   stroke: #a76500;
 }
+.pin.bus {
+  stroke-width: 3;
+}
 
 .wire {
   fill: none;
@@ -1667,6 +1670,13 @@ button:disabled {
   stroke-dasharray: 10 8;
   pointer-events: none;
   opacity: 0.85;
+}
+/* Barramento (largura > 1 bit): traço mais grosso o distingue de um fio comum de 1
+   bit. Vem depois das regras de estado acima de propósito, pra sempre vencer o
+   empate de especificidade e permanecer visivelmente mais grosso mesmo selecionado/
+   em hover/pendente. */
+.wire.bus {
+  stroke-width: 9;
 }
 .wire-trunk-stem {
   pointer-events: none;

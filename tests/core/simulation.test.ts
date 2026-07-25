@@ -41,13 +41,13 @@ function run(circuit: CircuitDocument, previous?: SimulationState) {
 function led(circuit: CircuitDocument, state: SimulationState, ledId: string): boolean {
   const value = state.values[ledId]?.in;
   assert.equal(typeof value, 'boolean', `LED ${ledId} não foi avaliado`);
-  return value;
+  return value as boolean;
 }
 
 function pin(state: SimulationState, componentId: string, pinId: string): boolean {
   const value = state.values[componentId]?.[pinId];
   assert.equal(typeof value, 'boolean', `Pino ${componentId}.${pinId} não foi avaliado`);
-  return value;
+  return value as boolean;
 }
 
 function testCombinationalStillWorks() {
@@ -72,6 +72,87 @@ function testCombinationalStillWorks() {
 
   const values = evaluateCircuit(circuit);
   assert.equal(values.OUT.in, true, 'XOR deve acender quando entradas são diferentes');
+}
+
+function testMergeSplitBusRoundtripStaysStable() {
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'I0', type: 'input', x: 0, y: 0, state: true },
+      { id: 'I1', type: 'input', x: 0, y: 60, state: false },
+      { id: 'I2', type: 'input', x: 0, y: 120, state: true },
+      { id: 'I3', type: 'input', x: 0, y: 180, state: true },
+      { id: 'M', type: 'merge-4', x: 160, y: 80 },
+      { id: 'S', type: 'split-4', x: 320, y: 80 },
+      { id: 'L0', type: 'led', x: 480, y: 0 },
+      { id: 'L1', type: 'led', x: 480, y: 60 },
+      { id: 'L2', type: 'led', x: 480, y: 120 },
+      { id: 'L3', type: 'led', x: 480, y: 180 },
+    ],
+    wires: [
+      {
+        id: 'W0',
+        from: { componentId: 'I0', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I0' },
+      },
+      {
+        id: 'W1',
+        from: { componentId: 'I1', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I1' },
+      },
+      {
+        id: 'W2',
+        from: { componentId: 'I2', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I2' },
+      },
+      {
+        id: 'W3',
+        from: { componentId: 'I3', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I3' },
+      },
+      { id: 'W4', from: { componentId: 'M', pinId: 'OUT' }, to: { componentId: 'S', pinId: 'IN' } },
+      { id: 'W5', from: { componentId: 'S', pinId: 'O0' }, to: { componentId: 'L0', pinId: 'in' } },
+      { id: 'W6', from: { componentId: 'S', pinId: 'O1' }, to: { componentId: 'L1', pinId: 'in' } },
+      { id: 'W7', from: { componentId: 'S', pinId: 'O2' }, to: { componentId: 'L2', pinId: 'in' } },
+      { id: 'W8', from: { componentId: 'S', pinId: 'O3' }, to: { componentId: 'L3', pinId: 'in' } },
+    ],
+  };
+
+  const result = run(circuit);
+  assert.equal(
+    result.unstable,
+    false,
+    'Um barramento estável não deve ser marcado como instável (regressão da igualdade por referência em writePin)',
+  );
+  assert.ok(
+    result.iterations < 10,
+    `Deveria convergir rápido, convergiu em ${result.iterations} iterações`,
+  );
+  assert.deepEqual(
+    result.values.M?.OUT,
+    [true, false, true, true],
+    'merge-4 deve juntar os 4 bits de entrada num array, na ordem I0..I3',
+  );
+  assert.equal(
+    led(circuit, result.state, 'L0'),
+    true,
+    'split-4 deve devolver o bit 0 corretamente',
+  );
+  assert.equal(
+    led(circuit, result.state, 'L1'),
+    false,
+    'split-4 deve devolver o bit 1 corretamente',
+  );
+  assert.equal(
+    led(circuit, result.state, 'L2'),
+    true,
+    'split-4 deve devolver o bit 2 corretamente',
+  );
+  assert.equal(
+    led(circuit, result.state, 'L3'),
+    true,
+    'split-4 deve devolver o bit 3 corretamente',
+  );
 }
 
 function testNorSrLatchKeepsState() {
@@ -684,6 +765,49 @@ function testCircuitDocumentValidationRejectsInvalidWire() {
   );
 }
 
+function testCircuitDocumentValidationRejectsMismatchedWidths() {
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'M', type: 'merge-4', x: 0, y: 0 },
+      { id: 'OUT', type: 'led', x: 160, y: 0 },
+    ],
+    wires: [
+      {
+        id: 'W1',
+        from: { componentId: 'M', pinId: 'OUT' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
+    ],
+  };
+
+  assert.equal(
+    isCircuitDocument(circuit),
+    false,
+    'Fio ligando um pino de barramento (largura 4) a um pino escalar (largura 1) deve ser rejeitado',
+  );
+
+  const matchingWidths: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'M', type: 'merge-4', x: 0, y: 0 },
+      { id: 'S', type: 'split-4', x: 160, y: 0 },
+    ],
+    wires: [
+      {
+        id: 'W1',
+        from: { componentId: 'M', pinId: 'OUT' },
+        to: { componentId: 'S', pinId: 'IN' },
+      },
+    ],
+  };
+  assert.equal(
+    isCircuitDocument(matchingWidths),
+    true,
+    'Fio entre dois pinos de barramento de mesma largura deve ser aceito',
+  );
+}
+
 function testCircuitDocumentValidationAcceptsTunnelMetadata() {
   const circuit = validDocument();
   const tunnel = { ...circuit.wires[0], display: 'tunnel' as const, label: 'CLK' };
@@ -777,6 +901,7 @@ function testBundledCircuitDocumentsAreValid() {
 
 const tests = [
   testCombinationalStillWorks,
+  testMergeSplitBusRoundtripStaysStable,
   testNorSrLatchKeepsState,
   testNandSrLatchActiveLowKeepsState,
   testGatedDLatchFromNand,
@@ -797,6 +922,7 @@ const tests = [
   testCircuitDocumentValidationAcceptsValidCircuit,
   testCircuitDocumentValidationRejectsUnknownComponent,
   testCircuitDocumentValidationRejectsInvalidWire,
+  testCircuitDocumentValidationRejectsMismatchedWidths,
   testCircuitDocumentValidationAcceptsTunnelMetadata,
   testCircuitDocumentValidationAcceptsWaypoints,
   testCircuitDocumentValidationRejectsConflictingIdsAndInputs,

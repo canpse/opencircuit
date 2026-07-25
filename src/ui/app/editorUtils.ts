@@ -230,6 +230,8 @@ export function nextId(type: GateType, components: LogicComponent[]): string {
     'd-latch': 'DL',
     'd-flip-flop': 'DFF',
     'register-4': 'REG',
+    'merge-4': 'MG',
+    'split-4': 'SP',
     subcircuit: 'U',
   };
   const prefix = prefixByType[type];

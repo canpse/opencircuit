@@ -7,6 +7,7 @@ import type {
   Point,
   Wire,
 } from '../../core/types';
+import { getPinWidth } from '../../core/catalog';
 import {
   componentDefinitionLabel,
   createLogicComponent,
@@ -114,8 +115,26 @@ export function useCircuitEditor({
         wire.to.pinId === pin.pinId,
     );
 
-    if (inputAlreadyUsed || duplicate) {
-      onMessage(inputAlreadyUsed ? 'Entrada já conectada.' : 'Esse fio já existe.');
+    const sourceComponent = circuit.components.find(
+      (component) => component.id === pendingWire.componentId,
+    );
+    const targetComponent = circuit.components.find(
+      (component) => component.id === pin.componentId,
+    );
+    const widthsMismatch =
+      sourceComponent &&
+      targetComponent &&
+      getPinWidth(sourceComponent, pendingWire.pinId, definitions) !==
+        getPinWidth(targetComponent, pin.pinId, definitions);
+
+    if (inputAlreadyUsed || duplicate || widthsMismatch) {
+      onMessage(
+        inputAlreadyUsed
+          ? 'Entrada já conectada.'
+          : duplicate
+            ? 'Esse fio já existe.'
+            : 'Larguras incompatíveis.',
+      );
       setPendingWire(null);
       onSelectTool('select');
       return;

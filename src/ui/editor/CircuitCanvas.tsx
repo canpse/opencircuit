@@ -5,7 +5,7 @@ import {
   resolveComponentDefinition,
 } from '../../core/catalog';
 import { ComponentView } from './ComponentView';
-import { useCanvasLayoutComponents } from './canvasMemo';
+import { isPinActive, useCanvasLayoutComponents } from './canvasMemo';
 import { useEventCallback } from '../hooks/useEventCallback';
 import {
   componentBounds,
@@ -559,7 +559,9 @@ export function CircuitCanvas(props: Props) {
         <g className="wires">
           {wireTrunks.map((trunk) => {
             const junction = trunk.stemPoints[trunk.stemPoints.length - 1];
-            const active = Boolean(props.evaluation[trunk.from.componentId]?.[trunk.from.pinId]);
+            const active = isPinActive(
+              props.evaluation[trunk.from.componentId]?.[trunk.from.pinId],
+            );
             const jumps = routeByWireId.get(trunk.branchWireIds[0])?.jumps ?? [];
             return (
               <g key={`trunk-${trunk.from.componentId}-${trunk.from.pinId}`}>
@@ -593,7 +595,7 @@ export function CircuitCanvas(props: Props) {
                 wireStyle={props.wireStyle}
                 fromComponent={fromComponent}
                 toComponent={toComponent}
-                active={Boolean(props.evaluation[wire.from.componentId]?.[wire.from.pinId])}
+                active={isPinActive(props.evaluation[wire.from.componentId]?.[wire.from.pinId])}
                 selected={selectedWireIds.has(wire.id)}
                 tunnelFromOffset={tunnelFromOffsetByWireId.get(wire.id) ?? 0}
                 definitions={definitions}

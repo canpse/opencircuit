@@ -2,6 +2,7 @@ import type {
   CircuitDefinition,
   CircuitDocument,
   EvaluationResult,
+  LogicValue,
   SimulationState,
 } from '../types';
 import { settleSequentialCircuit, simulateCircuit, stepCircuit } from '../evaluateCircuit';
@@ -28,7 +29,7 @@ export function liftEvaluationForScope(
 
   for (const node of nodes) {
     if (node.parentScopePath !== null) continue;
-    const pins: Record<string, boolean> = { ...(lifted[node.localId] ?? {}) };
+    const pins: Record<string, LogicValue> = { ...(lifted[node.localId] ?? {}) };
     for (const [pinId, source] of Object.entries(node.pinSources)) {
       pins[pinId] = Boolean(flatValues[source.componentId]?.[source.pinId]);
     }

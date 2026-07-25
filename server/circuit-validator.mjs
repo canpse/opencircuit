@@ -43,6 +43,15 @@ const PINS = {
     Q2: 'output',
     Q3: 'output',
   },
+  'merge-4': { I0: 'input', I1: 'input', I2: 'input', I3: 'input', OUT: 'output' },
+  'split-4': { IN: 'input', O0: 'output', O1: 'output', O2: 'output', O3: 'output' },
+};
+
+// Sparse width overrides -- any pin not listed here is width 1 (classic scalar pin),
+// mirroring src/core/types.ts's PinDefinition.width default. Only bus pins need an entry.
+const PIN_WIDTHS = {
+  'merge-4': { OUT: 4 },
+  'split-4': { IN: 4 },
 };
 
 const MAX_COMPONENTS = 10_000;
@@ -91,6 +100,15 @@ function resolvePinKind(component, pinId, definitionsById) {
   if (marker.type === 'input' || marker.type === 'clock') return 'input';
   if (marker.type === 'led') return 'output';
   return undefined;
+}
+
+/**
+ * Bit width for a component+pinId, default 1. Subcircuit boundary pins stay scalar for
+ * now -- a bus can't cross a subcircuit boundary yet (mirrors the client's Fase 1 scope).
+ */
+function resolvePinWidth(component, pinId) {
+  if (component.type === 'subcircuit') return 1;
+  return PIN_WIDTHS[component.type]?.[pinId] ?? 1;
 }
 
 function isValidComponent(component) {
@@ -167,7 +185,8 @@ export function validateScope(components, wires, definitionsById) {
       !source ||
       !target ||
       resolvePinKind(source, wire.from.pinId, definitionsById) !== 'output' ||
-      resolvePinKind(target, wire.to.pinId, definitionsById) !== 'input'
+      resolvePinKind(target, wire.to.pinId, definitionsById) !== 'input' ||
+      resolvePinWidth(source, wire.from.pinId) !== resolvePinWidth(target, wire.to.pinId)
     )
       return false;
 
