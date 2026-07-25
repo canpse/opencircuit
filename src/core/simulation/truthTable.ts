@@ -1,10 +1,11 @@
-import type { CircuitDefinition, CircuitDocument, LogicComponent } from '../types';
+import { getPins } from '../catalog';
+import type { CircuitDefinition, CircuitDocument, LogicComponent, LogicValue } from '../types';
 import { evaluateCircuit } from './simulate';
 import { flattenCircuit } from '../hierarchy/flatten';
 
 export interface TruthTableRow {
   inputs: boolean[];
-  outputs: boolean[];
+  outputs: LogicValue[];
 }
 
 export function buildCircuitTruthRows(
@@ -35,7 +36,10 @@ export function buildCircuitTruthRows(
     const result = evaluateCircuit(flat);
     return {
       inputs: inputValues,
-      outputs: outputs.map((output) => Boolean(result[output.id]?.in)),
+      outputs: outputs.map((output) => {
+        const pinId = getPins(output).find((pin) => pin.kind === 'input')!.id;
+        return result[output.id]?.[pinId] ?? false;
+      }),
     };
   });
 }

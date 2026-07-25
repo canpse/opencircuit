@@ -1,11 +1,13 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import { isSequentialType } from '../../core/evaluateCircuit';
+import { busValueToNumber, formatBusHex } from '../../core/simulation/signals';
 import { buildCircuitTruthRows, sameBooleanValues } from '../../core/simulation/truthTable';
 import type {
   CircuitDefinition,
   CircuitDocument,
   EvaluationResult,
   LogicComponent,
+  LogicValue,
 } from '../../core/types';
 
 export function CircuitTruthTable({
@@ -41,7 +43,9 @@ export function CircuitTruthTable({
   }
 
   const inputs = circuit.components.filter((component) => component.type === 'input');
-  const outputs = circuit.components.filter((component) => component.type === 'led');
+  const outputs = circuit.components.filter(
+    (component) => component.type === 'led' || component.type === 'display-4',
+  );
   const maxInputs = 6;
 
   if (inputs.length === 0) {
@@ -55,7 +59,7 @@ export function CircuitTruthTable({
   if (outputs.length === 0) {
     return (
       <div className="properties-card muted-card">
-        Adicione LEDs para observar as saídas do circuito.
+        Adicione LEDs ou Displays para observar as saídas do circuito.
       </div>
     );
   }
@@ -99,7 +103,7 @@ export function CircuitTruthTable({
                   ))}
                   {row.outputs.map((value, index) => (
                     <td key={`o-${index}`} className={truthOutputClass(value)}>
-                      {bit(value)}
+                      {Array.isArray(value) ? formatBusHex(value) : bit(value)}
                     </td>
                   ))}
                 </tr>
@@ -116,8 +120,8 @@ function bit(value: boolean): 0 | 1 {
   return value ? 1 : 0;
 }
 
-function truthOutputClass(value: boolean): string {
-  return value ? 'truth-output on' : 'truth-output';
+function truthOutputClass(value: LogicValue): string {
+  return busValueToNumber(value) > 0 ? 'truth-output on' : 'truth-output';
 }
 
 function SequentialStatePanel({

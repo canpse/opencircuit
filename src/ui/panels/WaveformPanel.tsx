@@ -1,4 +1,5 @@
 import { memo, useLayoutEffect, useMemo, useRef } from 'react';
+import { formatBusHex } from '../../core/simulation/signals';
 import type { WaveformSample, WaveformSignal } from '../../core/simulation/waveform';
 
 export const WAVEFORM_ROW_HEIGHT = 44;
@@ -7,6 +8,7 @@ export const WAVEFORM_TICK_WIDTH = 42;
 const WAVEFORM_INSET = 12;
 const WAVEFORM_HIGH_OFFSET = 10;
 const WAVEFORM_LOW_OFFSET = 30;
+const WAVEFORM_BUS_OFFSET = (WAVEFORM_HIGH_OFFSET + WAVEFORM_LOW_OFFSET) / 2;
 const WAVEFORM_FOLLOW_THRESHOLD = 12;
 
 interface WaveformPanelProps {
@@ -36,10 +38,20 @@ export function WaveformPanel({
   const plotHeight = WAVEFORM_AXIS_HEIGHT + signals.length * WAVEFORM_ROW_HEIGHT;
   const traces = useMemo(
     () =>
-      signals.map((signal, rowIndex) => ({
-        key: signal.key,
-        path: buildSquareWavePath(samples, signal.key, rowIndex, firstTick),
-      })),
+      signals.map((signal, rowIndex) =>
+        waveformRowIsBus(samples, signal.key)
+          ? {
+              key: signal.key,
+              bus: true as const,
+              rowIndex,
+              path: buildBusFlatPath(samples, rowIndex, firstTick),
+            }
+          : {
+              key: signal.key,
+              bus: false as const,
+              path: buildSquareWavePath(samples, signal.key, rowIndex, firstTick),
+            },
+      ),
     [firstTick, samples, signals],
   );
 
@@ -134,9 +146,20 @@ export function WaveformPanel({
                 historyTick={historyTick}
                 onSelectTick={onSelectTick}
               />
-              {traces.map((trace) => (
-                <WaveformTrace key={trace.key} path={trace.path} />
-              ))}
+              {traces.map((trace) =>
+                trace.bus ? (
+                  <WaveformBusTrace
+                    key={trace.key}
+                    path={trace.path}
+                    samples={samples}
+                    signalKey={trace.key}
+                    rowIndex={trace.rowIndex}
+                    firstTick={firstTick}
+                  />
+                ) : (
+                  <WaveformTrace key={trace.key} path={trace.path} />
+                ),
+              )}
             </svg>
           </div>
         </div>
@@ -175,6 +198,58 @@ export function buildSquareWavePath(
     path += ` H ${x(sample.tick)} V ${y(Boolean(sample.values[signalKey]))}`;
   }
   return `${path} H ${x(samples[samples.length - 1]?.tick ?? first.tick) + WAVEFORM_TICK_WIDTH}`;
+}
+
+// Um pino de barramento pode começar desconectado (amostra escalar `false`, via
+// sampleSignals) e só virar array depois de ligado no meio da gravação -- olhar só
+// samples[0] erraria nesse caso, então checa a linha inteira.
+export function waveformRowIsBus(samples: WaveformSample[], signalKey: string): boolean {
+  return samples.some((sample) => Array.isArray(sample.values[signalKey]));
+}
+
+export function buildBusFlatPath(
+  samples: WaveformSample[],
+  rowIndex: number,
+  firstTick = samples[0]?.tick ?? 0,
+): string {
+  if (samples.length === 0) return '';
+  const y = WAVEFORM_AXIS_HEIGHT + rowIndex * WAVEFORM_ROW_HEIGHT + WAVEFORM_BUS_OFFSET;
+  const x = (tick: number) => WAVEFORM_INSET + (tick - firstTick) * WAVEFORM_TICK_WIDTH;
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  return `M ${x(first.tick)} ${y} H ${x(last.tick) + WAVEFORM_TICK_WIDTH}`;
+}
+
+function WaveformBusTrace({
+  path,
+  samples,
+  signalKey,
+  rowIndex,
+  firstTick,
+}: {
+  path: string;
+  samples: WaveformSample[];
+  signalKey: string;
+  rowIndex: number;
+  firstTick: number;
+}) {
+  const y = WAVEFORM_AXIS_HEIGHT + rowIndex * WAVEFORM_ROW_HEIGHT + WAVEFORM_BUS_OFFSET - 8;
+  return (
+    <g className="waveform-bus-row">
+      <path className="waveform-trace bus" d={path} />
+      {samples.map((sample) => (
+        <text
+          key={sample.tick}
+          className="waveform-bus-label"
+          x={WAVEFORM_INSET + (sample.tick - firstTick) * WAVEFORM_TICK_WIDTH}
+          y={y}
+          textAnchor="middle"
+        >
+          {formatBusHex(sample.values[signalKey])}
+        </text>
+      ))}
+    </g>
+  );
 }
 
 function WaveformGrid({

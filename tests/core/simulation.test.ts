@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { evaluateCircuit, simulateCircuit, stepCircuit } from '../../src/core/evaluateCircuit';
 import { circuitHasFeedback } from '../../src/core/simulation/graph';
+import { busValueToNumber, formatBusHex } from '../../src/core/simulation/signals';
 import { buildCircuitTruthRows } from '../../src/core/simulation/truthTable';
 import {
   bezierPathFromPoints,
@@ -152,6 +153,116 @@ function testMergeSplitBusRoundtripStaysStable() {
     led(circuit, result.state, 'L3'),
     true,
     'split-4 deve devolver o bit 3 corretamente',
+  );
+}
+
+function testDisplay4ShowsBusValueAsHex() {
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'I0', type: 'input', x: 0, y: 0, state: true },
+      { id: 'I1', type: 'input', x: 0, y: 60, state: false },
+      { id: 'I2', type: 'input', x: 0, y: 120, state: true },
+      { id: 'I3', type: 'input', x: 0, y: 180, state: true },
+      { id: 'M', type: 'merge-4', x: 160, y: 80 },
+      { id: 'D', type: 'display-4', x: 320, y: 80 },
+    ],
+    wires: [
+      {
+        id: 'W0',
+        from: { componentId: 'I0', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I0' },
+      },
+      {
+        id: 'W1',
+        from: { componentId: 'I1', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I1' },
+      },
+      {
+        id: 'W2',
+        from: { componentId: 'I2', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I2' },
+      },
+      {
+        id: 'W3',
+        from: { componentId: 'I3', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I3' },
+      },
+      { id: 'W4', from: { componentId: 'M', pinId: 'OUT' }, to: { componentId: 'D', pinId: 'IN' } },
+    ],
+  };
+
+  const result = run(circuit);
+  assert.equal(result.unstable, false, 'display-4 não deve deixar o circuito instável');
+  const value = result.values.D?.IN;
+  assert.deepEqual(
+    value,
+    [true, false, true, true],
+    'display-4 deve receber o array de bits intacto',
+  );
+  assert.equal(
+    busValueToNumber(value),
+    13,
+    'bits [1,0,1,1] (LSB primeiro) devem valer 13 em decimal',
+  );
+  assert.equal(formatBusHex(value), 'D', 'e "D" em hexadecimal');
+}
+
+function testTruthTableRowsFormatBusOutputAsHex() {
+  const circuit: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'I0', type: 'input', x: 0, y: 0 },
+      { id: 'I1', type: 'input', x: 0, y: 60 },
+      { id: 'I2', type: 'input', x: 0, y: 120 },
+      { id: 'I3', type: 'input', x: 0, y: 180 },
+      { id: 'M', type: 'merge-4', x: 160, y: 80 },
+      { id: 'D', type: 'display-4', x: 320, y: 80 },
+    ],
+    wires: [
+      {
+        id: 'W0',
+        from: { componentId: 'I0', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I0' },
+      },
+      {
+        id: 'W1',
+        from: { componentId: 'I1', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I1' },
+      },
+      {
+        id: 'W2',
+        from: { componentId: 'I2', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I2' },
+      },
+      {
+        id: 'W3',
+        from: { componentId: 'I3', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I3' },
+      },
+      { id: 'W4', from: { componentId: 'M', pinId: 'OUT' }, to: { componentId: 'D', pinId: 'IN' } },
+    ],
+  };
+  const inputs = circuit.components.filter((component) => component.type === 'input');
+  const outputs = circuit.components.filter((component) => component.type === 'display-4');
+  const rows = buildCircuitTruthRows(circuit, inputs, outputs);
+
+  // Linha 11 = 0b1011: I0=1 (bit 3 da varredura), I1=0, I2=1, I3=1 -> bits [1,0,1,1] no
+  // barramento (LSB primeiro) -> decimal 13 -> hex "D".
+  assert.deepEqual(
+    rows[11].inputs,
+    [true, false, true, true],
+    'Linha 11 deve corresponder a I0=1,I1=0,I2=1,I3=1',
+  );
+  assert.deepEqual(
+    rows[11].outputs[0],
+    [true, false, true, true],
+    'Saída deve ser o array de bits intacto, sem colapsar com Boolean()',
+  );
+  assert.equal(
+    formatBusHex(rows[11].outputs[0]),
+    'D',
+    'Coluna do display deve mostrar hex, não 0/1',
   );
 }
 
@@ -902,6 +1013,7 @@ function testBundledCircuitDocumentsAreValid() {
 const tests = [
   testCombinationalStillWorks,
   testMergeSplitBusRoundtripStaysStable,
+  testDisplay4ShowsBusValueAsHex,
   testNorSrLatchKeepsState,
   testNandSrLatchActiveLowKeepsState,
   testGatedDLatchFromNand,
@@ -915,6 +1027,7 @@ const tests = [
   testSubtractor4BitFromGatesAllCombinations,
   testAlu4BitAllOperationsAllCombinations,
   testTruthTableRowsForXor,
+  testTruthTableRowsFormatBusOutputAsHex,
   testTruthTableRowsFlattenSubcircuitInstances,
   testWireRoutingSelfLoopGoesAroundComponent,
   testCameraPointAccountsForSvgLetterboxing,

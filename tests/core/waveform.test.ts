@@ -14,7 +14,12 @@ import {
   toggleWatchedSignal,
 } from '../../src/core/simulation/waveform';
 import type { CircuitDocument, SimulationState } from '../../src/core/types';
-import { buildSquareWavePath, waveformIsAtEnd } from '../../src/ui/panels/WaveformPanel';
+import {
+  buildBusFlatPath,
+  buildSquareWavePath,
+  waveformIsAtEnd,
+  waveformRowIsBus,
+} from '../../src/ui/panels/WaveformPanel';
 
 // Cobre o núcleo de amostragem do waveform viewer (issue #15): extração dos
 // sinais observáveis, amostragem da avaliação e o gravador de uma amostra
@@ -300,6 +305,31 @@ test('buildSquareWavePath posiciona cada sinal em sua linha e trata valor ausent
 
   assert.equal(buildSquareWavePath(samples, 'missing', 1), 'M 12 104 H 54');
   assert.equal(buildSquareWavePath([], 'missing', 0), '');
+});
+
+test('waveformRowIsBus detecta array em qualquer amostra da linha, não só a primeira', () => {
+  const scalarOnly = [
+    { tick: 0, values: { signal: false } },
+    { tick: 1, values: { signal: true } },
+  ];
+  assert.equal(waveformRowIsBus(scalarOnly, 'signal'), false);
+
+  // Pino desconectado no início (sampleSignals cai pra `false` escalar) e só
+  // virou array depois de ligado no meio da gravação -- samples[0] sozinho erraria.
+  const connectedLater = [
+    { tick: 0, values: { signal: false } },
+    { tick: 1, values: { signal: [true, false, true, true] } },
+  ];
+  assert.equal(waveformRowIsBus(connectedLater, 'signal'), true);
+});
+
+test('buildBusFlatPath desenha uma linha reta na metade da altura da linha', () => {
+  const samples = [
+    { tick: 3, values: { signal: [true, false, false, false] } },
+    { tick: 5, values: { signal: [false, true, false, false] } },
+  ];
+  assert.equal(buildBusFlatPath(samples, 0), 'M 12 50 H 138');
+  assert.equal(buildBusFlatPath([], 0), '');
 });
 
 test('waveformIsAtEnd mantém o acompanhamento apenas quando a rolagem está no fim', () => {

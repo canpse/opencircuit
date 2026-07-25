@@ -27,6 +27,7 @@ export type GateType =
   | 'register-4'
   | 'merge-4'
   | 'split-4'
+  | 'display-4'
   | 'subcircuit';
 export type LogicValue = boolean | boolean[];
 export type PinKind = 'input' | 'output';
