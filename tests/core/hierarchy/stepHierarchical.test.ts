@@ -24,7 +24,11 @@ function clockAndFlipFlop(): CircuitDocument {
       { id: 'FF', type: 'd-flip-flop', x: 100, y: 0, memory: { q: false, previousClk: false } },
     ],
     wires: [
-      { id: 'w1', from: { componentId: 'CLK', pinId: 'CLK' }, to: { componentId: 'FF', pinId: 'CLK' } },
+      {
+        id: 'w1',
+        from: { componentId: 'CLK', pinId: 'CLK' },
+        to: { componentId: 'FF', pinId: 'CLK' },
+      },
       { id: 'w2', from: { componentId: 'FF', pinId: 'Q' }, to: { componentId: 'FF', pinId: 'D' } },
     ],
   };
@@ -96,7 +100,10 @@ const examplesWithClock = CIRCUIT_EXAMPLES.filter((example) =>
 test('sanity: bundled examples with a clock component actually have one named CLK', () => {
   // Se isso falhar, é porque um exemplo novo usa outro id -- ajustar o filtro acima, não
   // remover a checagem.
-  assert.ok(examplesWithClock.length >= 5, 'esperava pelo menos os 5 exemplos conhecidos com clock');
+  assert.ok(
+    examplesWithClock.length >= 5,
+    'esperava pelo menos os 5 exemplos conhecidos com clock',
+  );
 });
 
 for (const example of examplesWithClock) {
