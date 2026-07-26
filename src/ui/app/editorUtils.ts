@@ -186,7 +186,11 @@ export function collectReferencedDefinitions(
 // definition without changing what it does) used to tell "this id already in the target
 // really is the same definition" apart from "coincidentally the same id, e.g. two
 // documents that both auto-generated 'def1'". Good enough for this one-off check; not a
-// hot path, so a stringify comparison is simpler than hand-rolling a deep-equal.
+// hot path, so a stringify comparison is simpler than hand-rolling a deep-equal. Known
+// limitation: this is key-order sensitive, so two definitions that are semantically
+// identical but built through code paths that insert object keys in a different order
+// would fail this check and fall back to being treated as a real collision (safe
+// failure mode -- a harmless duplicate definition, not a broken paste).
 function sameDefinitionContent(a: CircuitDefinition, b: CircuitDefinition): boolean {
   return (
     JSON.stringify(a.components) === JSON.stringify(b.components) &&
@@ -221,7 +225,7 @@ export function pasteClipboard(
     if (existing && sameDefinitionContent(existing, definition)) continue;
     let outputId = definition.id;
     if (allocatedIds.has(outputId)) {
-      outputId = nextDefinitionId([...allocatedIds].map((id) => ({ id }) as CircuitDefinition));
+      outputId = nextDefinitionId([...allocatedIds].map((id) => ({ id })));
       definitionIdMap.set(definition.id, outputId);
     }
     allocatedIds.add(outputId);
