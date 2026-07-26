@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { isCircuitDocument, validateScope } from '../../server/circuit-validator.mjs';
+import { CIRCUIT_EXAMPLES } from '../../src/examples/circuitExamples';
 
 const halfAdder = {
   id: 'half-adder-def',
@@ -270,4 +271,19 @@ describe('circuit-validator', () => {
     };
     expect(isCircuitDocument(doc)).toBe(false);
   });
+
+  // O validador do servidor mantém sua própria tabela PINS/PIN_WIDTHS à mão, em paralelo
+  // ao catálogo do cliente (src/core/catalog.ts) -- já aconteceu de um tipo novo (display-4,
+  // Fase 2 da issue #19) ir ao ar no catálogo sem entrar nessa tabela, fazendo "Salvar no
+  // servidor" rejeitar com 400 qualquer circuito que o usasse, mesmo sendo um exemplo
+  // embutido válido do próprio app. Nenhum teste comparava as duas fontes de verdade --
+  // só existia validação estrutural do lado do cliente (testBundledCircuitDocumentsAreValid
+  // em simulation.test.ts). Este teste fecha essa lacuna: todo exemplo embutido também
+  // precisa passar pelo validador do servidor, senão o próximo tipo de componente novo
+  // reproduz o mesmo apagão silencioso.
+  for (const example of CIRCUIT_EXAMPLES) {
+    test(`exemplo embutido "${example.id}" passa no validador do servidor`, () => {
+      expect(isCircuitDocument(example.circuit)).toBe(true);
+    });
+  }
 });

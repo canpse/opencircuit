@@ -20,6 +20,12 @@ import type { CircuitDocument, SimulationResult } from '../../src/core/types';
 // a cada tick. O fix (useSimulationRuntime.ts) emparelha circuit/tick com
 // o resultado dentro do próprio closure da requisição; este teste modela
 // esse emparelhamento e prova que ele nunca lê um "tick atual" externo.
+//
+// Assim como em workerClockRace.test.ts, o avanço aqui é stepCircuit direto,
+// não stepHierarchical (o que a UI de fato chama desde a issue #18) -- é
+// deliberado, para isolar a corrida de pareamento sem misturar com a camada
+// de hierarquia, mas por isso este teste sozinho não provaria que o clock
+// automático real avança corretamente (ver stepHierarchical.test.ts).
 
 function loadClockedDLatch(): CircuitDocument {
   const circuit = JSON.parse(
