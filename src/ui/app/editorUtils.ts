@@ -1,5 +1,6 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import { withSequentialDefaults } from '../../core/evaluateCircuit';
+import { nextDefinitionId } from '../../core/hierarchy/scope';
 import type {
   CircuitDefinition,
   CircuitDocument,
@@ -137,14 +138,107 @@ export function moveComponentsWithWaypoints(
   };
 }
 
-export type CircuitClipboard = { components: LogicComponent[]; wires: Wire[] };
+export type CircuitClipboard = {
+  components: LogicComponent[];
+  wires: Wire[];
+  /** Every definition transitively referenced by a copied subcircuit instance -- see
+   * collectReferencedDefinitions. Optional/defaulted to [] so existing callers (and
+   * clipboards with no subcircuit instances) don't need to think about it. */
+  definitions?: CircuitDefinition[];
+};
+
+/**
+ * Every CircuitDefinition a subcircuit instance among `components` needs to keep
+ * working, followed transitively through nested instances (a definition can itself
+ * place another subcircuit instance). Used to make copy/paste of a subcircuit instance
+ * bring its definition along -- without this, pasting into a document that doesn't
+ * already have that definition (a different tab/project) leaves the pasted instance
+ * pointing at a definitionId nobody knows, so it renders as a pin-less "Subcircuito"
+ * stub that does nothing (COMPONENT_DEFINITIONS.subcircuit's static fallback).
+ */
+export function collectReferencedDefinitions(
+  components: LogicComponent[],
+  allDefinitions: CircuitDefinition[],
+): CircuitDefinition[] {
+  const byId = new Map(allDefinitions.map((definition) => [definition.id, definition]));
+  const collected = new Map<string, CircuitDefinition>();
+  const pending = components
+    .filter((component) => component.type === 'subcircuit' && component.definitionId)
+    .map((component) => component.definitionId!);
+
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (collected.has(id)) continue;
+    const definition = byId.get(id);
+    if (!definition) continue; // dangling reference -- tolerated elsewhere too, nothing to bring along
+    collected.set(id, definition);
+    for (const component of definition.components) {
+      if (component.type === 'subcircuit' && component.definitionId) {
+        pending.push(component.definitionId);
+      }
+    }
+  }
+
+  return [...collected.values()];
+}
+
+// Structural comparison (name excluded -- the user may have legitimately renamed a
+// definition without changing what it does) used to tell "this id already in the target
+// really is the same definition" apart from "coincidentally the same id, e.g. two
+// documents that both auto-generated 'def1'". Good enough for this one-off check; not a
+// hot path, so a stringify comparison is simpler than hand-rolling a deep-equal.
+function sameDefinitionContent(a: CircuitDefinition, b: CircuitDefinition): boolean {
+  return (
+    JSON.stringify(a.components) === JSON.stringify(b.components) &&
+    JSON.stringify(a.wires) === JSON.stringify(b.wires)
+  );
+}
 
 export function pasteClipboard(
   circuit: CircuitDocument,
   clipboard: CircuitClipboard,
   offset: Point,
   grid: number,
-): { circuit: CircuitDocument; selection: Selection } {
+  existingDefinitions: CircuitDefinition[] = [],
+): { circuit: CircuitDocument; selection: Selection; definitions: CircuitDefinition[] } {
+  // Same id AND same content already present in the target -- it's the same definition
+  // (the common case: pasting within the same document, or pasting the same clipboard
+  // again), so just reference it as-is, no duplicate. Only a definition that's genuinely
+  // new to the target gets added, keeping its original id so a later paste referencing
+  // the same definition recognizes it as already-present too. An id that's taken by a
+  // DIFFERENT definition (content differs, or it's simply new but the id is already
+  // allocated by something else added earlier in this same paste) falls back to a fresh
+  // id via nextDefinitionId.
+  const existingById = new Map(
+    existingDefinitions.map((definition) => [definition.id, definition]),
+  );
+  const definitionIdMap = new Map<string, string>();
+  const allocatedIds = new Set(existingById.keys());
+  const definitionsToAdd: CircuitDefinition[] = [];
+
+  for (const definition of clipboard.definitions ?? []) {
+    const existing = existingById.get(definition.id);
+    if (existing && sameDefinitionContent(existing, definition)) continue;
+    let outputId = definition.id;
+    if (allocatedIds.has(outputId)) {
+      outputId = nextDefinitionId([...allocatedIds].map((id) => ({ id }) as CircuitDefinition));
+      definitionIdMap.set(definition.id, outputId);
+    }
+    allocatedIds.add(outputId);
+    definitionsToAdd.push({ ...definition, id: outputId });
+  }
+
+  function withRemappedDefinitionId(component: LogicComponent): LogicComponent {
+    if (component.type !== 'subcircuit' || !component.definitionId) return component;
+    const remappedId = definitionIdMap.get(component.definitionId);
+    return remappedId ? { ...component, definitionId: remappedId } : component;
+  }
+
+  const pastedDefinitions: CircuitDefinition[] = definitionsToAdd.map((definition) => ({
+    ...definition,
+    components: definition.components.map(withRemappedDefinitionId),
+  }));
+
   const nextComponents = [...circuit.components];
   const idMap = new Map<string, string>();
 
@@ -152,14 +246,15 @@ export function pasteClipboard(
     const newId = nextId(component.type, nextComponents);
     idMap.set(component.id, newId);
 
-    const pasted: LogicComponent = {
+    const pasted: LogicComponent = withRemappedDefinitionId({
       ...component,
       id: newId,
       x: snap({ x: component.x + offset.x, y: 0 }, grid).x,
       y: snap({ x: 0, y: component.y + offset.y }, grid).y,
-    };
+    });
     if (pasted.state !== undefined) pasted.state = false;
     if (pasted.memory !== undefined) pasted.memory = {};
+    if (pasted.instanceMemory !== undefined) pasted.instanceMemory = {};
 
     nextComponents.push(pasted);
   }
@@ -199,6 +294,7 @@ export function pasteClipboard(
       componentIds: clipboard.components.map((component) => idMap.get(component.id)!),
       wireIds: pastedWires.map((wire) => wire.id),
     },
+    definitions: pastedDefinitions,
   };
 }
 
