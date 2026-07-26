@@ -19,8 +19,14 @@ import type { CircuitDocument, SimulationResult } from '../../src/core/types';
 //   (o cleanup do effect remove o listener das anteriores, que são descartadas).
 //
 // Circuito: latch D de NANDs (exemplo 03) com EN dirigido por um clock,
-// avançado por stepCircuit — o mesmo fluxo do auto-clock do App
-// (setCircuit((current) => stepCircuit(current))).
+// avançado por stepCircuit direto -- deliberadamente SÓ o motor puro, sem passar
+// pela camada de hierarquia (stepHierarchical). Isto testa a corrida com o worker
+// isoladamente; NÃO é mais o mesmo fluxo do auto-clock do App desde a fundação de
+// subcircuitos (issue #18), que trocou `setCircuit((c) => stepCircuit(c))` por
+// `setCircuit((c) => stepHierarchical(c, definitions))`. Essa divergência entre o que
+// este teste chama e o que a UI realmente chama é exatamente o tipo de lacuna que deixou
+// passar a regressão do contador síncrono: ver tests/core/hierarchy/stepHierarchical.test.ts
+// para a cobertura equivalente que exercita o caminho real.
 //
 // Os dois testes executam a MESMA sequência de mudanças de circuito;
 // a única diferença é quando as respostas do worker chegam.

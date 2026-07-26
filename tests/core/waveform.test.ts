@@ -183,7 +183,10 @@ test('recordTickSample grava uma amostra por tick e respeita a capacidade', () =
 
 test('fluxo do auto-clock: amostras acompanham a captura do flip-flop tick a tick', () => {
   // Espelha o encadeamento do worker (simulationSession): cada simulação
-  // parte do estado da anterior, como no workerClockRace.test.ts.
+  // parte do estado da anterior, como no workerClockRace.test.ts. Assim como lá,
+  // o avanço usa stepCircuit direto (motor puro), não stepHierarchical -- não é o
+  // mesmo caminho que a UI de fato chama desde a issue #18. Ver
+  // tests/core/hierarchy/stepHierarchical.test.ts para a cobertura do caminho real.
   let state: SimulationState | undefined;
   const simulate = (circuit: CircuitDocument) => {
     const result = simulateCircuit(circuit, state);
