@@ -10,7 +10,10 @@ export function getDefinition(
     : undefined;
 }
 
-export function nextDefinitionId(definitions: CircuitDefinition[]): string {
+// Only needs `id` -- callers that don't have a full CircuitDefinition on hand (e.g.
+// paste's id-collision remap, which is only allocating ids) can pass bare {id} objects
+// instead of needing a cast.
+export function nextDefinitionId(definitions: Array<{ id: string }>): string {
   const ids = new Set(definitions.map((definition) => definition.id));
   let n = definitions.length + 1;
   while (ids.has(`def${n}`)) n += 1;

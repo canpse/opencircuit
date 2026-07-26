@@ -343,6 +343,11 @@ export function App() {
     circuit: scopedCircuit,
     setCircuit: setScopedCircuit,
     definitions,
+    mergeDefinitions: (newDefinitions) =>
+      setCircuit((current) => ({
+        ...current,
+        definitions: [...(current.definitions ?? []), ...newDefinitions],
+      })),
     rememberCircuit,
     onMessage: setMessage,
     onSelectTool: setSelectedTool,

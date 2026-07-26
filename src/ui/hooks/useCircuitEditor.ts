@@ -9,6 +9,7 @@ import type {
 } from '../../core/types';
 import { getPinWidth } from '../../core/catalog';
 import {
+  collectReferencedDefinitions,
   componentDefinitionLabel,
   createLogicComponent,
   GRID,
@@ -28,6 +29,11 @@ interface Options {
   circuit: CircuitDocument;
   setCircuit: (action: SetStateAction<CircuitDocument>) => void;
   definitions: CircuitDefinition[];
+  /** Merges new top-level definitions into the FULL document -- separate from
+   * `setCircuit`, since that one only ever sees the current scope (root or a single
+   * definition's own components/wires) and can't add a sibling definition itself. Used
+   * by paste to bring along a copied subcircuit instance's definition. */
+  mergeDefinitions: (definitions: CircuitDefinition[]) => void;
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
   onSelectTool: (tool: GateType | 'select' | 'wire' | 'pan') => void;
@@ -37,6 +43,7 @@ export function useCircuitEditor({
   circuit,
   setCircuit,
   definitions,
+  mergeDefinitions,
   rememberCircuit,
   onMessage,
   onSelectTool,
@@ -362,8 +369,13 @@ export function useCircuitEditor({
       selection.componentIds.includes(c.id),
     );
     const copiedWires = circuit.wires.filter((w) => selection.wireIds.includes(w.id));
+    const copiedDefinitions = collectReferencedDefinitions(copiedComponents, definitions);
 
-    setClipboard({ components: copiedComponents, wires: copiedWires });
+    setClipboard({
+      components: copiedComponents,
+      wires: copiedWires,
+      definitions: copiedDefinitions,
+    });
     onMessage(`${copiedComponents.length} portas e ${copiedWires.length} fios copiados.`);
   }
 
@@ -375,8 +387,21 @@ export function useCircuitEditor({
 
     rememberCircuit();
 
-    const pasted = pasteClipboard(circuit, clipboard, { x: GRID * 2, y: GRID * 2 }, GRID);
+    const pasted = pasteClipboard(
+      circuit,
+      clipboard,
+      { x: GRID * 2, y: GRID * 2 },
+      GRID,
+      definitions,
+    );
+    // Order matters: setCircuit(pasted.circuit) must run first. setScopedCircuit is
+    // always a functional setCircuit((previousFull) => ...) update, but at the root
+    // scope that function ignores previousFull entirely and just returns pasted.circuit
+    // verbatim -- so if mergeDefinitions ran first in this same batch, this call would
+    // discard it. Calling mergeDefinitions second lets its updater read the
+    // already-applied state and add to it, instead of being clobbered by it.
     setCircuit(pasted.circuit);
+    if (pasted.definitions.length > 0) mergeDefinitions(pasted.definitions);
     setSelection(pasted.selection);
     onMessage(
       `Colado ${pasted.selection.componentIds.length} portas e ${pasted.selection.wireIds.length} fios.`,
