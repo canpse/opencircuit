@@ -10,7 +10,7 @@ import {
 test('busca componentes por nome e ignora acentos', () => {
   assert.deepEqual(filterComponentTools('mux'), ['mux-2-1', 'mux-4-1']);
   assert.deepEqual(filterComponentTools('paridade impar'), ['odd-parity-3']);
-  assert.deepEqual(filterComponentTools('somador'), ['half-adder', 'full-adder']);
+  assert.deepEqual(filterComponentTools('somador'), ['half-adder', 'full-adder', 'adder-4']);
 });
 
 test('mantém os componentes recentes sem duplicatas e em ordem de uso', () => {

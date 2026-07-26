@@ -89,12 +89,15 @@ export function flattenCircuit(
     const resolutions = new Map<string, LocalResolution>();
 
     for (const component of components) {
-      if (!isTopLevel && (component.type === 'input' || component.type === 'clock')) {
+      if (
+        !isTopLevel &&
+        (component.type === 'input' || component.type === 'clock' || component.type === 'bus-in-4')
+      ) {
         resolutions.set(component.id, { kind: 'marker-input' });
         continue;
       }
 
-      if (!isTopLevel && component.type === 'led') {
+      if (!isTopLevel && (component.type === 'led' || component.type === 'display-4')) {
         resolutions.set(component.id, { kind: 'marker-output' });
         continue;
       }
@@ -214,14 +217,18 @@ export function flattenCircuit(
 
     const inputSinks: Record<string, FlattenPinSource[]> = {};
     for (const component of components) {
-      if (component.type === 'input' || component.type === 'clock') {
+      if (
+        component.type === 'input' ||
+        component.type === 'clock' ||
+        component.type === 'bus-in-4'
+      ) {
         inputSinks[component.id] = pendingInputSinks.get(component.id) ?? [];
       }
     }
 
     const outputSources: Record<string, FlattenPinSource> = {};
     for (const component of components) {
-      if (component.type !== 'led') continue;
+      if (component.type !== 'led' && component.type !== 'display-4') continue;
       const feedingWire = wires.find((wire) => wire.to.componentId === component.id);
       if (!feedingWire) continue;
       const source = resolveSource(feedingWire.from);

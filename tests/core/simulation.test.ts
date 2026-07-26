@@ -14,7 +14,7 @@ import {
 import { cameraPointFromClient } from '../../src/ui/editor/useCanvasCamera';
 import { CIRCUIT_EXAMPLES } from '../../src/examples/circuitExamples';
 import { isCircuitDocument } from '../../src/core/validateCircuitDocument';
-import type { CircuitDocument, SimulationState } from '../../src/core/types';
+import type { CircuitDocument, LogicComponent, SimulationState, Wire } from '../../src/core/types';
 
 type InputValues = Record<string, boolean>;
 
@@ -206,6 +206,109 @@ function testDisplay4ShowsBusValueAsHex() {
     'bits [1,0,1,1] (LSB primeiro) devem valer 13 em decimal',
   );
   assert.equal(formatBusHex(value), 'D', 'e "D" em hexadecimal');
+}
+
+// Monta A0..A3/B0..B3 -> dois merge-4 (MA/MB) -> o componente aritmético de barramento
+// sob teste (`gateType`, pinos A/B/[carryPinId]/SUM-ou-DIFF/[Cout-ou-Bout]), reaproveitando
+// setNibble pra ajustar os valores antes de cada `run()`.
+function busArithmeticCircuit(
+  gateType: 'adder-4' | 'subtractor-4' | 'comparator-4',
+  carryPinId?: string,
+): CircuitDocument {
+  const nibbleInputs = (prefix: string, y0: number): LogicComponent[] =>
+    [0, 1, 2, 3].map((i) => ({ id: `${prefix}${i}`, type: 'input', x: 0, y: y0 + i * 60 }));
+  const nibbleWires = (prefix: string, wirePrefix: string): Wire[] =>
+    [0, 1, 2, 3].map((i) => ({
+      id: `${wirePrefix}${i}`,
+      from: { componentId: `${prefix}${i}`, pinId: 'out' },
+      to: { componentId: `M${prefix}`, pinId: `I${i}` },
+    }));
+
+  const components: LogicComponent[] = [
+    ...nibbleInputs('A', 0),
+    ...nibbleInputs('B', 300),
+    { id: 'MA', type: 'merge-4', x: 160, y: 30 },
+    { id: 'MB', type: 'merge-4', x: 160, y: 330 },
+    { id: 'GATE', type: gateType, x: 320, y: 150 },
+  ];
+  const wires: Wire[] = [
+    ...nibbleWires('A', 'wa'),
+    ...nibbleWires('B', 'wb'),
+    {
+      id: 'wma',
+      from: { componentId: 'MA', pinId: 'OUT' },
+      to: { componentId: 'GATE', pinId: 'A' },
+    },
+    {
+      id: 'wmb',
+      from: { componentId: 'MB', pinId: 'OUT' },
+      to: { componentId: 'GATE', pinId: 'B' },
+    },
+  ];
+  if (carryPinId) {
+    components.push({ id: 'CIN', type: 'input', x: 0, y: 600 });
+    wires.push({
+      id: 'wcin',
+      from: { componentId: 'CIN', pinId: 'out' },
+      to: { componentId: 'GATE', pinId: carryPinId },
+    });
+  }
+  return { version: 1, components, wires };
+}
+
+function testAdder4BitBusHandlesOverflow() {
+  let circuit = busArithmeticCircuit('adder-4', 'Cin');
+  // 15 + 1 + 0 = 16, transborda pra fora dos 4 bits: SUM = 0, Cout = 1.
+  circuit = setNibble(setNibble(circuit, 'A', 15), 'B', 1);
+  const result = run(circuit);
+  assert.equal(result.unstable, false, 'adder-4 não deve deixar o circuito instável');
+  assert.deepEqual(result.values.GATE?.SUM, [false, false, false, false], '15+1 transborda pra 0');
+  assert.equal(result.values.GATE?.Cout, true, '15+1 deve gerar carry-out');
+
+  // Caso normal, sem transbordo: 5 + 3 = 8.
+  circuit = setNibble(setNibble(circuit, 'A', 5), 'B', 3);
+  const normal = run(circuit);
+  assert.equal(busValueToNumber(normal.values.GATE?.SUM), 8, '5+3 deve valer 8');
+  assert.equal(normal.values.GATE?.Cout, false, '5+3 não deve gerar carry-out');
+}
+
+function testSubtractor4BitBusHandlesBorrow() {
+  let circuit = busArithmeticCircuit('subtractor-4', 'Bin');
+  // 3 - 5 = -2, em complemento de 2 de 4 bits vira 14, com borrow-out.
+  circuit = setNibble(setNibble(circuit, 'A', 3), 'B', 5);
+  const result = run(circuit);
+  assert.equal(result.unstable, false, 'subtractor-4 não deve deixar o circuito instável');
+  assert.equal(
+    busValueToNumber(result.values.GATE?.DIFF),
+    14,
+    '3-5 deve virar 14 (complemento de 2)',
+  );
+  assert.equal(result.values.GATE?.Bout, true, '3-5 deve gerar borrow-out');
+
+  // Caso normal, sem empréstimo: 5 - 3 = 2.
+  circuit = setNibble(setNibble(circuit, 'A', 5), 'B', 3);
+  const normal = run(circuit);
+  assert.equal(busValueToNumber(normal.values.GATE?.DIFF), 2, '5-3 deve valer 2');
+  assert.equal(normal.values.GATE?.Bout, false, '5-3 não deve gerar borrow-out');
+}
+
+function testComparator4BitBusAllThreeOutcomes() {
+  const circuit = busArithmeticCircuit('comparator-4');
+
+  const greater = run(setNibble(setNibble(circuit, 'A', 9), 'B', 3));
+  assert.equal(greater.values.GATE?.GT, true, '9 > 3');
+  assert.equal(greater.values.GATE?.EQ, false, '9 > 3');
+  assert.equal(greater.values.GATE?.LT, false, '9 > 3');
+
+  const equal = run(setNibble(setNibble(circuit, 'A', 7), 'B', 7));
+  assert.equal(equal.values.GATE?.GT, false, '7 == 7');
+  assert.equal(equal.values.GATE?.EQ, true, '7 == 7');
+  assert.equal(equal.values.GATE?.LT, false, '7 == 7');
+
+  const less = run(setNibble(setNibble(circuit, 'A', 2), 'B', 12));
+  assert.equal(less.values.GATE?.GT, false, '2 < 12');
+  assert.equal(less.values.GATE?.EQ, false, '2 < 12');
+  assert.equal(less.values.GATE?.LT, true, '2 < 12');
 }
 
 function testTruthTableRowsFormatBusOutputAsHex() {
@@ -1014,6 +1117,9 @@ const tests = [
   testCombinationalStillWorks,
   testMergeSplitBusRoundtripStaysStable,
   testDisplay4ShowsBusValueAsHex,
+  testAdder4BitBusHandlesOverflow,
+  testSubtractor4BitBusHandlesBorrow,
+  testComparator4BitBusAllThreeOutcomes,
   testNorSrLatchKeepsState,
   testNandSrLatchActiveLowKeepsState,
   testGatedDLatchFromNand,

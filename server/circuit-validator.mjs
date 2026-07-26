@@ -45,6 +45,11 @@ const PINS = {
   },
   'merge-4': { I0: 'input', I1: 'input', I2: 'input', I3: 'input', OUT: 'output' },
   'split-4': { IN: 'input', O0: 'output', O1: 'output', O2: 'output', O3: 'output' },
+  'display-4': { IN: 'input' },
+  'bus-in-4': { OUT: 'output' },
+  'adder-4': { A: 'input', B: 'input', Cin: 'input', SUM: 'output', Cout: 'output' },
+  'subtractor-4': { A: 'input', B: 'input', Bin: 'input', DIFF: 'output', Bout: 'output' },
+  'comparator-4': { A: 'input', B: 'input', GT: 'output', EQ: 'output', LT: 'output' },
 };
 
 // Sparse width overrides -- any pin not listed here is width 1 (classic scalar pin),
@@ -52,6 +57,11 @@ const PINS = {
 const PIN_WIDTHS = {
   'merge-4': { OUT: 4 },
   'split-4': { IN: 4 },
+  'display-4': { IN: 4 },
+  'bus-in-4': { OUT: 4 },
+  'adder-4': { A: 4, B: 4, SUM: 4 },
+  'subtractor-4': { A: 4, B: 4, DIFF: 4 },
+  'comparator-4': { A: 4, B: 4 },
 };
 
 const MAX_COMPONENTS = 10_000;
@@ -82,12 +92,12 @@ const isNestedBooleanRecord = (value) =>
 /**
  * Pin kind for a component+pinId, skipping the full PinDefinition (offset/label) the
  * client needs for rendering -- the server only ever checks wire direction. For a
- * subcircuit instance, a pin id is the id of the input/clock/led "marker" component
- * that produces it inside the referenced definition (mirrors src/core/catalog.ts's
- * deriveSubcircuitPins). This lookup is intentionally non-recursive: it only reads the
- * referenced definition's OWN components, never follows a nested instance's
- * definitionId, so unlike flattenCircuit it cannot cycle -- no cache, no reentrancy
- * guard needed.
+ * subcircuit instance, a pin id is the id of the input/clock/bus-in-4/led/display-4
+ * "marker" component that produces it inside the referenced definition (mirrors
+ * src/core/catalog.ts's deriveSubcircuitPins). This lookup is intentionally
+ * non-recursive: it only reads the referenced definition's OWN components, never
+ * follows a nested instance's definitionId, so unlike flattenCircuit it cannot cycle --
+ * no cache, no reentrancy guard needed.
  */
 function resolvePinKind(component, pinId, definitionsById) {
   if (component.type !== 'subcircuit') return PINS[component.type]?.[pinId];
@@ -97,18 +107,26 @@ function resolvePinKind(component, pinId, definitionsById) {
     (candidate) => isRecord(candidate) && candidate.id === pinId,
   );
   if (!marker) return undefined;
-  if (marker.type === 'input' || marker.type === 'clock') return 'input';
-  if (marker.type === 'led') return 'output';
+  if (marker.type === 'input' || marker.type === 'clock' || marker.type === 'bus-in-4')
+    return 'input';
+  if (marker.type === 'led' || marker.type === 'display-4') return 'output';
   return undefined;
 }
 
 /**
- * Bit width for a component+pinId, default 1. Subcircuit boundary pins stay scalar for
- * now -- a bus can't cross a subcircuit boundary yet (mirrors the client's Fase 1 scope).
+ * Bit width for a component+pinId, default 1. For a subcircuit instance, mirrors
+ * resolvePinKind's marker lookup: a bus-in-4/display-4 marker exposes its boundary pin
+ * as width 4, everything else (including the classic input/clock/led markers) stays
+ * scalar.
  */
-function resolvePinWidth(component, pinId) {
-  if (component.type === 'subcircuit') return 1;
-  return PIN_WIDTHS[component.type]?.[pinId] ?? 1;
+function resolvePinWidth(component, pinId, definitionsById) {
+  if (component.type !== 'subcircuit') return PIN_WIDTHS[component.type]?.[pinId] ?? 1;
+  const definition = definitionsById.get(component.definitionId);
+  if (!definition || !Array.isArray(definition.components)) return 1;
+  const marker = definition.components.find(
+    (candidate) => isRecord(candidate) && candidate.id === pinId,
+  );
+  return marker && (marker.type === 'bus-in-4' || marker.type === 'display-4') ? 4 : 1;
 }
 
 function isValidComponent(component) {
@@ -186,7 +204,8 @@ export function validateScope(components, wires, definitionsById) {
       !target ||
       resolvePinKind(source, wire.from.pinId, definitionsById) !== 'output' ||
       resolvePinKind(target, wire.to.pinId, definitionsById) !== 'input' ||
-      resolvePinWidth(source, wire.from.pinId) !== resolvePinWidth(target, wire.to.pinId)
+      resolvePinWidth(source, wire.from.pinId, definitionsById) !==
+        resolvePinWidth(target, wire.to.pinId, definitionsById)
     )
       return false;
 

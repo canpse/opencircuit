@@ -28,6 +28,10 @@ export type GateType =
   | 'merge-4'
   | 'split-4'
   | 'display-4'
+  | 'bus-in-4'
+  | 'adder-4'
+  | 'subtractor-4'
+  | 'comparator-4'
   | 'subcircuit';
 export type LogicValue = boolean | boolean[];
 export type PinKind = 'input' | 'output';

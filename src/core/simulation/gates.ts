@@ -1,5 +1,5 @@
 import type { CircuitDocument, EvaluationResult, LogicComponent } from '../types';
-import { inputBusValue, inputValue, writeMany, writePin } from './signals';
+import { busValueToNumber, inputBusValue, inputValue, writeMany, writePin } from './signals';
 
 export function evaluateComponent(
   component: LogicComponent,
@@ -176,6 +176,51 @@ export function evaluateComponent(
         O2: bus[2],
         O3: bus[3],
       });
+    }
+    // Only meaningful as a subcircuit boundary marker (see catalog.ts's
+    // deriveSubcircuitPins) -- flattenCircuit splices it out and rewires whatever feeds
+    // the enclosing instance's bus input pin. Used any other way (top level, or while
+    // directly previewing/editing a definition), it has no external driver, so it's a
+    // constant zero bus -- same spirit as an `input` component left untoggled.
+    case 'bus-in-4':
+      return writePin(values, { componentId: component.id, pinId: 'OUT' }, [
+        false,
+        false,
+        false,
+        false,
+      ]);
+    case 'adder-4': {
+      const a = inputBusValue(circuit, values, componentById, component.id, 'A', 4);
+      const b = inputBusValue(circuit, values, componentById, component.id, 'B', 4);
+      let carry = inputValue(circuit, values, componentById, component.id, 'Cin');
+      const sum: boolean[] = [];
+      for (let i = 0; i < 4; i += 1) {
+        const bitSum = (a[i] !== b[i]) !== carry;
+        carry = (a[i] && b[i]) || (carry && a[i] !== b[i]);
+        sum.push(bitSum);
+      }
+      return writeMany(values, component.id, { SUM: sum, Cout: carry });
+    }
+    case 'subtractor-4': {
+      const a = inputBusValue(circuit, values, componentById, component.id, 'A', 4);
+      const b = inputBusValue(circuit, values, componentById, component.id, 'B', 4);
+      let borrow = inputValue(circuit, values, componentById, component.id, 'Bin');
+      const diff: boolean[] = [];
+      for (let i = 0; i < 4; i += 1) {
+        const bitDiff = (a[i] !== b[i]) !== borrow;
+        borrow = (!a[i] && b[i]) || (borrow && !(a[i] !== b[i]));
+        diff.push(bitDiff);
+      }
+      return writeMany(values, component.id, { DIFF: diff, Bout: borrow });
+    }
+    case 'comparator-4': {
+      const a = busValueToNumber(
+        inputBusValue(circuit, values, componentById, component.id, 'A', 4),
+      );
+      const b = busValueToNumber(
+        inputBusValue(circuit, values, componentById, component.id, 'B', 4),
+      );
+      return writeMany(values, component.id, { GT: a > b, EQ: a === b, LT: a < b });
     }
     case 'subcircuit':
       // Unreachable at runtime: flattenCircuit() expands every subcircuit instance
