@@ -165,6 +165,91 @@ describe('circuit-validator', () => {
     expect(isCircuitDocument(doc)).toBe(true);
   });
 
+  test('documento com display-4 solto é aceito (regressão: faltava na tabela PINS do servidor)', () => {
+    const doc = {
+      version: 1,
+      components: [
+        { id: 'm', type: 'merge-4', x: 0, y: 0 },
+        { id: 'd', type: 'display-4', x: 160, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'w1',
+          from: { componentId: 'm', pinId: 'OUT' },
+          to: { componentId: 'd', pinId: 'IN' },
+        },
+      ],
+    };
+    expect(isCircuitDocument(doc)).toBe(true);
+  });
+
+  test('barramento atravessando subcircuito via bus-in-4/display-4 é aceito com largura certa', () => {
+    const passthrough = {
+      id: 'passthrough4-def',
+      name: 'Passthrough4',
+      components: [
+        { id: 'bin', type: 'bus-in-4', x: 0, y: 0 },
+        { id: 'split', type: 'split-4', x: 120, y: 0 },
+        { id: 'merge', type: 'merge-4', x: 280, y: 0 },
+        { id: 'disp', type: 'display-4', x: 440, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'iw1',
+          from: { componentId: 'bin', pinId: 'OUT' },
+          to: { componentId: 'split', pinId: 'IN' },
+        },
+        {
+          id: 'iw2',
+          from: { componentId: 'split', pinId: 'O0' },
+          to: { componentId: 'merge', pinId: 'I0' },
+        },
+        {
+          id: 'iw3',
+          from: { componentId: 'merge', pinId: 'OUT' },
+          to: { componentId: 'disp', pinId: 'IN' },
+        },
+      ],
+    };
+    const doc = {
+      version: 1,
+      definitions: [passthrough],
+      components: [
+        { id: 'm', type: 'merge-4', x: 0, y: 0 },
+        { id: 'u1', type: 'subcircuit', x: 160, y: 0, definitionId: passthrough.id },
+        { id: 's', type: 'split-4', x: 320, y: 0 },
+      ],
+      wires: [
+        {
+          id: 'w1',
+          from: { componentId: 'm', pinId: 'OUT' },
+          to: { componentId: 'u1', pinId: 'bin' },
+        },
+        {
+          id: 'w2',
+          from: { componentId: 'u1', pinId: 'disp' },
+          to: { componentId: 's', pinId: 'IN' },
+        },
+      ],
+    };
+    expect(isCircuitDocument(doc)).toBe(true);
+
+    // Ligar o mesmo pino de fronteira (largura 4) a um pino escalar deve ser rejeitado.
+    const mismatched = {
+      ...doc,
+      components: [...doc.components, { id: 'led1', type: 'led', x: 480, y: 0 }],
+      wires: [
+        doc.wires[0],
+        {
+          id: 'w3',
+          from: { componentId: 'u1', pinId: 'disp' },
+          to: { componentId: 'led1', pinId: 'in' },
+        },
+      ],
+    };
+    expect(isCircuitDocument(mismatched)).toBe(false);
+  });
+
   test('definição além do limite de componentes é rejeitada mesmo aninhada', () => {
     const bigDefinition = {
       id: 'big-def',

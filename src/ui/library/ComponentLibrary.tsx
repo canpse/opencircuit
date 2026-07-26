@@ -49,7 +49,18 @@ export const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
     ],
   },
   { title: 'Sequenciais', tools: ['clock', 'd-latch', 'd-flip-flop', 'register-4'] },
-  { title: 'Barramentos', tools: ['merge-4', 'split-4', 'display-4'] },
+  {
+    title: 'Barramentos',
+    tools: [
+      'merge-4',
+      'split-4',
+      'display-4',
+      'bus-in-4',
+      'adder-4',
+      'subtractor-4',
+      'comparator-4',
+    ],
+  },
   { title: 'Anotações', tools: ['text'] },
 ];
 

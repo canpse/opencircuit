@@ -152,6 +152,31 @@ export const COMPONENT_DEFINITIONS: Record<GateType, ComponentDefinition> = {
   'merge-4': block('merge-4', 'Merge 4', ['I0', 'I1', 'I2', 'I3'], [{ id: 'OUT', width: 4 }], 140),
   'split-4': block('split-4', 'Split 4', [{ id: 'IN', width: 4 }], ['O0', 'O1', 'O2', 'O3'], 140),
   'display-4': block('display-4', 'Display 4', [{ id: 'IN', width: 4 }], [], 120),
+  'bus-in-4': block('bus-in-4', 'Bus In 4', [], [{ id: 'OUT', width: 4 }], 110),
+  'adder-4': block(
+    'adder-4',
+    'Somador 4 bits',
+    [{ id: 'A', width: 4 }, { id: 'B', width: 4 }, 'Cin'],
+    [{ id: 'SUM', width: 4 }, 'Cout'],
+    170,
+  ),
+  'subtractor-4': block(
+    'subtractor-4',
+    'Subtrator 4 bits',
+    [{ id: 'A', width: 4 }, { id: 'B', width: 4 }, 'Bin'],
+    [{ id: 'DIFF', width: 4 }, 'Bout'],
+    170,
+  ),
+  'comparator-4': block(
+    'comparator-4',
+    'Comparador 4 bits',
+    [
+      { id: 'A', width: 4 },
+      { id: 'B', width: 4 },
+    ],
+    ['GT', 'EQ', 'LT'],
+    170,
+  ),
   // Static fallback only: a subcircuit instance's real pins are derived dynamically
   // from its definition by resolveComponentDefinition/deriveSubcircuitDefinition below.
   // This entry exists purely so COMPONENT_DEFINITIONS stays exhaustive over GateType.
@@ -172,27 +197,39 @@ const SUBCIRCUIT_DEFAULT_WIDTH = 140;
  * pins exist, only what drives/reads them) -- explicit marker components, symmetric in
  * both directions:
  *
- * Rule 1 (input): every input/clock component inside the definition becomes an input
- * pin. These are the only two GateTypes with no input pin of their own (pure sources),
- * so they're the natural "external driver enters here" marker.
+ * Rule 1 (input): every input/clock/bus-in-4 component inside the definition becomes
+ * an input pin. `input`/`clock` are the only two scalar GateTypes with no input pin of
+ * their own (pure sources); `bus-in-4` is their width-4 counterpart, same idea, so all
+ * three are the natural "external driver enters here" marker.
  *
- * Rule 2 (output): every LED component inside the definition becomes an output pin,
- * sourced from whatever drives that LED's `in` pin internally. LED is the natural
- * "expose this value" marker: it's already the simulator's dedicated terminal/display
- * component, so reusing it avoids a "forgot to wire this" gate output accidentally
- * becoming a pin, and reads immediately as "this is a boundary output" when authoring
- * a definition.
+ * Rule 2 (output): every LED or Display 4 component inside the definition becomes an
+ * output pin, sourced from whatever drives that component's `in`/`IN` pin internally.
+ * LED/Display are the natural "expose this value" markers: they're already the
+ * simulator's dedicated terminal/display components, so reusing them avoids a "forgot
+ * to wire this" gate output accidentally becoming a pin, and reads immediately as "this
+ * is a boundary output" when authoring a definition.
  */
 export function deriveSubcircuitPins(definition: CircuitDefinition): PinDefinition[] {
   const ordered = [...definition.components].sort((a, b) => a.y - b.y || a.x - b.x);
 
-  const inputs: Array<{ id: string; label: string }> = ordered
-    .filter((component) => component.type === 'input' || component.type === 'clock')
-    .map((component) => ({ id: component.id, label: component.label ?? component.id }));
+  const inputs: Array<{ id: string; label: string; width?: number }> = ordered
+    .filter(
+      (component) =>
+        component.type === 'input' || component.type === 'clock' || component.type === 'bus-in-4',
+    )
+    .map((component) => ({
+      id: component.id,
+      label: component.label ?? component.id,
+      width: component.type === 'bus-in-4' ? 4 : undefined,
+    }));
 
-  const outputs: Array<{ id: string; label: string }> = ordered
-    .filter((component) => component.type === 'led')
-    .map((component) => ({ id: component.id, label: component.label ?? component.id }));
+  const outputs: Array<{ id: string; label: string; width?: number }> = ordered
+    .filter((component) => component.type === 'led' || component.type === 'display-4')
+    .map((component) => ({
+      id: component.id,
+      label: component.label ?? component.id,
+      width: component.type === 'display-4' ? 4 : undefined,
+    }));
 
   const height = Math.max(74, Math.max(inputs.length, outputs.length, 1) * 24 + 22);
   const pinY = (count: number, index: number) => height / 2 - ((count - 1) * 24) / 2 + index * 24;
@@ -203,12 +240,14 @@ export function deriveSubcircuitPins(definition: CircuitDefinition): PinDefiniti
       kind: 'input',
       label: pin.label,
       offset: { x: 0, y: pinY(inputs.length, index) },
+      width: pin.width,
     })),
     ...outputs.map((pin, index): PinDefinition => ({
       id: pin.id,
       kind: 'output',
       label: pin.label,
       offset: { x: SUBCIRCUIT_DEFAULT_WIDTH, y: pinY(outputs.length, index) },
+      width: pin.width,
     })),
   ];
 }

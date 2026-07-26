@@ -233,6 +233,10 @@ export function nextId(type: GateType, components: LogicComponent[]): string {
     'merge-4': 'MG',
     'split-4': 'SP',
     'display-4': 'DISP',
+    'bus-in-4': 'BI',
+    'adder-4': 'AD4',
+    'subtractor-4': 'SB4',
+    'comparator-4': 'CP4',
     subcircuit: 'U',
   };
   const prefix = prefixByType[type];

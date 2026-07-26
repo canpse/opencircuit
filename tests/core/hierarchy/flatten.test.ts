@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { flattenCircuit } from '../../../src/core/hierarchy/flatten';
+import { evaluateHierarchical } from '../../../src/core/hierarchy/simulate';
 import { simulateCircuit, stepCircuit } from '../../../src/core/evaluateCircuit';
 import { writeBackMemory } from '../../../src/core/hierarchy/memory';
 import type {
@@ -332,4 +333,135 @@ test('two instances with an internal flip-flop keep independent state via instan
   // The shared template definition itself must never accumulate per-instance state.
   const templateFF = flipFlopDef.components.find((c) => c.id === 'FF');
   assert.deepEqual(templateFF?.memory, { q: false, previousClk: false });
+});
+
+// Fase 3 da #19: um barramento pode atravessar a fronteira de um subcircuito via os
+// marcadores bus-in-4 (entrada) e display-4 (saída), espelhando input/clock e led.
+// Deliberadamente NÃO liga bus-in-4 direto em display-4 dentro da definição -- dois
+// marcadores nunca se resolvem um ao outro (bug pré-existente do mecanismo de
+// subcircuitos, não desta fase) -- por isso split-4/merge-4 fazem o papel de "porta
+// real" no meio, exatamente como qualquer definição funcional de verdade já precisa.
+function passthrough4Definition(): CircuitDefinition {
+  const components: LogicComponent[] = [
+    { id: 'BIN', type: 'bus-in-4', x: 0, y: 0 },
+    { id: 'SPLIT', type: 'split-4', x: 120, y: 0 },
+    { id: 'MERGE', type: 'merge-4', x: 280, y: 0 },
+    { id: 'DISP', type: 'display-4', x: 440, y: 0 },
+  ];
+  const wires: Wire[] = [
+    {
+      id: 'iw1',
+      from: { componentId: 'BIN', pinId: 'OUT' },
+      to: { componentId: 'SPLIT', pinId: 'IN' },
+    },
+    {
+      id: 'iw2',
+      from: { componentId: 'SPLIT', pinId: 'O0' },
+      to: { componentId: 'MERGE', pinId: 'I0' },
+    },
+    {
+      id: 'iw3',
+      from: { componentId: 'SPLIT', pinId: 'O1' },
+      to: { componentId: 'MERGE', pinId: 'I1' },
+    },
+    {
+      id: 'iw4',
+      from: { componentId: 'SPLIT', pinId: 'O2' },
+      to: { componentId: 'MERGE', pinId: 'I2' },
+    },
+    {
+      id: 'iw5',
+      from: { componentId: 'SPLIT', pinId: 'O3' },
+      to: { componentId: 'MERGE', pinId: 'I3' },
+    },
+    {
+      id: 'iw6',
+      from: { componentId: 'MERGE', pinId: 'OUT' },
+      to: { componentId: 'DISP', pinId: 'IN' },
+    },
+  ];
+  return { id: 'passthrough4-def', name: 'Passthrough4', components, wires };
+}
+
+test('a bus crosses a subcircuit boundary via bus-in-4/display-4 markers and stays stable', () => {
+  const def = passthrough4Definition();
+  const doc: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'I0', type: 'input', x: 0, y: 0, state: true },
+      { id: 'I1', type: 'input', x: 0, y: 60, state: false },
+      { id: 'I2', type: 'input', x: 0, y: 120, state: true },
+      { id: 'I3', type: 'input', x: 0, y: 180, state: true },
+      { id: 'M', type: 'merge-4', x: 160, y: 80 },
+      { id: 'U1', type: 'subcircuit', x: 320, y: 80, definitionId: def.id },
+      { id: 'S', type: 'split-4', x: 480, y: 80 },
+      { id: 'L0', type: 'led', x: 640, y: 0 },
+      { id: 'L1', type: 'led', x: 640, y: 60 },
+      { id: 'L2', type: 'led', x: 640, y: 120 },
+      { id: 'L3', type: 'led', x: 640, y: 180 },
+    ],
+    wires: [
+      {
+        id: 'w0',
+        from: { componentId: 'I0', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I0' },
+      },
+      {
+        id: 'w1',
+        from: { componentId: 'I1', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I1' },
+      },
+      {
+        id: 'w2',
+        from: { componentId: 'I2', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I2' },
+      },
+      {
+        id: 'w3',
+        from: { componentId: 'I3', pinId: 'out' },
+        to: { componentId: 'M', pinId: 'I3' },
+      },
+      {
+        id: 'w4',
+        from: { componentId: 'M', pinId: 'OUT' },
+        to: { componentId: 'U1', pinId: 'BIN' },
+      },
+      {
+        id: 'w5',
+        from: { componentId: 'U1', pinId: 'DISP' },
+        to: { componentId: 'S', pinId: 'IN' },
+      },
+      { id: 'w6', from: { componentId: 'S', pinId: 'O0' }, to: { componentId: 'L0', pinId: 'in' } },
+      { id: 'w7', from: { componentId: 'S', pinId: 'O1' }, to: { componentId: 'L1', pinId: 'in' } },
+      { id: 'w8', from: { componentId: 'S', pinId: 'O2' }, to: { componentId: 'L2', pinId: 'in' } },
+      { id: 'w9', from: { componentId: 'S', pinId: 'O3' }, to: { componentId: 'L3', pinId: 'in' } },
+    ],
+  };
+
+  const { flat, canvasEvaluation } = evaluateHierarchical(doc, [def]);
+  const result = simulateCircuit(flat);
+
+  assert.equal(
+    result.unstable,
+    false,
+    'um barramento estável atravessando um subcircuito não deve marcar o circuito como instável',
+  );
+  assert.equal(result.values.L0?.in, true, 'bit 0 (I0=true) deve atravessar intacto');
+  assert.equal(result.values.L1?.in, false, 'bit 1 (I1=false) deve atravessar intacto');
+  assert.equal(result.values.L2?.in, true, 'bit 2 (I2=true) deve atravessar intacto');
+  assert.equal(result.values.L3?.in, true, 'bit 3 (I3=true) deve atravessar intacto');
+
+  // Prova do fix em liftEvaluationForScope: sem ele, Boolean([false,false,false,false])
+  // é `true` (array não-vazio), então TODO pino de barramento de fronteira apareceria
+  // "aceso" no canvas da instância, mesmo valendo 0000. Aqui os valores são reais.
+  assert.deepEqual(
+    canvasEvaluation.U1?.BIN,
+    [true, false, true, true],
+    'o pino de entrada de barramento da instância deve refletir o valor real, não sempre true',
+  );
+  assert.deepEqual(
+    canvasEvaluation.U1?.DISP,
+    [true, false, true, true],
+    'o pino de saída de barramento da instância deve refletir o valor real, não sempre true',
+  );
 });

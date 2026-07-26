@@ -31,7 +31,7 @@ export function liftEvaluationForScope(
     if (node.parentScopePath !== null) continue;
     const pins: Record<string, LogicValue> = { ...(lifted[node.localId] ?? {}) };
     for (const [pinId, source] of Object.entries(node.pinSources)) {
-      pins[pinId] = Boolean(flatValues[source.componentId]?.[source.pinId]);
+      pins[pinId] = flatValues[source.componentId]?.[source.pinId] ?? false;
     }
     lifted[node.localId] = pins;
   }
