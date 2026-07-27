@@ -174,9 +174,9 @@ export function useSimulationController({
   }
 
   // Reset completo (zera tick e forma de onda de verdade, sem restaurar nada):
-  // usado pelo botão "Resetar simulação" e por undo/redo (restoreCircuit). Trocar de
-  // aba/definição não passa mais por aqui -- ver o efeito de scopeKey acima, que
-  // restaura em vez de zerar.
+  // usado só pelo botão "Resetar simulação" -- é o único caso em que apagar o
+  // histórico é literalmente o que foi pedido. Trocar de aba/definição não passa mais
+  // por aqui -- ver o efeito de scopeKey acima, que restaura em vez de zerar.
   function resetSimulationState() {
     setAutoClockRunning(false);
     resetSimulationRuntime();
@@ -188,6 +188,25 @@ export function useSimulationController({
   function resetSimulation() {
     resetSimulationState();
     onMessage('Estado da simulação resetado.');
+  }
+
+  // Usado por undo/redo (restoreCircuit): pausa o clock automático e descarta a
+  // sessão de simulação do worker (o circuito está prestes a mudar por baixo, mesmo
+  // motivo de sempre) e limpa os flashes de mudança -- mas NÃO zera tick/forma de
+  // onda. Achado de uma rodada de teste exploratório: desfazer uma edição qualquer
+  // (até um simples mover de componente) apagava a forma de onda inteira, o que ficou
+  // ainda mais estranho depois do fix de trocar de aba não resetar mais -- undo era a
+  // única ação que continuava zerando tudo. tickCount não é ajustado aqui de
+  // propósito: como ele nunca anda pra trás sozinho, um tick genuinamente novo depois
+  // de um undo sempre grava um número de tick MAIOR que o último já gravado, então
+  // recordTickSample (que descarta tick <= último gravado) nunca bloqueia essa
+  // gravação nova -- só faz a forma de onda mostrar as amostras antigas seguidas das
+  // novas, com uma descontinuidade visual no ponto onde o usuário desfez e re-tickou
+  // por um caminho diferente. Isso é preferível a apagar o histórico inteiro toda vez.
+  function pauseSimulationForHistoryRestore() {
+    setAutoClockRunning(false);
+    resetSimulationRuntime();
+    resetChangeFlashes();
   }
 
   return {
@@ -212,5 +231,6 @@ export function useSimulationController({
     toggleAutoClock,
     resetSimulation,
     resetSimulationState,
+    pauseSimulationForHistoryRestore,
   };
 }
