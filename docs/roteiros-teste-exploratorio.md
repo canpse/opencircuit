@@ -201,3 +201,104 @@ não travam com circuitos sequenciais.
 **Esperado**: os dois painéis refletem fielmente o estado real do
 circuito, sem travar, sem ficar vazios indevidamente, sem atraso visível
 entre os LEDs do canvas e o painel.
+
+---
+
+## Roteiro 7 — Minha biblioteca (componente pessoal entre documentos)
+
+Objetivo: cobrir uma feature inteira (#18 Fase 4) que nunca foi tocada por
+nenhum roteiro anterior — salvar um subcircuito na biblioteca pessoal,
+inserir em outro documento, editar a entrada e excluir.
+
+1. Numa aba nova, monte um circuito pequeno e transforme em subcircuito
+   (passos 1-4 do Roteiro 3).
+2. Clique com o botão direito na caixa do subcircuito no canvas e escolha
+   **Salvar na biblioteca**. Repita o teste também pelos outros dois
+   pontos de entrada, em ocasiões diferentes: o botão da barra
+   "Subcircuitos" e o botão direito no card da definição na barra lateral
+   esquerda — os três deveriam levar ao mesmo resultado.
+3. Abra outro documento (aba **+**, sem esse subcircuito).
+4. No menu **Arquivo**, clique **Minha biblioteca**. Confirme que a
+   entrada salva aparece na lista, com nome e data.
+5. Clique na entrada pra inserir uma cópia no documento atual. Confirme
+   que ela aparece no canvas, funcionando (ligue Inputs/LED nos pinos e
+   confirme o cálculo, igual ao Roteiro 3).
+6. Abra **Minha biblioteca** de novo e clique **Editar** na entrada —
+   confirme que abre pra edição (não deveria afetar a cópia já inserida
+   no passo 5: edite algo nela, salve, e confirme que a cópia antiga no
+   canvas continua com o comportamento de ANTES da edição — inserir é
+   cópia, não link vivo).
+7. Insira uma NOVA cópia depois de editar — essa sim deveria refletir a
+   versão editada.
+8. Abra **Minha biblioteca** de novo e **Excluir** a entrada. Confirme
+   que ela some da lista, e que as cópias já inseridas em documentos
+   continuam funcionando normalmente (excluir da biblioteca não deveria
+   quebrar cópias já espalhadas).
+
+**Esperado**: os três pontos de entrada pra "salvar na biblioteca"
+funcionam igual; inserir é sempre cópia independente (editar ou excluir
+a entrada da biblioteca depois não afeta cópias já inseridas); a lista
+atualiza corretamente após cada ação.
+
+---
+
+## Roteiro 8 — Sinais multi-bit e barramento
+
+Objetivo: cobrir a feature mais recente do projeto (#19), que nunca
+apareceu em nenhum roteiro anterior — barramento de 4 bits, hex na
+tabela-verdade/forma de onda, e os componentes aritméticos nativos.
+
+1. Numa aba nova, monte: 4 **Input** → **Merge 4** (grupo Barramentos na
+   biblioteca) → **Display 4**. Ligue cada Input a um pino `I0`-`I3` do
+   Merge 4, e a saída do Merge 4 na entrada do Display 4. O fio entre
+   Merge 4 e Display 4 deveria aparecer visualmente mais grosso que um
+   fio comum (fio de barramento).
+2. Ligue combinações dos 4 Inputs e confirme que o Display 4 mostra o
+   dígito hexadecimal certo (ex.: só o Input do bit mais significativo
+   ligado deveria mostrar `8`; todos ligados deveria mostrar `F`).
+3. Adicione um **Split 4** depois do Merge 4 (Merge 4 → Split 4) e ligue
+   cada saída `O0`-`O3` a um LED. Confirme que os LEDs acendem exatamente
+   nos bits que você ligou nos Inputs originais — o valor atravessou
+   Merge→Split sem se perder.
+4. Abra a **Tabela verdade** — confirme que ela mostra os valores em hex
+   (não tenta desmontar em bits individuais nem quebra).
+5. Monte um **Somador 4 bits** (grupo Barramentos): dois Merge 4
+   alimentando as entradas `A`/`B`, saída `SUM` num Display 4, saída
+   `Cout` num LED. Teste um caso de overflow: `A=1111` (15) + `B=0001`
+   (1) deveria dar `SUM=0000` e `Cout` aceso (15+1=16, estoura 4 bits).
+6. Abra o painel **Formas de onda**, dê Tick nos Inputs (se aplicável) ou
+   apenas alterne alguns e confirme que o traço do barramento aparece
+   como linha tracejada com rótulo hex, não como uma linha booleana comum.
+
+**Esperado**: fio de barramento visualmente distinto, valores hex
+corretos em todo lugar (canvas, tabela-verdade, forma de onda), Merge→
+Split preserva o valor exato, somador estoura certo no caso de overflow.
+
+---
+
+## Roteiro 9 — Exportar e importar
+
+Objetivo: cobrir o ciclo de exportação/importação, que nenhum roteiro
+anterior tocou.
+
+1. Com um circuito montado (pode reaproveitar qualquer um anterior),
+   abra o menu **Exportar** e clique **Baixar JSON**. Confirme que um
+   arquivo é baixado (verifique a pasta de downloads do browser) e que o
+   nome do arquivo faz sentido com o nome do documento.
+2. Abra o arquivo baixado num editor de texto e confirme que é um JSON
+   válido, com `components`/`wires` reconhecíveis.
+3. No menu **Exportar**, clique **Baixar imagem PNG** e depois **Baixar
+   imagem SVG**. Confirme que os dois arquivos baixam e, ao abrir, mostram
+   o circuito de forma legível (não cortado, não em branco).
+4. Abra uma aba nova, vá em **Arquivo → Importar JSON…**, e selecione o
+   arquivo JSON baixado no passo 1. Confirme que o circuito é recriado
+   fielmente (mesmos componentes, fios, e funcionando ao testar os
+   Inputs).
+5. Tente importar um arquivo JSON **inválido** de propósito (crie um
+   `.json` qualquer com `{"foo": "bar"}` e tente importar). Confirme que
+   o app rejeita com uma mensagem clara, em vez de travar ou aceitar
+   silenciosamente um circuito quebrado.
+
+**Esperado**: o ciclo exportar→importar preserva o circuito fielmente, os
+formatos de imagem saem legíveis, e um JSON inválido é rejeitado com
+mensagem, não falha silenciosa.
