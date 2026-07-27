@@ -375,7 +375,6 @@ export function App() {
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
-    resetSimulationState,
   } = useSimulationController({
     circuit: scopedCircuit,
     setCircuit: setScopedCircuit,
@@ -384,6 +383,9 @@ export function App() {
     setWatchedSignals,
     rememberCircuit,
     onMessage: setMessage,
+    // Root document scope has no activeDefinitionId; keep the separator so a document
+    // id can never collide with a "documentId + definitionId" pair from another one.
+    scopeKey: `${activeDocumentId}:${activeDefinitionId ?? ''}`,
   });
 
   const {
@@ -463,10 +465,12 @@ export function App() {
 
   // Reset editor state when switching documents, without emitting a status
   // message: the handler that switched the document already set its own.
+  // Simulation state (tick count, waveform history) is NOT reset here anymore --
+  // useSimulationController reacts to the same scopeKey on its own, restoring each
+  // document/definition's own tick/waveform history instead of wiping it.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTool('select');
-    resetSimulationState();
     setPendingWire(null);
     setPendingSubcircuitDefinitionId(null);
     clearSelection();
