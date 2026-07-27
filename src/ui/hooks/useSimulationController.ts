@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CircuitDefinition, CircuitDocument } from '../../core/types';
 import { toggleWatchedSignal as toggleWatchedSignalKey } from '../../core/simulation/waveform';
 import { stepHierarchical } from '../../core/hierarchy/simulate';
@@ -17,6 +17,13 @@ interface Options {
   setWatchedSignals: (signals: string[]) => void;
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
+  /** Identifies which document (and, when editing a subcircuit definition directly,
+   * which definition within it) the tick count and waveform history below belong to.
+   * Switching to a different scopeKey restores that scope's own tick count/waveform
+   * history instead of wiping it (see the effect below and its twin in
+   * useWaveformHistory) -- everything else (auto-clock, the worker's simulation
+   * session, change flashes) still resets on every scope switch, same as before. */
+  scopeKey: string;
 }
 
 export function useSimulationController({
@@ -27,10 +34,43 @@ export function useSimulationController({
   setWatchedSignals,
   rememberCircuit,
   onMessage,
+  scopeKey,
 }: Options) {
   const [autoClockRunning, setAutoClockRunning] = useState(false);
   const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
   const [tickCount, setTickCount] = useState(0);
+
+  // Cada aba de documento (ou definição de subcircuito sendo editada diretamente) guarda
+  // seu próprio contador de tick, restaurado ao voltar pra ela em vez de sempre voltar
+  // pra 0 -- achado de uma rodada de teste exploratório: trocar de aba resetava a forma
+  // de onda e o tick mesmo sem editar nada, só de espiar outra aba e voltar.
+  //
+  // Isso PRECISA acontecer durante a renderização (o padrão oficial do React de
+  // "ajustar estado quando uma prop muda"), não num useEffect: useSimulationRuntime,
+  // logo abaixo, usa tickCount para montar o pedido de simulação. Se a restauração
+  // rodasse depois, em effect, o primeiro pedido do escopo novo sairia pareado com o
+  // CIRCUITO novo mas o tickCount ANTIGO (ainda não substituído) -- exatamente a
+  // corrida que o comentário de useWaveformHistory logo abaixo já descreve para outro
+  // caso, só que introduzida por este código em vez de evitada por ele. Esse
+  // pareamento errado grava uma amostra de forma de onda com o tick errado, e como
+  // recordTickSample descarta qualquer tick <= o último gravado, isso trava a
+  // gravação de amostras novas para sempre nesse escopo (bug real, encontrado e
+  // corrigido durante a implementação desta mesma funcionalidade). O restante (clock
+  // automático, sessão de simulação do worker, flashes de mudança) continua resetando
+  // a cada troca de escopo via useEffect normal, mais abaixo -- só tick/forma de onda
+  // precisam ser síncronos à renderização.
+  //
+  // O mapa fica em estado (não numa ref): refs não podem ser lidas/escritas durante a
+  // renderização (react-hooks/refs) -- só o padrão de ajuste de estado é seguro aqui.
+  const [scopeTickCounts, setScopeTickCounts] = useState(() => new Map<string, number>());
+  const [restoredScopeKey, setRestoredScopeKey] = useState(scopeKey);
+  if (scopeKey !== restoredScopeKey) {
+    const nextScopeTickCounts = new Map(scopeTickCounts).set(restoredScopeKey, tickCount);
+    setScopeTickCounts(nextScopeTickCounts);
+    setRestoredScopeKey(scopeKey);
+    setTickCount(nextScopeTickCounts.get(scopeKey) ?? 0);
+    setAutoClockRunning(false);
+  }
 
   const {
     simulationResult,
@@ -52,6 +92,7 @@ export function useSimulationController({
     historyEvaluation,
     selectHistoryTick: selectHistoryTickRaw,
   } = useWaveformHistory({
+    scopeKey,
     circuit: simulationCircuit,
     simulationResult,
     tickCount: simulationTick,
@@ -59,6 +100,17 @@ export function useSimulationController({
   });
 
   const { changedSignals, resetChangeFlashes } = useEvaluationChangeFlashes(evaluation);
+
+  // Efeitos colaterais de verdade (avisar o worker pra descartar a sessão de
+  // simulação anterior, limpar os flashes de mudança) continuam num useEffect normal
+  // -- só o AJUSTE DE ESTADO de tick/autoclock precisava ser síncrono à renderização
+  // (ver comentário grande acima, junto da declaração de tickCount).
+  useEffect(() => {
+    resetSimulationRuntime();
+    resetChangeFlashes();
+    // Só reage à troca de escopo em si.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   // Ver um tick do passado pausa o clock automático — senão o próprio
   // auto-clock devolveria pro "ao vivo" a cada tick (useWaveformHistory
@@ -121,8 +173,10 @@ export function useSimulationController({
     onMessage(autoClockRunning ? 'Clock automático pausado.' : 'Clock automático rodando.');
   }
 
-  // Reset sem mensagem de status: usado na troca de documento, cujo handler
-  // já emite a própria mensagem.
+  // Reset completo (zera tick e forma de onda de verdade, sem restaurar nada):
+  // usado pelo botão "Resetar simulação" e por undo/redo (restoreCircuit). Trocar de
+  // aba/definição não passa mais por aqui -- ver o efeito de scopeKey acima, que
+  // restaura em vez de zerar.
   function resetSimulationState() {
     setAutoClockRunning(false);
     resetSimulationRuntime();
