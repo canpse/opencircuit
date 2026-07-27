@@ -435,6 +435,17 @@ export function CircuitCanvas(props: Props) {
         onClick={onCanvasClick}
         onContextMenu={(event) => {
           event.preventDefault();
+          // Botão direito no modo de inserção (uma porta/bloco armado pra colocar em
+          // cliques sucessivos) sai desse modo em vez de abrir o menu de contexto --
+          // senão a única saída era Esc, tirando a mão do mouse no meio do fluxo.
+          if (
+            props.selectedTool !== 'select' &&
+            props.selectedTool !== 'wire' &&
+            props.selectedTool !== 'pan'
+          ) {
+            props.onSelectTool('select');
+            return;
+          }
           if (!isBackgroundEvent(event)) return;
           props.onOpenCanvasMenu(event.clientX, event.clientY, svgPoint(event));
         }}

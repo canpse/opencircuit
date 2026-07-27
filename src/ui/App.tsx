@@ -440,6 +440,7 @@ export function App() {
   useReleaseMomentaryButtons(setCircuit);
 
   useEditorKeyboardShortcuts({
+    selectedTool,
     selection,
     pendingWire,
     contextMenu,

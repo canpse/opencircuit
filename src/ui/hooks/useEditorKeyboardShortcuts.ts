@@ -5,6 +5,7 @@ import type { ContextMenu, Selection } from '../context-menu/ContextMenuView';
 type EditorTool = GateType | 'select' | 'wire' | 'pan';
 
 interface Options {
+  selectedTool: EditorTool;
   selection: Selection;
   pendingWire: unknown;
   contextMenu: ContextMenu;
@@ -25,6 +26,7 @@ interface Options {
 }
 
 export function useEditorKeyboardShortcuts({
+  selectedTool,
   selection,
   pendingWire,
   contextMenu,
@@ -53,15 +55,22 @@ export function useEditorKeyboardShortcuts({
       const activeElement = document.activeElement as HTMLElement | null;
       if (activeElement?.tagName === 'BUTTON') activeElement.blur();
 
-      onSelectTool('pan');
-      onMessage('Ferramenta Mão ativa.');
+      // Alterna: apertar de novo com a Mão já ativa volta pra seleção, em vez de
+      // travar na Mão até alguém lembrar de clicar em "Selecionar" ou apertar Esc.
+      if (selectedTool === 'pan') {
+        onSelectTool('select');
+        onMessage('Modo selecionar.');
+      } else {
+        onSelectTool('pan');
+        onMessage('Ferramenta Mão ativa.');
+      }
     }
 
     window.addEventListener('keydown', onSpaceDown, true);
     return () => {
       window.removeEventListener('keydown', onSpaceDown, true);
     };
-  }, [dialogOpen, onMessage, onSelectTool]);
+  }, [dialogOpen, onMessage, onSelectTool, selectedTool]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
