@@ -370,7 +370,8 @@ export const ComponentView = memo(function ComponentView({
               </text>
             )}
             {pin.kind === 'output' &&
-              definition.pins.filter((candidate) => candidate.kind === 'output').length > 1 && (
+              (component.type === 'subcircuit' ||
+                definition.pins.filter((candidate) => candidate.kind === 'output').length > 1) && (
                 <text
                   className="pin-label"
                   x={pin.offset.x - 12}
