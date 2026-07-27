@@ -375,6 +375,7 @@ export function App() {
     tickSequentialCircuit,
     toggleAutoClock,
     resetSimulation,
+    pauseSimulationForHistoryRestore,
   } = useSimulationController({
     circuit: scopedCircuit,
     setCircuit: setScopedCircuit,
@@ -488,7 +489,7 @@ export function App() {
   }, [activeDocumentId]);
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
-    resetSimulation();
+    pauseSimulationForHistoryRestore();
     setCircuit(normalizeCircuitForEditor(nextCircuit));
     setPendingWire(null);
     clearSelection();
