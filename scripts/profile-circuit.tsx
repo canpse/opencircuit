@@ -3,10 +3,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { simulateCircuit } from '../src/core/evaluateCircuit';
 import { flattenCircuit } from '../src/core/hierarchy/flatten';
 import { buildIncomingWireIndex } from '../src/core/simulation/signals';
-import type { CircuitDocument, EvaluationResult } from '../src/core/types';
+import type { CircuitDefinition, CircuitDocument, EvaluationResult } from '../src/core/types';
 import { CIRCUIT_EXAMPLES } from '../src/examples/circuitExamples';
 import { CircuitCanvas, type WireStyle } from '../src/ui/editor/CircuitCanvas';
-import { routeCircuitWires } from '../src/ui/editor/wireRouting';
+import { createIncrementalWireRouter, routeCircuitWires } from '../src/ui/editor/wireRouting';
 
 type Summary = {
   median: number;
@@ -116,8 +116,15 @@ function format(summary: Summary): string {
 console.log('OpenCircuit profile — ULA de 4 bits');
 console.log('Tempos em ms: mediana / p95 / máximo');
 console.log(
-  'cópias | componentes | fios | flatten | índice | simulação | rota ortogonal | render Bézier | render ortogonal',
+  'cópias | componentes | fios | flatten | índice | simulação | rota ortogonal | movimento local | render Bézier | render ortogonal',
 );
+
+const routingBudgets = new Map([
+  [144, { full: 30, local: 20 }],
+  [288, { full: 90, local: 35 }],
+  [576, { full: 260, local: 70 }],
+]);
+const budgetResults: string[] = [];
 
 for (const copies of [1, 2, 4, 8, 16]) {
   const circuit = tileCircuit(base, copies);
@@ -132,6 +139,22 @@ for (const copies of [1, 2, 4, 8, 16]) {
     () => void routeCircuitWires(circuit.wires, componentById, circuit.components),
     repetitions,
   );
+  const incrementalRouter = createIncrementalWireRouter();
+  const definitions: CircuitDefinition[] = [];
+  incrementalRouter.route(circuit.wires, componentById, circuit.components, definitions);
+  let moved = false;
+  const localMoveTime = benchmark(() => {
+    moved = !moved;
+    const movedComponents = circuit.components.map((component, index) =>
+      index === 0 ? { ...component, x: component.x + (moved ? 12 : 0) } : component,
+    );
+    incrementalRouter.route(
+      circuit.wires,
+      new Map(movedComponents.map((component) => [component.id, component])),
+      movedComponents,
+      definitions,
+    );
+  }, repetitions);
   const bezierRenderTime = benchmark(
     () => renderCircuit(circuit, simulation.values, 'bezier'),
     repetitions,
@@ -150,8 +173,21 @@ for (const copies of [1, 2, 4, 8, 16]) {
       format(indexTime).padStart(22),
       format(simulationTime).padStart(22),
       format(routingTime).padStart(22),
+      format(localMoveTime).padStart(22),
       format(bezierRenderTime).padStart(22),
       format(orthogonalRenderTime).padStart(22),
     ].join(' | '),
   );
+
+  const budget = routingBudgets.get(circuit.components.length);
+  if (budget) {
+    const fullOk = routingTime.median <= budget.full;
+    const localOk = localMoveTime.median <= budget.local;
+    budgetResults.push(
+      `${circuit.components.length} componentes: rota ${routingTime.median.toFixed(2)}/${budget.full} ms, movimento ${localMoveTime.median.toFixed(2)}/${budget.local} ms — ${fullOk && localOk ? 'OK' : 'ACIMA DO ORÇAMENTO'}`,
+    );
+  }
 }
+
+console.log('\nOrçamentos de mediana (medido / limite):');
+for (const result of budgetResults) console.log(`- ${result}`);

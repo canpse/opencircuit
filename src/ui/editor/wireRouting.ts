@@ -4,6 +4,7 @@ import {
   resolveComponentDefinition,
 } from '../../core/catalog';
 import type { CircuitDefinition, LogicComponent, PinRef, Point, Wire } from '../../core/types';
+import { measureProfile } from '../../performance/measure';
 
 export type WireRoute = { wireId: string; points: Point[]; jumps: Point[]; fixedPoints?: Point[] };
 
@@ -18,6 +19,19 @@ export interface RectBounds {
   y: number;
   width: number;
   height: number;
+}
+
+interface RoutingContext {
+  boundsByComponentId: ReadonlyMap<string, RectBounds>;
+  inflatedBoundsByComponentId: ReadonlyMap<string, RectBounds>;
+  minY: number;
+  maxY: number;
+}
+
+export interface IncrementalRoutingResult {
+  routes: WireRoute[];
+  trunks: WireTrunk[];
+  recomputedWireIds: ReadonlySet<string>;
 }
 
 export function componentBounds(
@@ -77,60 +91,297 @@ export function routeCircuitWires(
   components: LogicComponent[],
   definitions: CircuitDefinition[] = [],
 ): { routes: WireRoute[]; trunks: WireTrunk[] } {
-  const routes = wires
-    .filter((wire) => wire.display !== 'tunnel')
-    .map((wire, index) => {
-      const from = componentById.get(wire.from.componentId);
-      const to = componentById.get(wire.to.componentId);
-      if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
-      const start = getPinPosition(from, wire.from.pinId, definitions);
-      const end = getPinPosition(to, wire.to.pinId, definitions);
-      const ignore = new Set([from.id, to.id]);
-      const fixedPoints = wire.waypoints?.map((point) => ({ ...point }));
-      const points = fixedPoints?.length
-        ? routeThroughWaypoints(start, end, fixedPoints, components, ignore, index, definitions)
-        : from.id === to.id
-          ? selfLoopRoute(from, start, end, index, definitions)
-          : routeBetweenPoints(start, end, components, ignore, index, undefined, definitions);
-      return {
-        wireId: wire.id,
-        points: fixedPoints?.length ? points : mergeCollinearPoints(points),
-        jumps: [],
+  const context = measureProfile('routing.obstacles', { components: components.length }, () =>
+    createRoutingContext(components, definitions),
+  );
+  const routes = measureProfile(
+    'routing.paths',
+    { components: components.length, wires: wires.length },
+    () =>
+      wires
+        .map((wire, index) =>
+          wire.display === 'tunnel'
+            ? null
+            : routeBaseWire(wire, index, componentById, components, definitions, context),
+        )
+        .filter((route): route is WireRoute => route !== null),
+  );
+
+  return decorateWireRoutes(wires, routes);
+}
+
+function routeBaseWire(
+  wire: Wire,
+  index: number,
+  componentById: ReadonlyMap<string, LogicComponent>,
+  components: LogicComponent[],
+  definitions: CircuitDefinition[],
+  context: RoutingContext,
+): WireRoute {
+  const from = componentById.get(wire.from.componentId);
+  const to = componentById.get(wire.to.componentId);
+  if (!from || !to) return { wireId: wire.id, points: [], jumps: [] };
+  const start = getPinPosition(from, wire.from.pinId, definitions);
+  const end = getPinPosition(to, wire.to.pinId, definitions);
+  const ignore = new Set([from.id, to.id]);
+  const fixedPoints = wire.waypoints?.map((point) => ({ ...point }));
+  const points = fixedPoints?.length
+    ? routeThroughWaypoints(
+        start,
+        end,
         fixedPoints,
-      };
+        components,
+        ignore,
+        index,
+        definitions,
+        context,
+      )
+    : from.id === to.id
+      ? selfLoopRoute(from, start, end, index, definitions)
+      : routeBetweenPoints(start, end, components, ignore, index, undefined, definitions, context);
+  return {
+    wireId: wire.id,
+    points: fixedPoints?.length ? points : mergeCollinearPoints(points),
+    jumps: [],
+    fixedPoints,
+  };
+}
+
+function decorateWireRoutes(
+  wires: Wire[],
+  routes: WireRoute[],
+): { routes: WireRoute[]; trunks: WireTrunk[] } {
+  return measureProfile('routing.decorate', { wires: routes.length }, () => {
+    // Fios que compartilham o pino de origem formam um tronco visual (ver
+    // computeWireTrunks); todos os pontos do tronco — incluindo a junção —
+    // viram "pontos fixos" para o espaçamento de corredores não os mover. A
+    // junção precisa ficar travada nos dois lados: se o segmento que começa
+    // nela pudesse se espalhar, cada ramo acabaria com uma junção em um
+    // lugar diferente, e o tronco desenhado (um único ponto) descolaria do
+    // início de cada ramo renderizado.
+    const routeByWireId = new Map(routes.map((route) => [route.wireId, route]));
+    const trunks = computeWireTrunks(wires, routeByWireId);
+    const stemPointsByWireId = new Map<string, Point[]>();
+    for (const trunk of trunks) {
+      for (const wireId of trunk.branchWireIds) stemPointsByWireId.set(wireId, trunk.stemPoints);
+    }
+    const withTrunkFixed = routes.map((route) => {
+      const stem = stemPointsByWireId.get(route.wireId);
+      if (!stem) return route;
+      return { ...route, fixedPoints: [...(route.fixedPoints ?? []), ...stem] };
     });
 
-  // Fios que compartilham o pino de origem formam um tronco visual (ver
-  // computeWireTrunks); todos os pontos do tronco — incluindo a junção —
-  // viram "pontos fixos" para o espaçamento de corredores não os mover. A
-  // junção precisa ficar travada nos dois lados: se o segmento que começa
-  // nela pudesse se espalhar, cada ramo acabaria com uma junção em um
-  // lugar diferente, e o tronco desenhado (um único ponto) descolaria do
-  // início de cada ramo renderizado.
-  const routeByWireId = new Map(routes.map((route) => [route.wireId, route]));
-  const trunks = computeWireTrunks(wires, routeByWireId);
-  const stemPointsByWireId = new Map<string, Point[]>();
-  for (const trunk of trunks) {
-    for (const wireId of trunk.branchWireIds) stemPointsByWireId.set(wireId, trunk.stemPoints);
-  }
-  const withTrunkFixed = routes.map((route) => {
-    const stem = stemPointsByWireId.get(route.wireId);
-    if (!stem) return route;
-    return { ...route, fixedPoints: [...(route.fixedPoints ?? []), ...stem] };
-  });
+    const spread = spreadWireCorridors(withTrunkFixed);
+    const jumpsByRouteIndex = findAllWireJumps(spread);
 
-  const spread = spreadWireCorridors(withTrunkFixed);
+    return {
+      routes: spread.map((route, index) => ({
+        ...route,
+        jumps: jumpsByRouteIndex[index],
+      })),
+      trunks,
+    };
+  });
+}
+
+function createRoutingContext(
+  components: LogicComponent[],
+  definitions: CircuitDefinition[],
+): RoutingContext {
+  const boundsByComponentId = new Map<string, RectBounds>();
+  const inflatedBoundsByComponentId = new Map<string, RectBounds>();
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const component of components) {
+    const bounds = componentBounds(component, definitions);
+    boundsByComponentId.set(component.id, bounds);
+    inflatedBoundsByComponentId.set(component.id, inflateRect(bounds, 14));
+    minY = Math.min(minY, bounds.y);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
+  }
+  return {
+    boundsByComponentId,
+    inflatedBoundsByComponentId,
+    minY: Number.isFinite(minY) ? minY : 0,
+    maxY: Number.isFinite(maxY) ? maxY : 0,
+  };
+}
+
+export function createIncrementalWireRouter() {
+  let previousComponents = new Map<string, LogicComponent>();
+  let previousWires: Wire[] = [];
+  let previousDefinitions: CircuitDefinition[] | null = null;
+  let previousContext: RoutingContext | null = null;
+  let baseRouteByWireId = new Map<string, WireRoute>();
 
   return {
-    routes: spread.map((route, index) => ({
-      ...route,
-      jumps: findWireJumps(
-        route,
-        spread.filter((_, otherIndex) => otherIndex !== index),
-      ),
-    })),
-    trunks,
+    route(
+      wires: Wire[],
+      componentById: Map<string, LogicComponent>,
+      components: LogicComponent[],
+      definitions: CircuitDefinition[] = [],
+    ): IncrementalRoutingResult {
+      const context = measureProfile('routing.obstacles', { components: components.length }, () =>
+        createRoutingContext(components, definitions),
+      );
+      const sameWireOrder =
+        previousWires.length === wires.length &&
+        previousWires.every((wire, index) => wire.id === wires[index]?.id);
+      const globalBoundsChanged =
+        previousContext !== null &&
+        (previousContext.minY !== context.minY || previousContext.maxY !== context.maxY);
+      const rerouteAll =
+        previousDefinitions !== definitions ||
+        !sameWireOrder ||
+        previousContext === null ||
+        globalBoundsChanged;
+      const changedComponentIds = rerouteAll
+        ? new Set(components.map((component) => component.id))
+        : findChangedComponentIds(previousComponents, componentById);
+      const recomputedWireIds = new Set<string>();
+      const nextBaseRouteByWireId = new Map<string, WireRoute>();
+
+      const routes = measureProfile(
+        'routing.paths',
+        { components: components.length, wires: wires.length, incremental: !rerouteAll },
+        () =>
+          wires
+            .map((wire, index) => {
+              if (wire.display === 'tunnel') return null;
+              const previousWire = previousWires[index];
+              const previousRoute = baseRouteByWireId.get(wire.id);
+              const needsRoute =
+                rerouteAll ||
+                !previousRoute ||
+                !sameWireGeometry(previousWire, wire) ||
+                changedComponentIds.has(wire.from.componentId) ||
+                changedComponentIds.has(wire.to.componentId) ||
+                routeAffectedByComponents(
+                  previousRoute,
+                  changedComponentIds,
+                  previousContext,
+                  context,
+                );
+              const route = needsRoute
+                ? routeBaseWire(wire, index, componentById, components, definitions, context)
+                : previousRoute;
+              if (needsRoute) recomputedWireIds.add(wire.id);
+              nextBaseRouteByWireId.set(wire.id, route);
+              return route;
+            })
+            .filter((route): route is WireRoute => route !== null),
+      );
+
+      previousComponents = new Map(components.map((component) => [component.id, { ...component }]));
+      previousWires = wires.map((wire) => ({
+        ...wire,
+        from: { ...wire.from },
+        to: { ...wire.to },
+        waypoints: wire.waypoints?.map((point) => ({ ...point })),
+      }));
+      previousDefinitions = definitions;
+      previousContext = context;
+      baseRouteByWireId = nextBaseRouteByWireId;
+
+      return {
+        ...decorateWireRoutes(wires, routes),
+        recomputedWireIds,
+      };
+    },
+    reset() {
+      previousComponents.clear();
+      previousWires = [];
+      previousDefinitions = null;
+      previousContext = null;
+      baseRouteByWireId.clear();
+    },
   };
+}
+
+function findChangedComponentIds(
+  previous: ReadonlyMap<string, LogicComponent>,
+  current: ReadonlyMap<string, LogicComponent>,
+): Set<string> {
+  const changed = new Set<string>();
+  for (const [id, component] of current) {
+    const before = previous.get(id);
+    if (!before || !sameComponentGeometry(before, component)) changed.add(id);
+  }
+  for (const id of previous.keys()) {
+    if (!current.has(id)) changed.add(id);
+  }
+  return changed;
+}
+
+function sameComponentGeometry(left: LogicComponent, right: LogicComponent): boolean {
+  return (
+    left.id === right.id &&
+    left.type === right.type &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.label === right.label &&
+    left.width === right.width &&
+    left.definitionId === right.definitionId
+  );
+}
+
+function sameWireGeometry(left: Wire | undefined, right: Wire): boolean {
+  if (!left) return false;
+  return (
+    left.id === right.id &&
+    left.display === right.display &&
+    left.from.componentId === right.from.componentId &&
+    left.from.pinId === right.from.pinId &&
+    left.to.componentId === right.to.componentId &&
+    left.to.pinId === right.to.pinId &&
+    samePoints(left.waypoints, right.waypoints)
+  );
+}
+
+function samePoints(left: Point[] | undefined, right: Point[] | undefined): boolean {
+  if (left === right) return true;
+  if (!left || !right || left.length !== right.length) return false;
+  return left.every((point, index) => samePoint(point, right[index]));
+}
+
+function routeAffectedByComponents(
+  route: WireRoute,
+  changedComponentIds: ReadonlySet<string>,
+  previous: RoutingContext | null,
+  current: RoutingContext,
+): boolean {
+  if (route.points.length === 0 || changedComponentIds.size === 0) return false;
+  const bounds = routePointBounds(route.points, 24);
+  for (const componentId of changedComponentIds) {
+    const oldObstacle = previous?.inflatedBoundsByComponentId.get(componentId);
+    const newObstacle = current.inflatedBoundsByComponentId.get(componentId);
+    if (
+      (oldObstacle && rectsIntersect(bounds, oldObstacle)) ||
+      (newObstacle && rectsIntersect(bounds, newObstacle))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function routePointBounds(points: Point[], padding: number): RectBounds {
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const minX = Math.min(...xs) - padding;
+  const minY = Math.min(...ys) - padding;
+  const maxX = Math.max(...xs) + padding;
+  const maxY = Math.max(...ys) + padding;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function rectsIntersect(left: RectBounds, right: RectBounds): boolean {
+  return (
+    left.x <= right.x + right.width &&
+    left.x + left.width >= right.x &&
+    left.y <= right.y + right.height &&
+    left.y + left.height >= right.y
+  );
 }
 
 // Agrupa fios que saem do mesmo pino em um tronco visual: o maior prefixo de
@@ -326,6 +577,7 @@ export function routeBetweenPoints(
   index: number,
   pinStubs: { start: boolean; end: boolean } = { start: true, end: true },
   definitions: CircuitDefinition[] = [],
+  routingContext?: RoutingContext,
 ): Point[] {
   const offset = ((index % 5) - 2) * 10;
   const distance = Math.abs(end.x - start.x) + Math.abs(end.y - start.y);
@@ -335,12 +587,12 @@ export function routeBetweenPoints(
   const routeEnd = { x: end.x - (pinStubs.end ? stub : 0), y: end.y };
   const midX = Math.round((routeStart.x + routeEnd.x) / 2) + offset;
   const margin = 34 + Math.abs(offset);
-  const obstacles = components
-    .filter((component) => !ignoreComponentIds.has(component.id))
-    .map((component) => inflateRect(componentBounds(component, definitions), 14));
-  const allBounds = components.map((component) => componentBounds(component, definitions));
-  const minY = Math.min(start.y, end.y, ...allBounds.map((rect) => rect.y)) - margin;
-  const maxY = Math.max(start.y, end.y, ...allBounds.map((rect) => rect.y + rect.height)) + margin;
+  const context = routingContext ?? createRoutingContext(components, definitions);
+  const obstacles = Array.from(context.inflatedBoundsByComponentId)
+    .filter(([componentId]) => !ignoreComponentIds.has(componentId))
+    .map(([, bounds]) => bounds);
+  const minY = Math.min(start.y, end.y, context.minY) - margin;
+  const maxY = Math.max(start.y, end.y, context.maxY) + margin;
   const candidates: Point[][] = [
     compactRoute([start, routeStart, { x: routeStart.x, y: routeEnd.y }, routeEnd, end]),
     compactRoute([
@@ -425,6 +677,7 @@ export function routeThroughWaypoints(
   ignoreComponentIds: Set<string>,
   index: number,
   definitions: CircuitDefinition[] = [],
+  routingContext?: RoutingContext,
 ): Point[] {
   const anchors = [start, ...waypoints, end];
   const points: Point[] = [];
@@ -439,6 +692,7 @@ export function routeThroughWaypoints(
         index + sectionIndex,
         { start: sectionIndex === 0, end: sectionIndex === anchors.length - 2 },
         definitions,
+        routingContext,
       ),
     );
     points.push(...(sectionIndex === 0 ? section : section.slice(1)));
@@ -519,24 +773,58 @@ function segmentIntersectsRect(a: Point, b: Point, rect: RectBounds): boolean {
   return false;
 }
 
-function findWireJumps(route: WireRoute, otherRoutes: WireRoute[]): Point[] {
-  const jumps: Point[] = [];
-  for (const segment of routeSegments(route.points)) {
-    if (segment.a.y !== segment.b.y) continue;
-    const minX = Math.min(segment.a.x, segment.b.x) + 12;
-    const maxX = Math.max(segment.a.x, segment.b.x) - 12;
-    for (const other of otherRoutes) {
-      for (const otherSegment of routeSegments(other.points)) {
-        if (otherSegment.a.x !== otherSegment.b.x) continue;
-        const x = otherSegment.a.x;
-        const y = segment.a.y;
-        const otherMinY = Math.min(otherSegment.a.y, otherSegment.b.y) + 8;
-        const otherMaxY = Math.max(otherSegment.a.y, otherSegment.b.y) - 8;
-        if (x > minX && x < maxX && y > otherMinY && y < otherMaxY) jumps.push({ x, y });
+function findAllWireJumps(routes: WireRoute[]): Point[][] {
+  type VerticalSegment = {
+    routeIndex: number;
+    x: number;
+    minY: number;
+    maxY: number;
+  };
+  const verticals: VerticalSegment[] = [];
+  routes.forEach((route, routeIndex) => {
+    for (const segment of routeSegments(route.points)) {
+      if (segment.a.x !== segment.b.x) continue;
+      verticals.push({
+        routeIndex,
+        x: segment.a.x,
+        minY: Math.min(segment.a.y, segment.b.y) + 8,
+        maxY: Math.max(segment.a.y, segment.b.y) - 8,
+      });
+    }
+  });
+  verticals.sort((left, right) => left.x - right.x);
+
+  return routes.map((route, routeIndex) => {
+    const jumps: Point[] = [];
+    for (const segment of routeSegments(route.points)) {
+      if (segment.a.y !== segment.b.y) continue;
+      const minX = Math.min(segment.a.x, segment.b.x) + 12;
+      const maxX = Math.max(segment.a.x, segment.b.x) - 12;
+      const y = segment.a.y;
+      for (
+        let index = firstVerticalAfter(verticals, minX);
+        index < verticals.length && verticals[index].x < maxX;
+        index += 1
+      ) {
+        const vertical = verticals[index];
+        if (vertical.routeIndex !== routeIndex && y > vertical.minY && y < vertical.maxY) {
+          jumps.push({ x: vertical.x, y });
+        }
       }
     }
+    return jumps;
+  });
+}
+
+function firstVerticalAfter(verticals: ReadonlyArray<{ x: number }>, x: number): number {
+  let low = 0;
+  let high = verticals.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (verticals[middle].x <= x) low = middle + 1;
+    else high = middle;
   }
-  return jumps;
+  return low;
 }
 
 export function bezierPathFromPoints(points: Point[]): string {

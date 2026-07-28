@@ -1,67 +1,31 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
+import {
+  COMPONENT_REGISTRY,
+  INSERTABLE_COMPONENT_TYPES,
+  type ComponentCategory,
+} from '../../core/componentRegistry';
 import type { CircuitDefinition, GateType } from '../../core/types';
-import andGateAsset from '../../assets/components/and_gate.png';
-import clockSourceAsset from '../../assets/components/clock_source.png';
-import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
-import ledOffAsset from '../../assets/components/led_off.png';
-import nandGateAsset from '../../assets/components/nand_gate.png';
-import norGateAsset from '../../assets/components/nor_gate.png';
-import notGateAsset from '../../assets/components/not_gate.png';
-import orGateAsset from '../../assets/components/or_gate.png';
-import outputPortAsset from '../../assets/components/output_port.png';
-import xnorGateAsset from '../../assets/components/xnor_gate.png';
-import xorGateAsset from '../../assets/components/xor_gate.png';
 import type { EditorTool } from '../editor/editorTypes';
+import { COMPONENT_ASSETS } from '../editor/componentAssets';
 
-const COMPONENT_TOOL_ASSETS: Partial<Record<GateType, string>> = {
-  input: inputSwitchOffAsset,
-  button: outputPortAsset,
-  led: ledOffAsset,
-  and: andGateAsset,
-  nand: nandGateAsset,
-  or: orGateAsset,
-  nor: norGateAsset,
-  xor: xorGateAsset,
-  xnor: xnorGateAsset,
-  not: notGateAsset,
-  clock: clockSourceAsset,
-};
-
-export const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = [
-  { title: 'Entradas', tools: ['input', 'button'] },
-  { title: 'Saídas', tools: ['led'] },
-  { title: 'Portas Lógicas', tools: ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'] },
-  {
-    title: 'Blocos Combinacionais',
-    tools: [
-      'half-adder',
-      'full-adder',
-      'mux-2-1',
-      'mux-4-1',
-      'decoder-2-4',
-      'comparator-1-bit',
-      'encoder-4-2',
-      'odd-parity-3',
-      'majority-3',
-      'half-subtractor',
-      'full-subtractor',
-    ],
-  },
-  { title: 'Sequenciais', tools: ['clock', 'd-latch', 'd-flip-flop', 'register-4'] },
-  {
-    title: 'Barramentos',
-    tools: [
-      'merge-4',
-      'split-4',
-      'display-4',
-      'bus-in-4',
-      'adder-4',
-      'subtractor-4',
-      'comparator-4',
-    ],
-  },
-  { title: 'Anotações', tools: ['text'] },
+const CATEGORY_LABELS: Array<{ category: ComponentCategory; title: string }> = [
+  { category: 'inputs', title: 'Entradas' },
+  { category: 'outputs', title: 'Saídas' },
+  { category: 'gates', title: 'Portas Lógicas' },
+  { category: 'combinational', title: 'Blocos Combinacionais' },
+  { category: 'sequential', title: 'Sequenciais' },
+  { category: 'buses', title: 'Barramentos' },
+  { category: 'annotations', title: 'Anotações' },
 ];
+
+export const TOOL_GROUPS: Array<{ title: string; tools: GateType[] }> = CATEGORY_LABELS.map(
+  ({ category, title }) => ({
+    title,
+    tools: INSERTABLE_COMPONENT_TYPES.filter(
+      (type) => COMPONENT_REGISTRY[type].category === category,
+    ),
+  }),
+);
 
 export const LOGIC_COMPONENT_TOOLS: GateType[] = TOOL_GROUPS.flatMap((group) => group.tools);
 
@@ -155,7 +119,7 @@ export function ComponentLibrary({
 }
 
 export function ToolButtonContent({ type }: { type: GateType }) {
-  const asset = COMPONENT_TOOL_ASSETS[type];
+  const asset = COMPONENT_ASSETS[type]?.library;
   return (
     <span className="tool-button-content">
       {asset && <img className="tool-icon" src={asset} alt="" aria-hidden="true" />}

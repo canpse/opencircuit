@@ -13,8 +13,13 @@ core <- state <- ui
 - `src/state` implementa arquivos, armazenamento do workspace e transporte HTTP. Depende apenas do
   domínio.
 - `src/ui` coordena React, canvas SVG, interações e painéis.
+- `src/performance/measure.ts` é instrumentação opcional e neutra de ambiente, consumível pelo
+  núcleo, Worker e Node; a integração específica com o Profiler do React fica separada.
 - `server` usa o mesmo contrato semântico e os mesmos limites de documento do cliente, mas sempre
   executa sua própria validação sobre dados não confiáveis.
+
+Um teste de arquitetura verifica essas fronteiras na CI. O backend JavaScript também participa do
+typecheck por meio de `checkJs`.
 
 O servidor de desenvolvimento do Vite e o servidor de produção instanciam os mesmos handlers,
 repositórios, identidade e rate limiter.

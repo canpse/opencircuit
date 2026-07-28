@@ -2,15 +2,9 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import type { GateType, Point } from '../../core/types';
 import { LOGIC_COMPONENT_TOOLS, TOOL_GROUPS, ToolButtonContent } from '../library/ComponentLibrary';
-import type { Selection } from '../editor/editorTypes';
+import type { ContextMenu, Selection } from '../editor/editorTypes';
 
-export type { Selection } from '../editor/editorTypes';
-export type ContextMenu =
-  | { kind: 'canvas'; x: number; y: number; point: Point }
-  | { kind: 'component'; x: number; y: number; componentId: string }
-  | { kind: 'wire'; x: number; y: number; wireId: string }
-  | { kind: 'waypoint'; x: number; y: number; wireId: string; waypointIndex: number }
-  | null;
+export type { ContextMenu, Selection } from '../editor/editorTypes';
 
 const RECENT_COMPONENTS_KEY = 'opencircuit-recent-context-components';
 const MAX_RECENT_COMPONENTS = 4;

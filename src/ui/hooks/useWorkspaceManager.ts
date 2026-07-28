@@ -1,4 +1,11 @@
-import { ChangeEvent, useCallback, useMemo, useState, type SetStateAction } from 'react';
+import {
+  ChangeEvent,
+  useCallback,
+  useMemo,
+  useReducer,
+  useState,
+  type SetStateAction,
+} from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isCircuitDocument } from '../../core/validateCircuitDocument';
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
@@ -21,6 +28,7 @@ import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
 import { useLibraryBrowser } from './useLibraryBrowser';
 import { useRemoteCircuitBrowser } from './useRemoteCircuitBrowser';
 import type { RemoteSyncState } from './workspaceTypes';
+import { INITIAL_WORKSPACE_SYNC_MODEL, workspaceSyncReducer } from './workspaceSyncState';
 
 export type { RemoteSyncState } from './workspaceTypes';
 
@@ -31,16 +39,8 @@ interface Options {
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
-  const [syncStates, setSyncStates] = useState<ReadonlyMap<string, RemoteSyncState>>(
-    () => new Map(),
-  );
-  const [conflict, setConflict] = useState<{ documentId: string; remote: StoredCircuit } | null>(
-    null,
-  );
-  const [libraryConflict, setLibraryConflict] = useState<{
-    documentId: string;
-    remote: StoredLibraryComponent;
-  } | null>(null);
+  const [syncModel, dispatchSync] = useReducer(workspaceSyncReducer, INITIAL_WORKSPACE_SYNC_MODEL);
+  const { conflict, libraryConflict } = syncModel;
 
   const documents = workspace.documents;
   const activeDocumentId = workspace.activeDocumentId;
@@ -108,7 +108,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
   );
 
   function setSyncState(documentId: string, state: RemoteSyncState) {
-    setSyncStates((current) => new Map(current).set(documentId, state));
+    dispatchSync({ type: 'status', documentId, status: state });
   }
 
   const remoteBrowser = useRemoteCircuitBrowser({
@@ -254,14 +254,15 @@ export function useWorkspaceManager({ onMessage }: Options) {
 
   function handleSaveError(documentId: string, error: unknown) {
     if (error instanceof CircuitApiError && error.status === 409 && error.remote) {
-      setConflict({ documentId, remote: error.remote });
-      setSyncState(documentId, 'conflict');
+      dispatchSync({ type: 'circuit-conflict', conflict: { documentId, remote: error.remote } });
       onMessage('Conflito: há uma versão mais nova no servidor.');
       return;
     }
     if (error instanceof LibraryApiError && error.status === 409 && error.remote) {
-      setLibraryConflict({ documentId, remote: error.remote });
-      setSyncState(documentId, 'conflict');
+      dispatchSync({
+        type: 'library-conflict',
+        conflict: { documentId, remote: error.remote },
+      });
       onMessage('Conflito: há uma versão mais nova do componente na biblioteca.');
       return;
     }
@@ -424,15 +425,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
           : item,
       ),
     );
-    setSyncState(documentId, 'saved');
-    setLibraryConflict(null);
+    dispatchSync({ type: 'resolve-library-conflict' });
     onMessage('Versão mais nova da biblioteca carregada.');
   }
 
   function saveLibraryConflictAsCopy() {
     if (!libraryConflict) return;
     const target = documents.find((item) => item.id === libraryConflict.documentId);
-    setLibraryConflict(null);
+    dispatchSync({ type: 'close-library-conflict' });
     if (target) void saveDocumentAs({ ...target, libraryId: null, revision: null });
   }
 
@@ -454,15 +454,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
           : item,
       ),
     );
-    setSyncState(documentId, 'saved');
-    setConflict(null);
+    dispatchSync({ type: 'resolve-circuit-conflict' });
     onMessage('Versão mais nova do servidor carregada.');
   }
 
   function saveConflictAsCopy() {
     if (!conflict) return;
     const target = documents.find((item) => item.id === conflict.documentId);
-    setConflict(null);
+    dispatchSync({ type: 'close-circuit-conflict' });
     if (target) void saveDocumentAs({ ...target, remoteId: null, revision: null });
   }
 
@@ -498,9 +497,9 @@ export function useWorkspaceManager({ onMessage }: Options) {
     refreshRemoteCircuits: remoteBrowser.refresh,
     openRemoteDocument: remoteBrowser.openDocument,
     deleteRemoteDocument: remoteBrowser.deleteDocument,
-    activeSyncState: syncStates.get(activeDocumentId) ?? 'idle',
+    activeSyncState: syncModel.states.get(activeDocumentId) ?? 'idle',
     conflict,
-    closeConflict: () => setConflict(null),
+    closeConflict: () => dispatchSync({ type: 'close-circuit-conflict' }),
     reloadConflict,
     saveConflictAsCopy,
     libraryDocumentIds,
@@ -514,7 +513,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     deleteLibraryEntry: libraryBrowser.deleteEntry,
     saveDefinitionToLibrary: libraryBrowser.saveDefinition,
     libraryConflict,
-    closeLibraryConflict: () => setLibraryConflict(null),
+    closeLibraryConflict: () => dispatchSync({ type: 'close-library-conflict' }),
     reloadLibraryConflict,
     saveLibraryConflictAsCopy,
   };

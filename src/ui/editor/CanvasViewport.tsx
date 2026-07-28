@@ -2,7 +2,7 @@ import { MouseEvent, useLayoutEffect } from 'react';
 import type { DragEventHandler, MouseEventHandler, ReactNode, RefObject } from 'react';
 import { commitProfileInteractions } from '../../performance/profiling';
 import { useCanvasCamera } from './useCanvasCamera';
-import type { WireStyle } from './CircuitCanvas';
+import type { WireStyle } from './editorTypes';
 
 interface Props {
   svgRef: RefObject<SVGSVGElement | null>;

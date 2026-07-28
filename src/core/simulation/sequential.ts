@@ -1,11 +1,12 @@
 import type { CircuitDocument, LogicComponent } from '../types';
 import { evaluateCircuit } from './simulate';
 import { inputValue } from './signals';
+import { COMPONENT_REGISTRY } from '../componentRegistry';
 
-export const SEQUENTIAL_TYPES = ['clock', 'd-latch', 'd-flip-flop', 'register-4'] as const;
+export { SEQUENTIAL_TYPES } from '../componentRegistry';
 
 export function isSequentialType(type: LogicComponent['type']): boolean {
-  return SEQUENTIAL_TYPES.includes(type as (typeof SEQUENTIAL_TYPES)[number]);
+  return COMPONENT_REGISTRY[type].sequential;
 }
 
 function memoryHasBooleans(memory: Record<string, boolean> | undefined, keys: string[]): boolean {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { WireStyle } from '../editor/CircuitCanvas';
+import type { WireStyle } from '../editor/editorTypes';
 import { loadWireStyle } from '../app/editorUtils';
 
 export function useWireStylePreference(storageKey: string) {

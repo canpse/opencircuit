@@ -1,7 +1,6 @@
-import { Profiler, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
-import type { CircuitDefinition, CircuitDocument } from '../core/types';
+import { Profiler, useEffect, useMemo, useRef, useState } from 'react';
+import type { CircuitDocument } from '../core/types';
 import { flattenCircuit } from '../core/hierarchy/flatten';
-import { nextDefinitionId } from '../core/hierarchy/scope';
 import { CircuitCanvas } from './editor/CircuitCanvas';
 import { exportCircuitImage, type CircuitImageFormat } from './editor/exportCircuitImage';
 import { recordReactProfile } from '../performance/profiling';
@@ -18,21 +17,13 @@ import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
 import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
 import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
-import {
-  extractSelectionIntoDefinition,
-  GRID,
-  hasSelection,
-  normalizeCircuitForEditor,
-  pushDefinitionPath,
-  truncateDefinitionPath,
-} from './app/editorUtils';
+import { hasSelection, normalizeCircuitForEditor } from './app/editorUtils';
 import { DefinitionBreadcrumb } from './panels/DefinitionBreadcrumb';
 import { ContextMenuView } from './context-menu/ContextMenuView';
 import { ConfirmCloseDialog } from './dialogs/ConfirmCloseDialog';
 import { RemoteCircuitsDialog } from './dialogs/RemoteCircuitsDialog';
 import { LibraryDialog } from './dialogs/LibraryDialog';
 import { ConflictDialog } from './dialogs/ConflictDialog';
-import { libraryApi } from '../state/libraryApi';
 import { DocumentTabs } from './tabs/DocumentTabs';
 import { ComponentLibrary } from './library/ComponentLibrary';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
@@ -41,6 +32,7 @@ import { useSimulationController } from './hooks/useSimulationController';
 import { useContextMenuManager } from './hooks/useContextMenu';
 import { useResizableBottomPanel } from './hooks/useResizableBottomPanel';
 import type { EditorTool } from './editor/editorTypes';
+import { useDefinitionWorkspace } from './hooks/useDefinitionWorkspace';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
@@ -105,204 +97,6 @@ export function App() {
     onMessage: setMessage,
   });
 
-  // Fase 1-3 (subcircuitos, issue #18): editar a raiz ou uma definição usa o mesmo par
-  // circuit/setCircuit (useCircuitEditor não precisa saber a diferença), só trocando qual
-  // "fatia" do documento é exposta. navigationPath é uma pilha de ids de definição --
-  // duplo-clique numa instância empilha (Fase 3), a barra "Subcircuitos" salta direto
-  // (substitui a pilha). scopedCircuit/setScopedCircuit só enxergam o topo da pilha
-  // (activeDefinitionId, derivado), nunca o caminho inteiro -- não precisam mudar entre
-  // navegação plana (Fase 1) e aninhada (Fase 3).
-  const definitions = useMemo(() => circuit.definitions ?? [], [circuit.definitions]);
-  const [navigationPath, setNavigationPath] = useState<string[]>([]);
-  const [pendingSubcircuitDefinitionId, setPendingSubcircuitDefinitionId] = useState<string | null>(
-    null,
-  );
-  const activeDefinitionId = navigationPath[navigationPath.length - 1] ?? null;
-  const activeDefinition = activeDefinitionId
-    ? (definitions.find((definition) => definition.id === activeDefinitionId) ?? null)
-    : null;
-
-  const scopedCircuit = useMemo<CircuitDocument>(
-    () =>
-      activeDefinition
-        ? { version: 1, components: activeDefinition.components, wires: activeDefinition.wires }
-        : circuit,
-    [activeDefinition, circuit],
-  );
-
-  function setScopedCircuit(action: SetStateAction<CircuitDocument>) {
-    setCircuit((previousFull) => {
-      if (!activeDefinitionId) {
-        return typeof action === 'function' ? action(previousFull) : action;
-      }
-      const previousDefinitions = previousFull.definitions ?? [];
-      const previousDefinition = previousDefinitions.find(
-        (definition) => definition.id === activeDefinitionId,
-      );
-      if (!previousDefinition) return previousFull;
-      const previousScoped: CircuitDocument = {
-        version: 1,
-        components: previousDefinition.components,
-        wires: previousDefinition.wires,
-      };
-      const nextScoped = typeof action === 'function' ? action(previousScoped) : action;
-      return {
-        ...previousFull,
-        definitions: previousDefinitions.map((definition) =>
-          definition.id === activeDefinitionId
-            ? { ...definition, components: nextScoped.components, wires: nextScoped.wires }
-            : definition,
-        ),
-      };
-    });
-  }
-
-  function enterDefinitionDirect(definitionId: string) {
-    // Barra "Subcircuitos" e "+ Nova definição": salto direto, descarta qualquer
-    // caminho aninhado atual (diferente de enterInstance, que empilha).
-    setNavigationPath([definitionId]);
-    setMessage('Editando definição de subcircuito.');
-  }
-
-  function enterInstance(componentId: string) {
-    // Duplo-clique numa instância de subcircuito: empilha sobre o caminho atual.
-    const component = scopedCircuit.components.find((candidate) => candidate.id === componentId);
-    if (!component || component.type !== 'subcircuit' || !component.definitionId) return;
-    if (!definitions.some((definition) => definition.id === component.definitionId)) return;
-    setNavigationPath((path) => pushDefinitionPath(path, component.definitionId!));
-    setMessage('Editando definição de subcircuito.');
-  }
-
-  function goToBreadcrumbIndex(index: number) {
-    setNavigationPath((path) => truncateDefinitionPath(path, index));
-    setMessage(
-      index === -1 ? 'De volta ao circuito principal.' : 'Editando definição de subcircuito.',
-    );
-  }
-
-  function createDefinition() {
-    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
-    if (!name || !name.trim()) return;
-    const id = nextDefinitionId(definitions);
-    rememberCircuit();
-    setCircuit((current) => ({
-      ...current,
-      definitions: [
-        ...(current.definitions ?? []),
-        { id, name: name.trim(), components: [], wires: [] },
-      ],
-    }));
-    enterDefinitionDirect(id);
-  }
-
-  function transformSelectionIntoSubcircuit(componentIds: string[]) {
-    if (componentIds.length === 0) {
-      setMessage('Selecione ao menos um componente para transformar em subcircuito.');
-      return;
-    }
-    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
-    if (!name || !name.trim()) return;
-
-    const definitionId = nextDefinitionId(definitions);
-    const result = extractSelectionIntoDefinition(
-      scopedCircuit,
-      componentIds,
-      definitionId,
-      name.trim(),
-      GRID,
-    );
-    if (!result) return;
-
-    rememberCircuit();
-    setCircuit((current) => {
-      const currentDefinitions = current.definitions ?? [];
-      if (!activeDefinition) {
-        return {
-          ...current,
-          components: result.scope.components,
-          wires: result.scope.wires,
-          definitions: [...currentDefinitions, result.definition],
-        };
-      }
-      return {
-        ...current,
-        definitions: [
-          ...currentDefinitions.map((definition) =>
-            definition.id === activeDefinition.id
-              ? { ...definition, components: result.scope.components, wires: result.scope.wires }
-              : definition,
-          ),
-          result.definition,
-        ],
-      };
-    });
-    setSelection({ componentIds: [result.instanceId], wireIds: [] });
-    setMessage(`Subcircuito "${name.trim()}" criado.`);
-  }
-
-  async function saveDefinitionToLibraryFlow(definition: CircuitDefinition) {
-    if (definition.components.some((component) => component.type === 'subcircuit')) {
-      setMessage(
-        'Não é possível salvar na biblioteca: essa definição referencia outro subcircuito, e a biblioteca ainda não suporta aninhamento.',
-      );
-      return;
-    }
-    const name = window.prompt('Nome do componente na biblioteca:', definition.name)?.trim();
-    if (!name) return;
-    await saveDefinitionToLibrary(name, {
-      components: definition.components,
-      wires: definition.wires,
-    });
-  }
-
-  async function saveActiveDefinitionToLibrary() {
-    if (!activeDefinition) return;
-    await saveDefinitionToLibraryFlow(activeDefinition);
-  }
-
-  function saveDefinitionByIdToLibrary(definitionId: string) {
-    const definition = definitions.find((item) => item.id === definitionId);
-    if (!definition) return;
-    void saveDefinitionToLibraryFlow(definition);
-  }
-
-  function saveComponentDefinitionToLibrary(componentId: string) {
-    const component = scopedCircuit.components.find((item) => item.id === componentId);
-    if (!component || component.type !== 'subcircuit' || !component.definitionId) return;
-    const definition = definitions.find((item) => item.id === component.definitionId);
-    if (!definition) {
-      setMessage('Definição do subcircuito não encontrada.');
-      return;
-    }
-    void saveDefinitionToLibraryFlow(definition);
-  }
-
-  async function insertLibraryDefinition(id: string) {
-    try {
-      const stored = await libraryApi.get(id);
-      const freshId = nextDefinitionId(definitions);
-      rememberCircuit();
-      setCircuit((current) => ({
-        ...current,
-        definitions: [
-          ...(current.definitions ?? []),
-          {
-            id: freshId,
-            name: stored.name,
-            components: stored.definition.components,
-            wires: stored.definition.wires,
-          },
-        ],
-      }));
-      closeLibraryDialog();
-      setPendingSubcircuitDefinitionId(freshId);
-      setSelectedTool('subcircuit');
-      setMessage(`Componente "${stored.name}" pronto para posicionar no canvas.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Não foi possível inserir o componente.');
-    }
-  }
-
   const {
     canUndo,
     canRedo,
@@ -310,6 +104,35 @@ export function App() {
     undo: undoHistory,
     redo: redoHistory,
   } = useCircuitHistory(circuit, HISTORY_LIMIT, activeDocumentId);
+
+  const {
+    definitions,
+    navigationPath,
+    activeDefinitionId,
+    activeDefinition,
+    scopedCircuit,
+    setScopedCircuit,
+    pendingSubcircuitDefinitionId,
+    setPendingSubcircuitDefinitionId,
+    enterDefinitionDirect,
+    enterInstance,
+    goToBreadcrumbIndex,
+    createDefinition,
+    transformSelectionIntoSubcircuit: transformDefinitionSelection,
+    saveActiveDefinitionToLibrary,
+    saveDefinitionByIdToLibrary,
+    saveComponentDefinitionToLibrary,
+    insertLibraryDefinition,
+  } = useDefinitionWorkspace({
+    circuit,
+    setCircuit,
+    activeDocumentId,
+    rememberCircuit,
+    onMessage: setMessage,
+    saveDefinitionToLibrary,
+    closeLibraryDialog,
+    onSelectTool: setSelectedTool,
+  });
 
   const {
     pendingWire,
@@ -354,6 +177,11 @@ export function App() {
     onSelectTool: setSelectedTool,
   });
 
+  function transformSelectionIntoSubcircuit(componentIds: string[]) {
+    const instanceId = transformDefinitionSelection(componentIds);
+    if (instanceId) setSelection({ componentIds: [instanceId], wireIds: [] });
+  }
+
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(
     null,
   );
@@ -385,9 +213,7 @@ export function App() {
     setWatchedSignals,
     rememberCircuit,
     onMessage: setMessage,
-    // Root document scope has no activeDefinitionId; keep the separator so a document
-    // id can never collide with a "documentId + definitionId" pair from another one.
-    scopeKey: `${activeDocumentId}:${activeDefinitionId ?? ''}`,
+    scopeKey: JSON.stringify([activeDocumentId, activeDefinitionId]),
   });
 
   const {
@@ -479,16 +305,6 @@ export function App() {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDocumentId, activeDefinitionId]);
-
-  // Separate from the effect above (which already re-fires on every navigationPath
-  // change, since activeDefinitionId derives from it): switching documents must not
-  // leave you N levels deep in a definition from the PREVIOUS document. This can't
-  // live in the same effect -- keying it on navigationPath there would zero out the
-  // path you just pushed via enterInstance, fighting the navigation itself.
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNavigationPath([]);
-  }, [activeDocumentId]);
 
   function restoreCircuit(nextCircuit: CircuitDocument, nextMessage: string) {
     pauseSimulationForHistoryRestore();

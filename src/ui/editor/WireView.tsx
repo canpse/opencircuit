@@ -11,7 +11,7 @@ import {
   smoothBezierPathThroughPoints,
   type WireRoute,
 } from './wireRouting';
-import type { WireStyle } from './CircuitCanvas';
+import type { WireStyle } from './editorTypes';
 
 export const WireView = memo(function WireView({
   wire,
