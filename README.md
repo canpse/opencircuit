@@ -17,9 +17,11 @@ npm run dev
 ```
 
 O servidor de desenvolvimento também disponibiliza a API em `/api/circuits` e grava os dados em
-`data/opencircuit.sqlite`. Cada navegador recebe uma identidade local persistente e isolada. O
-header `X-OpenCircuit-User` deve ser preenchido por uma camada de autenticação confiável antes de
-uma implantação pública; ele não deve ser aceito diretamente de clientes na internet.
+`data/opencircuit.sqlite`. Cada navegador recebe uma sessão anônima persistente, assinada pelo
+servidor e armazenada em cookie `HttpOnly`; o cliente não escolhe mais o identificador do
+proprietário. Para contas reais, o servidor também suporta identidade fornecida por um proxy de
+autenticação confiável. Consulte [docs/production-security.md](docs/production-security.md) antes de
+qualquer implantação pública.
 
 Para executar o build de produção com o servidor Node:
 
@@ -28,7 +30,9 @@ npm run build
 npm start
 ```
 
-Use `PORT` para trocar a porta e `OPENCIRCUIT_DB` para escolher o arquivo SQLite.
+Use `PORT` para trocar a porta e `OPENCIRCUIT_DB` para escolher o arquivo SQLite. O segredo de
+sessão é persistido ao lado do banco por padrão; em produção, prefira
+`OPENCIRCUIT_SESSION_SECRET`. As demais opções estão documentadas em `.env.example`.
 
 O Vite informa a URL local ao iniciar. Para validar a mesma sequência executada na integração
 contínua:
@@ -40,7 +44,7 @@ npm run check
 Os comandos individuais são:
 
 - `npm run format:check`: confere a formatação sem alterar arquivos;
-- `npm run lint`: executa as regras estáticas sobre `src`;
+- `npm run lint`: verifica cliente, backend, scripts e testes com ambientes separados;
 - `npm test`: compila e executa os testes automatizados;
 - `npm run build`: verifica os tipos e gera a aplicação de produção em `dist`;
 - `npm run profile`: mede os principais cenários de simulação.
@@ -56,6 +60,10 @@ Use `npm run format` para formatar os arquivos versionados do projeto.
 - `tests`: testes automatizados do simulador e das fronteiras de dados;
 - `scripts`: execução dos testes e ferramentas de profiling;
 - `examples`: documentos JSON usados como casos de circuitos sequenciais.
+
+As dependências entre camadas e o procedimento para adicionar componentes estão descritos em
+[docs/architecture.md](docs/architecture.md). O baseline e o procedimento de profiling ficam em
+[docs/performance.md](docs/performance.md).
 
 ## Formato dos circuitos
 

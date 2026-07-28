@@ -1,4 +1,5 @@
 import type { CircuitDocument } from '../core/types';
+import { ApiTransportError, requestJson } from './apiTransport';
 
 export type StoredCircuitSummary = {
   id: string;
@@ -13,58 +14,14 @@ export type StoredCircuit = StoredCircuitSummary & {
   circuit: CircuitDocument;
 };
 
-export class CircuitApiError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly remote?: StoredCircuit,
-  ) {
-    super(message);
+export class CircuitApiError extends ApiTransportError<StoredCircuit> {
+  get remote() {
+    return this.conflict;
   }
 }
 
-const USER_STORAGE_KEY = 'opencircuit.local-user.v1';
-
-function getLocalUserId(): string {
-  try {
-    const current = localStorage.getItem(USER_STORAGE_KEY);
-    if (current) return current;
-    const created = `local-${crypto.randomUUID()}`;
-    localStorage.setItem(USER_STORAGE_KEY, created);
-    return created;
-  } catch {
-    return 'local-memory-user';
-  }
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response;
-  try {
-    response = await fetch(path, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-OpenCircuit-User': getLocalUserId(),
-        ...init?.headers,
-      },
-    });
-  } catch {
-    throw new CircuitApiError('Servidor indisponível. O rascunho local foi preservado.', 0);
-  }
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-      circuit?: StoredCircuit;
-    } | null;
-    throw new CircuitApiError(
-      payload?.error ?? 'Falha ao acessar o servidor.',
-      response.status,
-      payload?.circuit,
-    );
-  }
-  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
-}
+const request = <T>(path: string, init?: RequestInit) =>
+  requestJson<T, StoredCircuit, CircuitApiError>(path, init, CircuitApiError, 'circuit');
 
 export const circuitApi = {
   list: () => request<StoredCircuitSummary[]>('/api/circuits'),

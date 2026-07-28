@@ -1,71 +1,5 @@
-const PINS = {
-  input: { out: 'output' },
-  button: { out: 'output' },
-  led: { in: 'input' },
-  and: { a: 'input', b: 'input', out: 'output' },
-  nand: { a: 'input', b: 'input', out: 'output' },
-  or: { a: 'input', b: 'input', out: 'output' },
-  nor: { a: 'input', b: 'input', out: 'output' },
-  xor: { a: 'input', b: 'input', out: 'output' },
-  xnor: { a: 'input', b: 'input', out: 'output' },
-  not: { in: 'input', out: 'output' },
-  text: {},
-  'half-adder': { A: 'input', B: 'input', SUM: 'output', CARRY: 'output' },
-  'full-adder': { A: 'input', B: 'input', Cin: 'input', SUM: 'output', Cout: 'output' },
-  'mux-2-1': { A: 'input', B: 'input', Sel: 'input', OUT: 'output' },
-  'mux-4-1': {
-    D0: 'input',
-    D1: 'input',
-    D2: 'input',
-    D3: 'input',
-    S0: 'input',
-    S1: 'input',
-    OUT: 'output',
-  },
-  'decoder-2-4': { A: 'input', B: 'input', Y0: 'output', Y1: 'output', Y2: 'output', Y3: 'output' },
-  'comparator-1-bit': { A: 'input', B: 'input', GT: 'output', EQ: 'output', LT: 'output' },
-  'encoder-4-2': { D0: 'input', D1: 'input', D2: 'input', D3: 'input', Y0: 'output', Y1: 'output' },
-  'odd-parity-3': { A: 'input', B: 'input', C: 'input', OUT: 'output' },
-  'majority-3': { A: 'input', B: 'input', C: 'input', OUT: 'output' },
-  'half-subtractor': { A: 'input', B: 'input', DIFF: 'output', BORROW: 'output' },
-  'full-subtractor': { A: 'input', B: 'input', Bin: 'input', DIFF: 'output', Bout: 'output' },
-  clock: { CLK: 'output' },
-  'd-latch': { D: 'input', EN: 'input', Q: 'output' },
-  'd-flip-flop': { D: 'input', CLK: 'input', Q: 'output' },
-  'register-4': {
-    D0: 'input',
-    D1: 'input',
-    D2: 'input',
-    D3: 'input',
-    CLK: 'input',
-    Q0: 'output',
-    Q1: 'output',
-    Q2: 'output',
-    Q3: 'output',
-  },
-  'merge-4': { I0: 'input', I1: 'input', I2: 'input', I3: 'input', OUT: 'output' },
-  'split-4': { IN: 'input', O0: 'output', O1: 'output', O2: 'output', O3: 'output' },
-  'display-4': { IN: 'input' },
-  'bus-in-4': { OUT: 'output' },
-  'adder-4': { A: 'input', B: 'input', Cin: 'input', SUM: 'output', Cout: 'output' },
-  'subtractor-4': { A: 'input', B: 'input', Bin: 'input', DIFF: 'output', Bout: 'output' },
-  'comparator-4': { A: 'input', B: 'input', GT: 'output', EQ: 'output', LT: 'output' },
-};
-
-// Sparse width overrides -- any pin not listed here is width 1 (classic scalar pin),
-// mirroring src/core/types.ts's PinDefinition.width default. Only bus pins need an entry.
-const PIN_WIDTHS = {
-  'merge-4': { OUT: 4 },
-  'split-4': { IN: 4 },
-  'display-4': { IN: 4 },
-  'bus-in-4': { OUT: 4 },
-  'adder-4': { A: 4, B: 4, SUM: 4 },
-  'subtractor-4': { A: 4, B: 4, DIFF: 4 },
-  'comparator-4': { A: 4, B: 4 },
-};
-
-const MAX_COMPONENTS = 10_000;
-const MAX_WIRES = 20_000;
+import componentContract from '../src/core/component-contract.json' with { type: 'json' };
+import documentLimits from '../src/core/document-limits.json' with { type: 'json' };
 
 const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -80,7 +14,10 @@ const isPinRef = (value) =>
 // reserved as the separator: an id containing one would make a flattened id ambiguous
 // to unwind. Mirrors src/core/validateCircuitDocument.ts's isIdWithoutDotSeparator.
 const isIdWithoutDot = (value) =>
-  typeof value === 'string' && value.length > 0 && !value.includes('.');
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= documentLimits.maxComponentIdLength &&
+  !value.includes('.');
 
 const isBooleanRecord = (value) =>
   value === undefined ||
@@ -100,7 +37,8 @@ const isNestedBooleanRecord = (value) =>
  * no cache, no reentrancy guard needed.
  */
 function resolvePinKind(component, pinId, definitionsById) {
-  if (component.type !== 'subcircuit') return PINS[component.type]?.[pinId];
+  if (component.type !== 'subcircuit')
+    return componentContract[component.type]?.pins?.[pinId]?.kind;
   const definition = definitionsById.get(component.definitionId);
   if (!definition || !Array.isArray(definition.components)) return undefined;
   const marker = definition.components.find(
@@ -120,7 +58,8 @@ function resolvePinKind(component, pinId, definitionsById) {
  * scalar.
  */
 function resolvePinWidth(component, pinId, definitionsById) {
-  if (component.type !== 'subcircuit') return PIN_WIDTHS[component.type]?.[pinId] ?? 1;
+  if (component.type !== 'subcircuit')
+    return componentContract[component.type]?.pins?.[pinId]?.width ?? 1;
   const definition = definitionsById.get(component.definitionId);
   if (!definition || !Array.isArray(definition.components)) return 1;
   const marker = definition.components.find(
@@ -133,7 +72,6 @@ function isValidComponent(component) {
   if (
     !isRecord(component) ||
     !isIdWithoutDot(component.id) ||
-    component.id.length > 200 ||
     !isFiniteNumber(component.x) ||
     !isFiniteNumber(component.y) ||
     (component.label !== undefined && typeof component.label !== 'string') ||
@@ -152,7 +90,7 @@ function isValidComponent(component) {
       isNestedBooleanRecord(component.instanceMemory)
     );
   }
-  return Object.hasOwn(PINS, component.type);
+  return Object.hasOwn(componentContract, component.type) && component.type !== 'subcircuit';
 }
 
 /**
@@ -166,8 +104,8 @@ export function validateScope(components, wires, definitionsById) {
   if (
     !Array.isArray(components) ||
     !Array.isArray(wires) ||
-    components.length > MAX_COMPONENTS ||
-    wires.length > MAX_WIRES
+    components.length > documentLimits.maxComponentsPerScope ||
+    wires.length > documentLimits.maxWiresPerScope
   )
     return false;
 

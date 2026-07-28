@@ -2,18 +2,12 @@ import { ChangeEvent, useCallback, useMemo, useState, type SetStateAction } from
 import type { CircuitDocument } from '../../core/types';
 import { isCircuitDocument } from '../../core/validateCircuitDocument';
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
-import {
-  circuitApi,
-  CircuitApiError,
-  type StoredCircuit,
-  type StoredCircuitSummary,
-} from '../../state/circuitApi';
+import { circuitApi, CircuitApiError, type StoredCircuit } from '../../state/circuitApi';
 import {
   libraryApi,
   LibraryApiError,
   type LibraryComponentDefinition,
   type StoredLibraryComponent,
-  type StoredLibraryComponentSummary,
 } from '../../state/libraryApi';
 import { downloadJson } from '../../state/storage';
 import {
@@ -24,28 +18,25 @@ import {
   type WorkspaceDocument,
 } from '../../state/workspaceStorage';
 import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
+import { useLibraryBrowser } from './useLibraryBrowser';
+import { useRemoteCircuitBrowser } from './useRemoteCircuitBrowser';
+import type { RemoteSyncState } from './workspaceTypes';
+
+export type { RemoteSyncState } from './workspaceTypes';
 
 interface Options {
   onMessage: (message: string) => void;
 }
 
-export type RemoteSyncState = 'idle' | 'saving' | 'saved' | 'offline' | 'error' | 'conflict';
-
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
-  const [remoteCircuits, setRemoteCircuits] = useState<StoredCircuitSummary[]>([]);
-  const [remoteBrowserOpen, setRemoteBrowserOpen] = useState(false);
-  const [remoteLoading, setRemoteLoading] = useState(false);
   const [syncStates, setSyncStates] = useState<ReadonlyMap<string, RemoteSyncState>>(
     () => new Map(),
   );
   const [conflict, setConflict] = useState<{ documentId: string; remote: StoredCircuit } | null>(
     null,
   );
-  const [libraryEntries, setLibraryEntries] = useState<StoredLibraryComponentSummary[]>([]);
-  const [libraryDialogOpen, setLibraryDialogOpen] = useState(false);
-  const [libraryLoading, setLibraryLoading] = useState(false);
   const [libraryConflict, setLibraryConflict] = useState<{
     documentId: string;
     remote: StoredLibraryComponent;
@@ -119,6 +110,21 @@ export function useWorkspaceManager({ onMessage }: Options) {
   function setSyncState(documentId: string, state: RemoteSyncState) {
     setSyncStates((current) => new Map(current).set(documentId, state));
   }
+
+  const remoteBrowser = useRemoteCircuitBrowser({
+    documents,
+    setDocuments,
+    setActiveDocumentId,
+    setSyncState,
+    onMessage,
+  });
+  const libraryBrowser = useLibraryBrowser({
+    documents,
+    setDocuments,
+    setActiveDocumentId,
+    setSyncState,
+    onMessage,
+  });
 
   function selectDocument(documentId: string) {
     if (documentId !== activeDocumentId) {
@@ -304,67 +310,6 @@ export function useWorkspaceManager({ onMessage }: Options) {
     onMessage(`JSON baixado: ${filename}.`);
   }
 
-  async function refreshRemoteCircuits(open = false) {
-    if (open) setRemoteBrowserOpen(true);
-    setRemoteLoading(true);
-    try {
-      setRemoteCircuits(await circuitApi.list());
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível listar os circuitos.');
-    } finally {
-      setRemoteLoading(false);
-    }
-  }
-
-  async function openRemoteDocument(remoteId: string) {
-    const alreadyOpen = documents.find((item) => item.remoteId === remoteId);
-    if (alreadyOpen) {
-      setActiveDocumentId(alreadyOpen.id);
-      setRemoteBrowserOpen(false);
-      onMessage(`Circuito já aberto: ${alreadyOpen.name}.`);
-      return;
-    }
-    try {
-      const stored = await circuitApi.get(remoteId);
-      const document: WorkspaceDocument = {
-        id: `doc-${Date.now()}`,
-        name: stored.name,
-        circuit: normalizeCircuitForEditor(stored.circuit),
-        exampleId: null,
-        saved: true,
-        everSaved: true,
-        remoteId: stored.id,
-        revision: stored.revision,
-      };
-      setDocuments((current) => [...current, document]);
-      setActiveDocumentId(document.id);
-      setSyncState(document.id, 'saved');
-      setRemoteBrowserOpen(false);
-      onMessage(`Circuito aberto: ${stored.name}.`);
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível abrir o circuito.');
-    }
-  }
-
-  async function deleteRemoteDocument(remoteId: string) {
-    const summary = remoteCircuits.find((item) => item.id === remoteId);
-    if (!summary || !window.confirm(`Excluir “${summary.name}” do servidor?`)) return;
-    try {
-      await circuitApi.delete(remoteId);
-      setRemoteCircuits((current) => current.filter((item) => item.id !== remoteId));
-      setDocuments((current) =>
-        current.map((item) =>
-          item.remoteId === remoteId
-            ? { ...item, remoteId: null, revision: null, saved: false }
-            : item,
-        ),
-      );
-      onMessage(`Circuito excluído: ${summary.name}. A aba local foi preservada como rascunho.`);
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível excluir o circuito.');
-    }
-  }
-
   async function renameDocument(documentId: string, name: string) {
     const trimmed = name.trim();
     const current = documents.find((item) => item.id === documentId);
@@ -457,94 +402,6 @@ export function useWorkspaceManager({ onMessage }: Options) {
     event.target.value = '';
   }
 
-  async function refreshLibraryEntries(open = false) {
-    if (open) setLibraryDialogOpen(true);
-    setLibraryLoading(true);
-    try {
-      setLibraryEntries(await libraryApi.list());
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível listar a biblioteca.');
-    } finally {
-      setLibraryLoading(false);
-    }
-  }
-
-  async function openLibraryEntryForEditing(id: string) {
-    const alreadyOpen = documents.find((item) => item.libraryId === id);
-    if (alreadyOpen) {
-      setActiveDocumentId(alreadyOpen.id);
-      setLibraryDialogOpen(false);
-      onMessage(`Componente já aberto: ${alreadyOpen.name}.`);
-      return;
-    }
-    try {
-      const stored = await libraryApi.get(id);
-      const document: WorkspaceDocument = {
-        id: `doc-${Date.now()}`,
-        name: stored.name,
-        circuit: normalizeCircuitForEditor({
-          version: 1,
-          components: stored.definition.components,
-          wires: stored.definition.wires,
-        }),
-        exampleId: null,
-        saved: true,
-        everSaved: true,
-        remoteId: null,
-        revision: stored.revision,
-        libraryId: stored.id,
-      };
-      setDocuments((current) => [...current, document]);
-      setActiveDocumentId(document.id);
-      setSyncState(document.id, 'saved');
-      setLibraryDialogOpen(false);
-      onMessage(`Componente aberto para edição: ${stored.name}.`);
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível abrir o componente.');
-    }
-  }
-
-  async function deleteLibraryEntry(id: string) {
-    const summary = libraryEntries.find((item) => item.id === id);
-    if (!summary || !window.confirm(`Excluir “${summary.name}” da biblioteca?`)) return;
-    try {
-      await libraryApi.delete(id);
-      setLibraryEntries((current) => current.filter((item) => item.id !== id));
-      setDocuments((current) =>
-        current.map((item) =>
-          item.libraryId === id ? { ...item, libraryId: null, revision: null, saved: false } : item,
-        ),
-      );
-      onMessage(`Componente excluído: ${summary.name}. A aba local foi preservada como rascunho.`);
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível excluir o componente.');
-    }
-  }
-
-  async function saveDefinitionToLibrary(
-    name: string,
-    definition: LibraryComponentDefinition,
-  ): Promise<boolean> {
-    try {
-      const stored = await libraryApi.create(name, definition);
-      setLibraryEntries((current) => [
-        {
-          id: stored.id,
-          name: stored.name,
-          revision: stored.revision,
-          createdAt: stored.createdAt,
-          updatedAt: stored.updatedAt,
-        },
-        ...current,
-      ]);
-      onMessage(`Componente salvo na biblioteca: ${stored.name}.`);
-      return true;
-    } catch (error) {
-      onMessage(error instanceof Error ? error.message : 'Não foi possível salvar na biblioteca.');
-      return false;
-    }
-  }
-
   function reloadLibraryConflict() {
     if (!libraryConflict) return;
     const { documentId, remote } = libraryConflict;
@@ -633,29 +490,29 @@ export function useWorkspaceManager({ onMessage }: Options) {
     renameDocument,
     loadExample,
     importJson,
-    remoteCircuits,
-    remoteBrowserOpen,
-    remoteLoading,
-    openRemoteBrowser: () => void refreshRemoteCircuits(true),
-    closeRemoteBrowser: () => setRemoteBrowserOpen(false),
-    refreshRemoteCircuits: () => void refreshRemoteCircuits(),
-    openRemoteDocument: (id: string) => void openRemoteDocument(id),
-    deleteRemoteDocument: (id: string) => void deleteRemoteDocument(id),
+    remoteCircuits: remoteBrowser.circuits,
+    remoteBrowserOpen: remoteBrowser.open,
+    remoteLoading: remoteBrowser.loading,
+    openRemoteBrowser: remoteBrowser.openBrowser,
+    closeRemoteBrowser: remoteBrowser.closeBrowser,
+    refreshRemoteCircuits: remoteBrowser.refresh,
+    openRemoteDocument: remoteBrowser.openDocument,
+    deleteRemoteDocument: remoteBrowser.deleteDocument,
     activeSyncState: syncStates.get(activeDocumentId) ?? 'idle',
     conflict,
     closeConflict: () => setConflict(null),
     reloadConflict,
     saveConflictAsCopy,
     libraryDocumentIds,
-    libraryEntries,
-    libraryDialogOpen,
-    libraryLoading,
-    openLibraryDialog: () => void refreshLibraryEntries(true),
-    closeLibraryDialog: () => setLibraryDialogOpen(false),
-    refreshLibraryEntries: () => void refreshLibraryEntries(),
-    openLibraryEntryForEditing: (id: string) => void openLibraryEntryForEditing(id),
-    deleteLibraryEntry: (id: string) => void deleteLibraryEntry(id),
-    saveDefinitionToLibrary,
+    libraryEntries: libraryBrowser.entries,
+    libraryDialogOpen: libraryBrowser.open,
+    libraryLoading: libraryBrowser.loading,
+    openLibraryDialog: libraryBrowser.openDialog,
+    closeLibraryDialog: libraryBrowser.closeDialog,
+    refreshLibraryEntries: libraryBrowser.refresh,
+    openLibraryEntryForEditing: libraryBrowser.openEntryForEditing,
+    deleteLibraryEntry: libraryBrowser.deleteEntry,
+    saveDefinitionToLibrary: libraryBrowser.saveDefinition,
     libraryConflict,
     closeLibraryConflict: () => setLibraryConflict(null),
     reloadLibraryConflict,

@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
 import { CircuitRepository } from '../../server/circuit-repository.mjs';
 import { createApiHandler } from '../../server/api.mjs';
+import { createRateLimiter } from '../../server/rate-limiter.mjs';
+import { createSessionIdentity } from '../../server/session.mjs';
+import { createApiTestClient } from './api-test-client.mjs';
 
 const emptyCircuit = { version: 1, components: [], wires: [] };
 
@@ -12,11 +14,16 @@ describe('API de circuitos', () => {
   let directory;
   let repository;
   let api;
+  let userA;
+  let userB;
 
   beforeEach(() => {
     directory = mkdtempSync(join(tmpdir(), 'opencircuit-api-'));
     repository = new CircuitRepository(join(directory, 'test.sqlite'));
-    api = createApiHandler(repository);
+    const identity = createSessionIdentity('test-secret-that-is-long-enough-for-hmac');
+    api = createApiHandler(repository, identity, createRateLimiter({ limit: 10_000 }));
+    userA = createApiTestClient(api, '192.0.2.1');
+    userB = createApiTestClient(api, '192.0.2.2');
   });
 
   afterEach(() => {
@@ -24,60 +31,40 @@ describe('API de circuitos', () => {
     rmSync(directory, { recursive: true });
   });
 
-  async function call(path, owner, init = {}) {
-    const request = Readable.from(init.body ? [Buffer.from(init.body)] : []);
-    request.url = path;
-    request.method = init.method ?? 'GET';
-    request.headers = owner ? { 'x-opencircuit-user': owner } : {};
-    let responseBody = '';
-    const response = {
-      statusCode: 200,
-      setHeader() {},
-      end(value) {
-        responseBody = value?.toString() ?? '';
-      },
-    };
-    await api(request, response);
-    return {
-      status: response.statusCode,
-      json: async () => JSON.parse(responseBody),
-    };
-  }
-
   test('CRUD fica isolado por proprietário', async () => {
-    const createdResponse = await call('/api/circuits', 'user-a', {
+    const createdResponse = await userA.call('/api/circuits', {
       method: 'POST',
       body: JSON.stringify({ name: 'Somador', circuit: emptyCircuit }),
     });
     expect(createdResponse.status).toBe(201);
     const created = await createdResponse.json();
 
-    expect(await (await call('/api/circuits', 'user-a')).json()).toHaveLength(1);
-    expect(await (await call('/api/circuits', 'user-b')).json()).toHaveLength(0);
-    expect((await call(`/api/circuits/${created.id}`, 'user-b')).status).toBe(404);
-    expect((await call(`/api/circuits/${created.id}`, 'user-b', { method: 'DELETE' })).status).toBe(
+    expect(await (await userA.call('/api/circuits')).json()).toHaveLength(1);
+    expect(await (await userB.call('/api/circuits')).json()).toHaveLength(0);
+    expect((await userB.call(`/api/circuits/${created.id}`)).status).toBe(404);
+    expect((await userB.call(`/api/circuits/${created.id}`, { method: 'DELETE' })).status).toBe(
       404,
     );
-    expect((await call(`/api/circuits/${created.id}`, 'user-a', { method: 'DELETE' })).status).toBe(
+    expect((await userA.call(`/api/circuits/${created.id}`, { method: 'DELETE' })).status).toBe(
       204,
     );
   });
 
   test('revisão antiga produz conflito sem sobrescrever', async () => {
     const created = await (
-      await call('/api/circuits', 'user-a', {
+      await userA.call('/api/circuits', {
         method: 'POST',
         body: JSON.stringify({ name: 'Original', circuit: emptyCircuit }),
       })
     ).json();
-    const first = await call(`/api/circuits/${created.id}`, 'user-a', {
+    const first = await userA.call(`/api/circuits/${created.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: 'Primeira', circuit: emptyCircuit, revision: 1 }),
     });
     expect(first.status).toBe(200);
     expect((await first.json()).revision).toBe(2);
 
-    const conflict = await call(`/api/circuits/${created.id}`, 'user-a', {
+    const conflict = await userA.call(`/api/circuits/${created.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: 'Obsoleta', circuit: emptyCircuit, revision: 1 }),
     });
@@ -85,11 +72,10 @@ describe('API de circuitos', () => {
     expect((await conflict.json()).circuit.name).toBe('Primeira');
   });
 
-  test('rejeita identidade, nome e CircuitDocument inválidos', async () => {
-    expect((await call('/api/circuits')).status).toBe(401);
+  test('rejeita nome e CircuitDocument inválidos', async () => {
     expect(
       (
-        await call('/api/circuits', 'user-a', {
+        await userA.call('/api/circuits', {
           method: 'POST',
           body: JSON.stringify({ name: '', circuit: emptyCircuit }),
         })
@@ -97,7 +83,7 @@ describe('API de circuitos', () => {
     ).toBe(400);
     expect(
       (
-        await call('/api/circuits', 'user-a', {
+        await userA.call('/api/circuits', {
           method: 'POST',
           body: JSON.stringify({ name: 'Inválido', circuit: { version: 2 } }),
         })
@@ -139,7 +125,7 @@ describe('API de circuitos', () => {
       components: [{ id: 'u1', type: 'subcircuit', x: 0, y: 0, definitionId: halfAdder.id }],
       wires: [],
     };
-    const response = await call('/api/circuits', 'user-a', {
+    const response = await userA.call('/api/circuits', {
       method: 'POST',
       body: JSON.stringify({ name: 'Com subcircuito', circuit: circuitWithSubcircuit }),
     });

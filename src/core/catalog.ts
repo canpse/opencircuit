@@ -7,6 +7,7 @@ import type {
   PinRef,
   Point,
 } from './types';
+import { getContractPin } from './componentContract';
 
 function twoInputGate(type: GateType, label: string, width = 92): ComponentDefinition {
   return {
@@ -330,6 +331,7 @@ export function getPinKind(
   pinId: string,
   definitions?: CircuitDefinition[],
 ) {
+  if (component.type !== 'subcircuit') return getContractPin(component.type, pinId)?.kind;
   return getPin(component, pinId, definitions)?.kind;
 }
 
@@ -338,6 +340,7 @@ export function getPinWidth(
   pinId: string,
   definitions?: CircuitDefinition[],
 ): number {
+  if (component.type !== 'subcircuit') return getContractPin(component.type, pinId)?.width ?? 1;
   return getPin(component, pinId, definitions)?.width ?? 1;
 }
 

@@ -6,19 +6,44 @@ import { CircuitRepository } from './circuit-repository.mjs';
 import { createApiHandler } from './api.mjs';
 import { LibraryRepository } from './library-repository.mjs';
 import { createLibraryApiHandler } from './library-api.mjs';
+import { applySecurityHeaders } from './api-helpers.mjs';
+import { createRateLimiter } from './rate-limiter.mjs';
+import { createSessionApiHandler } from './session-api.mjs';
+import {
+  createSessionIdentity,
+  createTrustedProxyIdentity,
+  loadOrCreateSessionSecret,
+} from './session.mjs';
 
 const port = Number(process.env.PORT ?? 4173);
 const databasePath = process.env.OPENCIRCUIT_DB ?? 'data/opencircuit.sqlite';
 mkdirSync(join(databasePath, '..'), { recursive: true });
 const repository = new CircuitRepository(databasePath);
-const api = createApiHandler(repository);
 const libraryDatabasePath =
   process.env.OPENCIRCUIT_LIBRARY_DB ?? join(dirname(databasePath), 'library.sqlite');
 const libraryRepository = new LibraryRepository(libraryDatabasePath);
-const libraryApi = createLibraryApiHandler(libraryRepository);
+const sessionSecret =
+  process.env.OPENCIRCUIT_SESSION_SECRET ??
+  loadOrCreateSessionSecret(
+    process.env.OPENCIRCUIT_SESSION_SECRET_FILE ?? join(dirname(databasePath), 'session-secret'),
+  );
+const identity =
+  process.env.OPENCIRCUIT_IDENTITY_MODE === 'trusted-proxy'
+    ? createTrustedProxyIdentity(sessionSecret, {
+        headerName: process.env.OPENCIRCUIT_AUTH_HEADER ?? 'x-authenticated-user',
+      })
+    : createSessionIdentity(sessionSecret, {
+        secure: process.env.OPENCIRCUIT_SECURE_COOKIE === '1',
+      });
+const rateLimiter = createRateLimiter();
+const sessionApi = createSessionApiHandler(identity, rateLimiter);
+const api = createApiHandler(repository, identity, rateLimiter);
+const libraryApi = createLibraryApiHandler(libraryRepository, identity, rateLimiter);
 const dist = join(process.cwd(), 'dist');
 
 const server = createServer(async (request, response) => {
+  applySecurityHeaders(response);
+  if (sessionApi(request, response)) return;
   if (await api(request, response)) return;
   if (await libraryApi(request, response)) return;
   const pathname = new URL(request.url, 'http://localhost').pathname;

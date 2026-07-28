@@ -146,7 +146,7 @@ test('FioSelecionadoRenderizaGuiasFocaveis', () => {
         wire={wire}
         route={{
           wireId: 'W1',
-          points: [{ x: 100, y: 66 }, ...wire.waypoints, { x: 320, y: 66 }],
+          points: [{ x: 100, y: 66 }, ...(wire.waypoints ?? []), { x: 320, y: 66 }],
           jumps: [],
         }}
         wireStyle="orthogonal"

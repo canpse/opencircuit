@@ -23,6 +23,8 @@ export interface FlattenResult {
   nodes: FlattenNode[];
 }
 
+const flattenCache = new WeakMap<CircuitDocument, WeakMap<CircuitDefinition[], FlattenResult>>();
+
 type LocalResolution =
   | { kind: 'component'; flatId: string }
   | { kind: 'marker-input' }
@@ -71,6 +73,9 @@ export function flattenCircuit(
   scope: CircuitDocument,
   definitions: CircuitDefinition[],
 ): FlattenResult {
+  const cached = flattenCache.get(scope)?.get(definitions);
+  if (cached) return cached;
+
   const flatComponents: LogicComponent[] = [];
   const flatWires: Wire[] = [];
   const nodes: FlattenNode[] = [];
@@ -248,5 +253,15 @@ export function flattenCircuit(
     relativePathPrefix: '',
   });
 
-  return { flat: { version: 1, components: flatComponents, wires: flatWires }, nodes };
+  const result: FlattenResult = {
+    flat: { version: 1, components: flatComponents, wires: flatWires },
+    nodes,
+  };
+  let byDefinitions = flattenCache.get(scope);
+  if (!byDefinitions) {
+    byDefinitions = new WeakMap();
+    flattenCache.set(scope, byDefinitions);
+  }
+  byDefinitions.set(definitions, result);
+  return result;
 }

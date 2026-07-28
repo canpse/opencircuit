@@ -1,5 +1,5 @@
 import { Profiler, useEffect, useMemo, useRef, useState, type SetStateAction } from 'react';
-import type { CircuitDefinition, CircuitDocument, GateType } from '../core/types';
+import type { CircuitDefinition, CircuitDocument } from '../core/types';
 import { flattenCircuit } from '../core/hierarchy/flatten';
 import { nextDefinitionId } from '../core/hierarchy/scope';
 import { CircuitCanvas } from './editor/CircuitCanvas';
@@ -40,6 +40,7 @@ import { useCircuitEditor } from './hooks/useCircuitEditor';
 import { useSimulationController } from './hooks/useSimulationController';
 import { useContextMenuManager } from './hooks/useContextMenu';
 import { useResizableBottomPanel } from './hooks/useResizableBottomPanel';
+import type { EditorTool } from './editor/editorTypes';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
@@ -47,7 +48,7 @@ export function App() {
   const [message, setMessage] = useState('Pronto para testar lógica.');
   const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'lesson'>('truth');
   const [waveformPanelOpen, setWaveformPanelOpen] = useState(false);
-  const [selectedTool, setSelectedTool] = useState<GateType | 'select' | 'wire' | 'pan'>('select');
+  const [selectedTool, setSelectedTool] = useState<EditorTool>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {

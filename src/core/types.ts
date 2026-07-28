@@ -1,38 +1,6 @@
-export type GateType =
-  | 'input'
-  | 'button'
-  | 'led'
-  | 'and'
-  | 'nand'
-  | 'or'
-  | 'nor'
-  | 'xor'
-  | 'xnor'
-  | 'not'
-  | 'text'
-  | 'half-adder'
-  | 'full-adder'
-  | 'mux-2-1'
-  | 'mux-4-1'
-  | 'decoder-2-4'
-  | 'comparator-1-bit'
-  | 'encoder-4-2'
-  | 'odd-parity-3'
-  | 'majority-3'
-  | 'half-subtractor'
-  | 'full-subtractor'
-  | 'clock'
-  | 'd-latch'
-  | 'd-flip-flop'
-  | 'register-4'
-  | 'merge-4'
-  | 'split-4'
-  | 'display-4'
-  | 'bus-in-4'
-  | 'adder-4'
-  | 'subtractor-4'
-  | 'comparator-4'
-  | 'subcircuit';
+import type componentContract from './component-contract.json';
+
+export type GateType = keyof typeof componentContract;
 export type LogicValue = boolean | boolean[];
 export type PinKind = 'input' | 'output';
 

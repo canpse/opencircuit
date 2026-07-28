@@ -3,12 +3,13 @@ import type { GateType, PinRef, Point } from '../../core/types';
 import type { ContextMenu, Selection } from '../context-menu/ContextMenuView';
 import { hasSelection } from '../app/editorUtils';
 import { useAutoCloseContextMenu } from './useAutoCloseContextMenu';
+import type { EditorTool } from '../editor/editorTypes';
 
 interface Options {
   selection: Selection;
   pendingWire: PinRef | null;
   setPendingWire: Dispatch<SetStateAction<PinRef | null>>;
-  onSelectTool: (tool: GateType | 'select' | 'wire' | 'pan') => void;
+  onSelectTool: (tool: EditorTool) => void;
   selectComponent: (id: string) => void;
   selectWire: (id: string) => void;
   addComponent: (type: GateType, point: Point) => void;

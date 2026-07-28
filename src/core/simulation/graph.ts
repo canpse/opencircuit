@@ -1,6 +1,10 @@
 import type { CircuitDocument } from '../types';
 
+const feedbackCache = new WeakMap<CircuitDocument, boolean>();
+
 export function circuitHasFeedback(circuit: CircuitDocument): boolean {
+  const cached = feedbackCache.get(circuit);
+  if (cached !== undefined) return cached;
   const componentIds = new Set(circuit.components.map((component) => component.id));
   const edges = new Map<string, string[]>();
   for (const id of componentIds) edges.set(id, []);
@@ -26,5 +30,7 @@ export function circuitHasFeedback(circuit: CircuitDocument): boolean {
     return false;
   }
 
-  return Array.from(componentIds).some(visit);
+  const result = Array.from(componentIds).some(visit);
+  feedbackCache.set(circuit, result);
+  return result;
 }

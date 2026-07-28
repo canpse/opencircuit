@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
 import { LibraryRepository } from '../../server/library-repository.mjs';
 import { createLibraryApiHandler } from '../../server/library-api.mjs';
+import { createRateLimiter } from '../../server/rate-limiter.mjs';
+import { createSessionIdentity } from '../../server/session.mjs';
+import { createApiTestClient } from './api-test-client.mjs';
 
 const emptyDefinition = { components: [], wires: [] };
 
@@ -12,11 +14,16 @@ describe('API da biblioteca', () => {
   let directory;
   let repository;
   let api;
+  let userA;
+  let userB;
 
   beforeEach(() => {
     directory = mkdtempSync(join(tmpdir(), 'opencircuit-library-api-'));
     repository = new LibraryRepository(join(directory, 'test.sqlite'));
-    api = createLibraryApiHandler(repository);
+    const identity = createSessionIdentity('test-secret-that-is-long-enough-for-hmac');
+    api = createLibraryApiHandler(repository, identity, createRateLimiter({ limit: 10_000 }));
+    userA = createApiTestClient(api, '192.0.2.1');
+    userB = createApiTestClient(api, '192.0.2.2');
   });
 
   afterEach(() => {
@@ -24,60 +31,36 @@ describe('API da biblioteca', () => {
     rmSync(directory, { recursive: true });
   });
 
-  async function call(path, owner, init = {}) {
-    const request = Readable.from(init.body ? [Buffer.from(init.body)] : []);
-    request.url = path;
-    request.method = init.method ?? 'GET';
-    request.headers = owner ? { 'x-opencircuit-user': owner } : {};
-    let responseBody = '';
-    const response = {
-      statusCode: 200,
-      setHeader() {},
-      end(value) {
-        responseBody = value?.toString() ?? '';
-      },
-    };
-    await api(request, response);
-    return {
-      status: response.statusCode,
-      json: async () => JSON.parse(responseBody),
-    };
-  }
-
   test('CRUD fica isolado por proprietário', async () => {
-    const createdResponse = await call('/api/library', 'user-a', {
+    const createdResponse = await userA.call('/api/library', {
       method: 'POST',
       body: JSON.stringify({ name: 'Meio Somador', definition: emptyDefinition }),
     });
     expect(createdResponse.status).toBe(201);
     const created = await createdResponse.json();
 
-    expect(await (await call('/api/library', 'user-a')).json()).toHaveLength(1);
-    expect(await (await call('/api/library', 'user-b')).json()).toHaveLength(0);
-    expect((await call(`/api/library/${created.id}`, 'user-b')).status).toBe(404);
-    expect((await call(`/api/library/${created.id}`, 'user-b', { method: 'DELETE' })).status).toBe(
-      404,
-    );
-    expect((await call(`/api/library/${created.id}`, 'user-a', { method: 'DELETE' })).status).toBe(
-      204,
-    );
+    expect(await (await userA.call('/api/library')).json()).toHaveLength(1);
+    expect(await (await userB.call('/api/library')).json()).toHaveLength(0);
+    expect((await userB.call(`/api/library/${created.id}`)).status).toBe(404);
+    expect((await userB.call(`/api/library/${created.id}`, { method: 'DELETE' })).status).toBe(404);
+    expect((await userA.call(`/api/library/${created.id}`, { method: 'DELETE' })).status).toBe(204);
   });
 
   test('revisão antiga produz conflito sem sobrescrever', async () => {
     const created = await (
-      await call('/api/library', 'user-a', {
+      await userA.call('/api/library', {
         method: 'POST',
         body: JSON.stringify({ name: 'Original', definition: emptyDefinition }),
       })
     ).json();
-    const first = await call(`/api/library/${created.id}`, 'user-a', {
+    const first = await userA.call(`/api/library/${created.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: 'Primeira', definition: emptyDefinition, revision: 1 }),
     });
     expect(first.status).toBe(200);
     expect((await first.json()).revision).toBe(2);
 
-    const conflict = await call(`/api/library/${created.id}`, 'user-a', {
+    const conflict = await userA.call(`/api/library/${created.id}`, {
       method: 'PUT',
       body: JSON.stringify({ name: 'Obsoleta', definition: emptyDefinition, revision: 1 }),
     });
@@ -85,11 +68,10 @@ describe('API da biblioteca', () => {
     expect((await conflict.json()).definition.name).toBe('Primeira');
   });
 
-  test('rejeita identidade, nome e definição inválidos', async () => {
-    expect((await call('/api/library')).status).toBe(401);
+  test('rejeita nome e definição inválidos', async () => {
     expect(
       (
-        await call('/api/library', 'user-a', {
+        await userA.call('/api/library', {
           method: 'POST',
           body: JSON.stringify({ name: '', definition: emptyDefinition }),
         })
@@ -97,7 +79,7 @@ describe('API da biblioteca', () => {
     ).toBe(400);
     expect(
       (
-        await call('/api/library', 'user-a', {
+        await userA.call('/api/library', {
           method: 'POST',
           body: JSON.stringify({ name: 'Inválido', definition: { components: 'nope', wires: [] } }),
         })

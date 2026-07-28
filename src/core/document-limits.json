@@ -1,0 +1,6 @@
+{
+  "maxComponentsPerScope": 10000,
+  "maxWiresPerScope": 20000,
+  "maxComponentIdLength": 200,
+  "maxBodyBytes": 2097152
+}

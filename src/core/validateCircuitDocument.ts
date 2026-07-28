@@ -1,4 +1,5 @@
 import { COMPONENT_DEFINITIONS, getPinKind, getPinWidth } from './catalog';
+import { DOCUMENT_LIMITS } from './componentContract';
 import type {
   CircuitDefinition,
   CircuitDocument,
@@ -42,7 +43,12 @@ function isNestedBooleanRecord(
 // Flattening prefixes ids as "instancePath.internalId", so "." is reserved as the
 // separator: an id containing one would make the flattened id ambiguous to unwind.
 function isIdWithoutDotSeparator(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 0 && !value.includes('.');
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= DOCUMENT_LIMITS.maxComponentIdLength &&
+    !value.includes('.')
+  );
 }
 
 function isLogicComponent(value: unknown): value is LogicComponent {
@@ -120,6 +126,8 @@ function validateScope(
   if (
     !Array.isArray(components) ||
     !Array.isArray(wires) ||
+    components.length > DOCUMENT_LIMITS.maxComponentsPerScope ||
+    wires.length > DOCUMENT_LIMITS.maxWiresPerScope ||
     !components.every(isLogicComponent) ||
     !wires.every(isWire) ||
     !allIdsAreUnique(components) ||

@@ -69,7 +69,7 @@ test('bundled example "sync-counter-8bit" counts up correctly through stepHierar
     const values = evaluateCircuit(c);
     let n = 0;
     for (let i = 0; i < 8; i++) {
-      if (Boolean(values[`L${i}`]?.in)) n += 2 ** i;
+      if (values[`L${i}`]?.in) n += 2 ** i;
     }
     return n;
   }

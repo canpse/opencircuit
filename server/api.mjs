@@ -1,17 +1,16 @@
 import { isCircuitDocument } from './circuit-validator.mjs';
-import { OWNER_PATTERN, readJson, send } from './api-helpers.mjs';
+import { applyApiHeaders, enforceRateLimit, readJson, send } from './api-helpers.mjs';
+import { AuthenticationError } from './session.mjs';
 
-export function createApiHandler(repository) {
+export function createApiHandler(repository, identity, rateLimiter) {
   return async function handle(request, response) {
     const url = new URL(request.url, 'http://localhost');
     if (!url.pathname.startsWith('/api/circuits')) return false;
-    response.setHeader('Content-Type', 'application/json; charset=utf-8');
-    response.setHeader('Cache-Control', 'no-store');
+    applyApiHeaders(response);
 
     try {
-      const ownerId = request.headers['x-opencircuit-user'];
-      if (typeof ownerId !== 'string' || !OWNER_PATTERN.test(ownerId))
-        return send(response, 401, { error: 'Identidade de usuário ausente ou inválida.' });
+      const ownerId = identity.resolve(request, response);
+      if (enforceRateLimit(request, response, rateLimiter, ownerId)) return true;
       const match = url.pathname.match(/^\/api\/circuits(?:\/([0-9a-f-]+))?$/i);
       if (!match) return send(response, 404, { error: 'Rota não encontrada.' });
       const id = match[1];
@@ -56,6 +55,8 @@ export function createApiHandler(repository) {
           : send(response, 404, { error: 'Circuito não encontrado.' });
       return send(response, 405, { error: 'Método não permitido.' });
     } catch (error) {
+      if (error instanceof AuthenticationError)
+        return send(response, 401, { error: 'Autenticação necessária.' });
       if (error?.code === 'BODY_TOO_LARGE')
         return send(response, 413, { error: 'Documento excede 2 MB.' });
       if (error instanceof SyntaxError) return send(response, 400, { error: 'JSON inválido.' });

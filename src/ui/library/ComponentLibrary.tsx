@@ -11,8 +11,7 @@ import orGateAsset from '../../assets/components/or_gate.png';
 import outputPortAsset from '../../assets/components/output_port.png';
 import xnorGateAsset from '../../assets/components/xnor_gate.png';
 import xorGateAsset from '../../assets/components/xor_gate.png';
-
-type EditorTool = GateType | 'select' | 'wire' | 'pan';
+import type { EditorTool } from '../editor/editorTypes';
 
 const COMPONENT_TOOL_ASSETS: Partial<Record<GateType, string>> = {
   input: inputSwitchOffAsset,

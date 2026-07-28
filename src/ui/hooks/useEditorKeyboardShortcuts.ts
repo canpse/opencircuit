@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
-import type { GateType } from '../../core/types';
 import type { ContextMenu, Selection } from '../context-menu/ContextMenuView';
-
-type EditorTool = GateType | 'select' | 'wire' | 'pan';
+import type { EditorTool } from '../editor/editorTypes';
 
 interface Options {
   selectedTool: EditorTool;
