@@ -1,9 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { CircuitDefinition, CircuitDocument } from '../../core/types';
-import { measureProfile } from '../../performance/profiling';
+import { parseSignalKey } from '../../core/simulation/waveform';
+import { measureProfile } from '../../performance/measure';
 import { useCanvasLayoutComponents } from './canvasMemo';
 import type { Selection, WireStyle } from './editorTypes';
-import { computeTunnelFromOffsets, routeCircuitWires, type WireTrunk } from './wireRouting';
+import {
+  computeTunnelFromOffsets,
+  createIncrementalWireRouter,
+  type WireTrunk,
+} from './wireRouting';
 
 interface Options {
   circuit: CircuitDocument;
@@ -20,6 +25,7 @@ export function useCanvasDerivedState({
   changedSignals,
   selection,
 }: Options) {
+  const [router] = useState(createIncrementalWireRouter);
   // Layout identity remains stable across clock ticks that change only state/memory.
   const layoutComponents = useCanvasLayoutComponents(circuit.components);
   const componentById = useMemo(
@@ -32,9 +38,9 @@ export function useCanvasDerivedState({
     return measureProfile(
       'routing.orthogonal',
       { components: layoutComponents.length, wires: routedWires.length },
-      () => routeCircuitWires(routedWires, componentById, layoutComponents, definitions),
+      () => router.route(routedWires, componentById, layoutComponents, definitions),
     );
-  }, [wireStyle, circuit.wires, componentById, layoutComponents, definitions]);
+  }, [wireStyle, circuit.wires, componentById, layoutComponents, definitions, router]);
   const routeByWireId = useMemo(
     () => new Map(routing.routes.map((route) => [route.wireId, route])),
     [routing],
@@ -54,7 +60,9 @@ export function useCanvasDerivedState({
   const changedPinsByComponentId = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
     for (const [key, generation] of changedSignals) {
-      const [componentId, pinId] = key.split(':');
+      const parsed = parseSignalKey(key);
+      if (!parsed) continue;
+      const { componentId, pinId } = parsed;
       const forComponent = map.get(componentId) ?? new Map<string, number>();
       forComponent.set(pinId, generation);
       map.set(componentId, forComponent);

@@ -13,7 +13,7 @@ import {
   simulationResult,
   writePin,
 } from './signals';
-import { measureProfile } from '../../performance/profiling';
+import { measureProfile } from '../../performance/measure';
 
 const MAX_ITERATIONS = 64;
 

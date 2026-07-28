@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, RefObject } from 'react';
-import type { WireStyle } from '../editor/CircuitCanvas';
+import type { WireStyle } from '../editor/editorTypes';
 import type { CircuitImageFormat } from '../editor/exportCircuitImage';
 import type { EditorTool } from '../editor/editorTypes';
 

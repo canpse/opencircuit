@@ -8,6 +8,7 @@ import type {
   Point,
 } from './types';
 import { getContractPin } from './componentContract';
+import { getBoundaryPinSpec } from './documentValidation.mjs';
 
 function twoInputGate(type: GateType, label: string, width = 92): ComponentDefinition {
   return {
@@ -214,22 +215,25 @@ export function deriveSubcircuitPins(definition: CircuitDefinition): PinDefiniti
   const ordered = [...definition.components].sort((a, b) => a.y - b.y || a.x - b.x);
 
   const inputs: Array<{ id: string; label: string; width?: number }> = ordered
-    .filter(
-      (component) =>
-        component.type === 'input' || component.type === 'clock' || component.type === 'bus-in-4',
-    )
+    .filter((component) => getBoundaryPinSpec(component)?.kind === 'input')
     .map((component) => ({
       id: component.id,
       label: component.label ?? component.id,
-      width: component.type === 'bus-in-4' ? 4 : undefined,
+      width:
+        (getBoundaryPinSpec(component)?.width ?? 1) > 1
+          ? getBoundaryPinSpec(component)?.width
+          : undefined,
     }));
 
   const outputs: Array<{ id: string; label: string; width?: number }> = ordered
-    .filter((component) => component.type === 'led' || component.type === 'display-4')
+    .filter((component) => getBoundaryPinSpec(component)?.kind === 'output')
     .map((component) => ({
       id: component.id,
       label: component.label ?? component.id,
-      width: component.type === 'display-4' ? 4 : undefined,
+      width:
+        (getBoundaryPinSpec(component)?.width ?? 1) > 1
+          ? getBoundaryPinSpec(component)?.width
+          : undefined,
     }));
 
   const height = Math.max(74, Math.max(inputs.length, outputs.length, 1) * 24 + 22);

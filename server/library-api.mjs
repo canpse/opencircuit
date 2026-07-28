@@ -1,79 +1,24 @@
 import { validateScope } from './circuit-validator.mjs';
-import { applyApiHeaders, enforceRateLimit, readJson, send } from './api-helpers.mjs';
-import { AuthenticationError } from './session.mjs';
+import { createVersionedResourceApiHandler } from './versioned-resource-api.mjs';
 
 export function createLibraryApiHandler(repository, identity, rateLimiter) {
-  return async function handle(request, response) {
-    const url = new URL(request.url, 'http://localhost');
-    if (!url.pathname.startsWith('/api/library')) return false;
-    applyApiHeaders(response);
-
-    try {
-      const ownerId = identity.resolve(request, response);
-      if (enforceRateLimit(request, response, rateLimiter, ownerId)) return true;
-      const match = url.pathname.match(/^\/api\/library(?:\/([0-9a-f-]+))?$/i);
-      if (!match) return send(response, 404, { error: 'Rota não encontrada.' });
-      const id = match[1];
-
-      if (request.method === 'GET' && !id) return send(response, 200, repository.list(ownerId));
-      if (request.method === 'GET' && id) {
-        const entry = repository.get(ownerId, id);
-        return entry
-          ? send(response, 200, entry)
-          : send(response, 404, { error: 'Componente não encontrado.' });
-      }
-      if (request.method === 'POST' && !id) {
-        const body = await readJson(request);
-        const error = validatePayload(body, false);
-        return error
-          ? send(response, 400, { error })
-          : send(response, 201, repository.create(ownerId, body.name.trim(), body.definition));
-      }
-      if (request.method === 'PUT' && id) {
-        const body = await readJson(request);
-        const error = validatePayload(body, true);
-        if (error) return send(response, 400, { error });
-        const result = repository.update(
-          ownerId,
-          id,
-          body.revision,
-          body.name.trim(),
-          body.definition,
-        );
-        if (result.kind === 'not-found')
-          return send(response, 404, { error: 'Componente não encontrado.' });
-        if (result.kind === 'conflict')
-          return send(response, 409, {
-            error: 'O componente foi alterado em outra aba.',
-            definition: result.entry,
-          });
-        return send(response, 200, result.entry);
-      }
-      if (request.method === 'DELETE' && id)
-        return repository.delete(ownerId, id)
-          ? send(response, 204)
-          : send(response, 404, { error: 'Componente não encontrado.' });
-      return send(response, 405, { error: 'Método não permitido.' });
-    } catch (error) {
-      if (error instanceof AuthenticationError)
-        return send(response, 401, { error: 'Autenticação necessária.' });
-      if (error?.code === 'BODY_TOO_LARGE')
-        return send(response, 413, { error: 'Documento excede 2 MB.' });
-      if (error instanceof SyntaxError) return send(response, 400, { error: 'JSON inválido.' });
-      console.error('Library API error:', error instanceof Error ? error.message : error);
-      return send(response, 500, { error: 'Erro interno ao persistir componente.' });
-    }
-  };
-}
-
-function validatePayload(body, needsRevision) {
-  if (!body || typeof body !== 'object') return 'Corpo inválido.';
-  if (typeof body.name !== 'string' || body.name.trim().length < 1 || body.name.trim().length > 120)
-    return 'O nome deve ter entre 1 e 120 caracteres.';
-  if (!isValidDefinition(body.definition)) return 'Definição de componente inválida.';
-  if (needsRevision && (!Number.isSafeInteger(body.revision) || body.revision < 1))
-    return 'Revisão inválida.';
-  return null;
+  return createVersionedResourceApiHandler({
+    basePath: '/api/library',
+    repository,
+    identity,
+    rateLimiter,
+    resourceField: 'definition',
+    resultField: 'entry',
+    conflictResponseField: 'definition',
+    validateResource: isValidDefinition,
+    messages: {
+      notFound: 'Componente não encontrado.',
+      invalid: 'Definição de componente inválida.',
+      conflict: 'O componente foi alterado em outra aba.',
+      internal: 'Erro interno ao persistir componente.',
+      logPrefix: 'Library API error:',
+    },
+  });
 }
 
 function isValidDefinition(definition) {

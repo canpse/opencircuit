@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
-import type { ContextMenu, Selection } from '../context-menu/ContextMenuView';
-import type { EditorTool } from '../editor/editorTypes';
+import type { ContextMenu, EditorTool, Selection } from '../editor/editorTypes';
 
 interface Options {
   selectedTool: EditorTool;

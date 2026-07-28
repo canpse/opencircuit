@@ -32,9 +32,7 @@ export async function readJson(request) {
   for await (const chunk of request) {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      const error = new Error('too large');
-      error.code = 'BODY_TOO_LARGE';
-      throw error;
+      throw Object.assign(new Error('too large'), { code: 'BODY_TOO_LARGE' });
     }
     chunks.push(chunk);
   }

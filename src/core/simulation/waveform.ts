@@ -1,8 +1,7 @@
-import { COMPONENT_DEFINITIONS } from '../catalog';
+import { COMPONENT_REGISTRY } from '../componentRegistry';
 import type {
   CircuitDocument,
   EvaluationResult,
-  GateType,
   LogicComponent,
   LogicValue,
   PinDefinition,
@@ -40,32 +39,34 @@ export interface WaveformRecorder {
 
 // Ordem clássica de diagramas de tempo: clock no topo, depois entradas,
 // memórias e por fim as saídas.
-const SIGNAL_RANK: Partial<Record<GateType, number>> = {
-  clock: 0,
-  input: 1,
-  button: 1,
-  'd-latch': 2,
-  'd-flip-flop': 2,
-  'register-4': 2,
-  led: 3,
-  'display-4': 3,
-};
-
 export function signalKey(componentId: string, pinId: string): string {
-  return `${componentId}:${pinId}`;
+  return `${encodeURIComponent(componentId)}:${encodeURIComponent(pinId)}`;
+}
+
+export function parseSignalKey(key: string): { componentId: string; pinId: string } | null {
+  const separatorIndex = key.indexOf(':');
+  if (separatorIndex < 0) return null;
+  try {
+    return {
+      componentId: decodeURIComponent(key.slice(0, separatorIndex)),
+      pinId: decodeURIComponent(key.slice(separatorIndex + 1)),
+    };
+  } catch {
+    return null;
+  }
 }
 
 // O LED e o Display são observados pela entrada (o valor que eles exibem);
 // os demais tipos pelas saídas que produzem.
 function observedPins(component: LogicComponent): PinDefinition[] {
   const kind = component.type === 'led' || component.type === 'display-4' ? 'input' : 'output';
-  return COMPONENT_DEFINITIONS[component.type].pins.filter((pin) => pin.kind === kind);
+  return COMPONENT_REGISTRY[component.type].definition.pins.filter((pin) => pin.kind === kind);
 }
 
 // Desambigua com ".NomeDoPino" quando o componente tem mais de um pino do
 // mesmo tipo (ex.: A/B de uma porta); senão usa só o rótulo do componente.
 function pinLabel(component: LogicComponent, pinId: string): string {
-  const definition = COMPONENT_DEFINITIONS[component.type];
+  const definition = COMPONENT_REGISTRY[component.type].definition;
   const base = component.label?.trim() || definition.label;
   const pin = definition.pins.find((candidate) => candidate.id === pinId);
   if (!pin) return base;
@@ -75,8 +76,12 @@ function pinLabel(component: LogicComponent, pinId: string): string {
 
 export function listObservableSignals(circuit: CircuitDocument): WaveformSignal[] {
   return circuit.components
-    .filter((component) => SIGNAL_RANK[component.type] !== undefined)
-    .sort((a, b) => (SIGNAL_RANK[a.type] ?? 0) - (SIGNAL_RANK[b.type] ?? 0))
+    .filter((component) => COMPONENT_REGISTRY[component.type].observableRank !== null)
+    .sort(
+      (a, b) =>
+        (COMPONENT_REGISTRY[a.type].observableRank ?? 0) -
+        (COMPONENT_REGISTRY[b.type].observableRank ?? 0),
+    )
     .flatMap((component) =>
       observedPins(component).map((pin) => ({
         key: signalKey(component.id, pin.id),
@@ -100,15 +105,21 @@ export function resolveWaveformSignals(
   const componentById = new Map(circuit.components.map((component) => [component.id, component]));
   const signals: WaveformSignal[] = [];
   for (const key of watchedKeys) {
-    const separatorIndex = key.indexOf(':');
-    if (separatorIndex < 0) continue;
-    const componentId = key.slice(0, separatorIndex);
-    const pinId = key.slice(separatorIndex + 1);
+    const parsed = parseSignalKey(key);
+    if (!parsed) continue;
+    const { componentId, pinId } = parsed;
     const component = componentById.get(componentId);
     if (!component) continue;
-    const pinExists = COMPONENT_DEFINITIONS[component.type].pins.some((pin) => pin.id === pinId);
+    const pinExists = COMPONENT_REGISTRY[component.type].definition.pins.some(
+      (pin) => pin.id === pinId,
+    );
     if (!pinExists) continue;
-    signals.push({ key, componentId, pinId, label: pinLabel(component, pinId) });
+    signals.push({
+      key: signalKey(componentId, pinId),
+      componentId,
+      pinId,
+      label: pinLabel(component, pinId),
+    });
   }
   return signals;
 }
@@ -117,7 +128,12 @@ export function effectiveWatchedSignalKeys(
   circuit: CircuitDocument,
   watchedKeys: string[] | undefined,
 ): string[] {
-  return watchedKeys ?? listObservableSignals(circuit).map((signal) => signal.key);
+  return watchedKeys
+    ? watchedKeys.flatMap((key) => {
+        const parsed = parseSignalKey(key);
+        return parsed ? [signalKey(parsed.componentId, parsed.pinId)] : [];
+      })
+    : listObservableSignals(circuit).map((signal) => signal.key);
 }
 
 export function toggleWatchedSignal(

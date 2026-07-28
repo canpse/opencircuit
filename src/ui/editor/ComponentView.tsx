@@ -8,31 +8,11 @@ import type {
   LogicValue,
   PinRef,
 } from '../../core/types';
-import andGateAsset from '../../assets/components/and_gate.png';
-import inputSwitchOffAsset from '../../assets/components/input_switch_off.png';
-import inputSwitchOnAsset from '../../assets/components/input_switch_on.png';
-import ledOffAsset from '../../assets/components/led_off.png';
-import ledOnAsset from '../../assets/components/led_green_on.png';
-import nandGateAsset from '../../assets/components/nand_gate.png';
-import norGateAsset from '../../assets/components/nor_gate.png';
-import notGateAsset from '../../assets/components/not_gate.png';
-import orGateAsset from '../../assets/components/or_gate.png';
-import clockSourceAsset from '../../assets/components/clock_source.png';
-import outputPortAsset from '../../assets/components/output_port.png';
-import xnorGateAsset from '../../assets/components/xnor_gate.png';
-import xorGateAsset from '../../assets/components/xor_gate.png';
 import { textComponentWidth, wrapText } from './wireRouting';
 import { isPinActive, sameEvaluationValues } from './canvasMemo';
+import { COMPONENT_ASSETS } from './componentAssets';
 
-const GATE_ASSETS: Partial<Record<GateType, string>> = {
-  and: andGateAsset,
-  nand: nandGateAsset,
-  or: orGateAsset,
-  nor: norGateAsset,
-  xor: xorGateAsset,
-  xnor: xnorGateAsset,
-  not: notGateAsset,
-};
+const GATE_ASSET_TYPES: GateType[] = ['and', 'nand', 'or', 'nor', 'xor', 'xnor', 'not'];
 
 type ComponentViewProps = {
   component: LogicComponent;
@@ -111,7 +91,9 @@ export const ComponentView = memo(function ComponentView({
   const ledValue = Boolean(values?.in);
   const buttonPressed = component.type === 'button' && Boolean(component.state);
   const clockValue = component.type === 'clock' && Boolean(values?.CLK);
-  const gateAsset = GATE_ASSETS[component.type];
+  const gateAsset = GATE_ASSET_TYPES.includes(component.type)
+    ? COMPONENT_ASSETS[component.type]?.body
+    : undefined;
   const isCombinationalBlock =
     !gateAsset && !['input', 'button', 'led', 'text'].includes(component.type);
   // A valid subcircuit instance drills into its definition on double-click (Figma-style);
@@ -160,7 +142,7 @@ export const ComponentView = memo(function ComponentView({
       {component.type === 'led' && (
         <image
           className="component-asset led-asset"
-          href={ledValue ? ledOnAsset : ledOffAsset}
+          href={ledValue ? COMPONENT_ASSETS.led?.on : COMPONENT_ASSETS.led?.body}
           x={definition.width / 2 - 23}
           y="3"
           width="46"
@@ -181,7 +163,7 @@ export const ComponentView = memo(function ComponentView({
       {component.type === 'input' && (
         <image
           className="component-asset input-asset"
-          href={outputValue ? inputSwitchOnAsset : inputSwitchOffAsset}
+          href={outputValue ? COMPONENT_ASSETS.input?.on : COMPONENT_ASSETS.input?.body}
           x="12"
           y="5"
           width="54"
@@ -196,7 +178,7 @@ export const ComponentView = memo(function ComponentView({
       {component.type === 'clock' && (
         <image
           className={`component-asset clock-asset ${clockValue ? 'on' : ''}`}
-          href={clockSourceAsset}
+          href={COMPONENT_ASSETS.clock?.body}
           x="18"
           y="8"
           width={definition.width - 36}
@@ -220,7 +202,7 @@ export const ComponentView = memo(function ComponentView({
           <rect className="component-hitbox" x="12" y="4" width="62" height="46" rx="10" />
           <image
             className={`component-asset button-asset ${buttonPressed ? 'pressed' : ''}`}
-            href={outputPortAsset}
+            href={COMPONENT_ASSETS.button?.body}
             x="17"
             y={buttonPressed ? 8 : 5}
             width="52"

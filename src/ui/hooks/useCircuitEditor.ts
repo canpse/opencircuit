@@ -20,9 +20,8 @@ import {
   snap,
   type CircuitClipboard,
 } from '../app/editorUtils';
-import type { Selection } from '../context-menu/ContextMenuView';
 import { settleHierarchical } from '../../core/hierarchy/simulate';
-import type { EditorTool } from '../editor/editorTypes';
+import type { EditorTool, Selection } from '../editor/editorTypes';
 
 export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 

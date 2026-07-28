@@ -14,7 +14,7 @@
     "profile": "node scripts/run-profile.mjs",
     "preview": "vite preview",
     "lint": "eslint 'src/**/*.{ts,tsx}' 'tests/**/*.{ts,tsx,mjs}' 'server/**/*.mjs' 'scripts/**/*.{ts,tsx,mjs}' vite.config.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json && tsc --noEmit -p tsconfig.server.json",
     "format": "prettier --write . --ignore-path .gitignore",
     "format:check": "prettier --check . --ignore-path .gitignore",
     "check": "npm run format:check && npm run lint && npm test && npm run build"
@@ -26,6 +26,8 @@
     "use-immer": "^0.11.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
@@ -36,6 +38,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^29.1.1",
     "prettier": "^3.9.5",
     "typescript": "^6.0.3",
     "vite": "^8.1.4",

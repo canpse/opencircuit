@@ -1,4 +1,5 @@
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
+import { COMPONENT_REGISTRY } from '../../core/componentRegistry';
 import { withSequentialDefaults } from '../../core/evaluateCircuit';
 import { nextDefinitionId } from '../../core/hierarchy/scope';
 import type {
@@ -10,8 +11,7 @@ import type {
   Point,
   Wire,
 } from '../../core/types';
-import type { Selection } from '../context-menu/ContextMenuView';
-import type { WireStyle } from '../editor/CircuitCanvas';
+import type { Selection, WireStyle } from '../editor/editorTypes';
 
 export function loadWireStyle(storageKey: string): WireStyle {
   try {
@@ -303,43 +303,7 @@ export function pasteClipboard(
 }
 
 export function nextId(type: GateType, components: LogicComponent[]): string {
-  const prefixByType: Record<GateType, string> = {
-    input: 'I',
-    button: 'P',
-    led: 'L',
-    and: 'A',
-    nand: 'NA',
-    or: 'O',
-    nor: 'NO',
-    xor: 'X',
-    xnor: 'XN',
-    not: 'N',
-    text: 'T',
-    'half-adder': 'HS',
-    'full-adder': 'FS',
-    'mux-2-1': 'M2',
-    'mux-4-1': 'M4',
-    'decoder-2-4': 'D',
-    'comparator-1-bit': 'C',
-    'encoder-4-2': 'E',
-    'odd-parity-3': 'P',
-    'majority-3': 'MJ',
-    'half-subtractor': 'HSub',
-    'full-subtractor': 'FSub',
-    clock: 'CLK',
-    'd-latch': 'DL',
-    'd-flip-flop': 'DFF',
-    'register-4': 'REG',
-    'merge-4': 'MG',
-    'split-4': 'SP',
-    'display-4': 'DISP',
-    'bus-in-4': 'BI',
-    'adder-4': 'AD4',
-    'subtractor-4': 'SB4',
-    'comparator-4': 'CP4',
-    subcircuit: 'U',
-  };
-  const prefix = prefixByType[type];
+  const prefix = COMPONENT_REGISTRY[type].idPrefix;
   let index = components.length + 1;
   let id = `${prefix}${index}`;
   const ids = new Set(components.map((component) => component.id));

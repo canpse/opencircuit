@@ -29,8 +29,8 @@ test('índice resolve o fio de entrada em O(1) e é reutilizado por identidade',
   const first = buildIncomingWireIndex(circuit);
   const second = buildIncomingWireIndex(circuit);
   assert.equal(first, second);
-  assert.equal(first.get('N::in')?.id, 'W1');
-  assert.equal(first.get('L::in')?.id, 'W2');
+  assert.equal(first.get(JSON.stringify(['N', 'in']))?.id, 'W1');
+  assert.equal(first.get(JSON.stringify(['L', 'in']))?.id, 'W2');
 });
 
 test('flatten reutiliza o resultado quando escopo e definições não mudam', () => {

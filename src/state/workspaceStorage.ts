@@ -1,7 +1,7 @@
 import type { CircuitDocument } from '../core/types';
 import { isCircuitDocument } from '../core/validateCircuitDocument';
 import { loadCircuit } from './storage';
-import { measureProfile } from '../performance/profiling';
+import { measureProfile } from '../performance/measure';
 
 const WORKSPACE_STORAGE_KEY = 'opencircuit.logic.workspace.v1';
 

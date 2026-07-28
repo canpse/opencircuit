@@ -8,7 +8,7 @@ import type {
 import { settleSequentialCircuit, simulateCircuit, stepCircuit } from '../evaluateCircuit';
 import { flattenCircuit, type FlattenNode } from './flatten';
 import { writeBackMemory } from './memory';
-import { measureProfile } from '../../performance/profiling';
+import { measureProfile } from '../../performance/measure';
 
 /**
  * Lifts a flattened evaluation result back to the given scope's own component/pin ids,

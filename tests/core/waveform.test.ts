@@ -8,6 +8,7 @@ import {
   evaluationAtTick,
   listObservableSignals,
   recordTickSample,
+  parseSignalKey,
   resolveWaveformSignals,
   sampleSignals,
   signalKey,
@@ -82,6 +83,28 @@ test('listObservableSignals expõe clock, entradas, memórias e LEDs na ordem de
 test('resolveWaveformSignals sem watchedKeys usa a detecção automática de sempre', () => {
   const circuit = buildFlipFlopCircuit(false);
   assert.deepEqual(resolveWaveformSignals(circuit, undefined), listObservableSignals(circuit));
+});
+
+test('chaves de sinal preservam ids com separadores e percentuais sem ambiguidade', () => {
+  const key = signalKey('sensor:ala%2', 'out:debug');
+  assert.equal(key, 'sensor%3Aala%252:out%3Adebug');
+  assert.deepEqual(parseSignalKey(key), {
+    componentId: 'sensor:ala%2',
+    pinId: 'out:debug',
+  });
+});
+
+test('waveform resolve componente cujo id contém dois-pontos', () => {
+  const circuit = buildFlipFlopCircuit(false);
+  circuit.components.push({ id: 'G:1', type: 'and', x: 0, y: 200, label: 'AND especial' });
+  assert.deepEqual(resolveWaveformSignals(circuit, [signalKey('G:1', 'out')]), [
+    {
+      key: 'G%3A1:out',
+      componentId: 'G:1',
+      pinId: 'out',
+      label: 'AND especial',
+    },
+  ]);
 });
 
 test('resolveWaveformSignals com lista explícita alcança sinais fora da detecção automática', () => {

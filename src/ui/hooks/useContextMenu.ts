@@ -1,6 +1,6 @@
 import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { GateType, PinRef, Point } from '../../core/types';
-import type { ContextMenu, Selection } from '../context-menu/ContextMenuView';
+import type { ContextMenu, Selection } from '../editor/editorTypes';
 import { hasSelection } from '../app/editorUtils';
 import { useAutoCloseContextMenu } from './useAutoCloseContextMenu';
 import type { EditorTool } from '../editor/editorTypes';

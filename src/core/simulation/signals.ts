@@ -12,7 +12,7 @@ import type {
 const incomingWireIndexCache = new WeakMap<CircuitDocument, ReadonlyMap<string, Wire>>();
 
 function inputKey(componentId: string, pinId: string): string {
-  return `${componentId}::${pinId}`;
+  return JSON.stringify([componentId, pinId]);
 }
 
 /**
