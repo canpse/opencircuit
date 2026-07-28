@@ -2,8 +2,9 @@ import { useRef, useState, type KeyboardEvent } from 'react';
 import { COMPONENT_DEFINITIONS } from '../../core/catalog';
 import type { GateType, Point } from '../../core/types';
 import { LOGIC_COMPONENT_TOOLS, TOOL_GROUPS, ToolButtonContent } from '../library/ComponentLibrary';
+import type { Selection } from '../editor/editorTypes';
 
-export type Selection = { componentIds: string[]; wireIds: string[] };
+export type { Selection } from '../editor/editorTypes';
 export type ContextMenu =
   | { kind: 'canvas'; x: number; y: number; point: Point }
   | { kind: 'component'; x: number; y: number; componentId: string }

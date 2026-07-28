@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, RefObject } from 'react';
-import type { GateType } from '../../core/types';
 import type { WireStyle } from '../editor/CircuitCanvas';
 import type { CircuitImageFormat } from '../editor/exportCircuitImage';
+import type { EditorTool } from '../editor/editorTypes';
 
-type EditorTool = GateType | 'select' | 'wire' | 'pan';
 type OpenMenu = 'file' | 'export' | null;
 
 type ExampleOption = { id: string; name: string; description?: string };

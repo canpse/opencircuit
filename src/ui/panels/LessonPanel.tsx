@@ -37,7 +37,7 @@ export function LessonPanel({
 
       <LessonSection
         title="Antes de começar"
-        items={example.prerequisites}
+        items={example.prerequisites.map((item) => (typeof item === 'string' ? item : item.note))}
         empty="Você pode começar por aqui."
         examples={examples}
         onItemClick={onLoadExample}

@@ -6,7 +6,13 @@ import type {
   SimulationState,
 } from '../types';
 import { evaluateComponent } from './gates';
-import { initializeValues, readPin, simulationResult, writePin } from './signals';
+import {
+  buildIncomingWireIndex,
+  initializeValues,
+  readPin,
+  simulationResult,
+  writePin,
+} from './signals';
 import { measureProfile } from '../../performance/profiling';
 
 const MAX_ITERATIONS = 64;
@@ -24,6 +30,11 @@ export function simulateCircuit(
     { components: circuit.components.length, wires: circuit.wires.length },
     () => {
       const values = initializeValues(circuit, previousState?.values);
+      measureProfile(
+        'simulation.index',
+        { components: circuit.components.length, wires: circuit.wires.length },
+        () => buildIncomingWireIndex(circuit),
+      );
       const componentById = new Map<string, LogicComponent>(
         circuit.components.map((component) => [component.id, component]),
       );

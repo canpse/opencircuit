@@ -1,6 +1,8 @@
 import { performance } from 'node:perf_hooks';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { simulateCircuit } from '../src/core/evaluateCircuit';
+import { flattenCircuit } from '../src/core/hierarchy/flatten';
+import { buildIncomingWireIndex } from '../src/core/simulation/signals';
 import type { CircuitDocument, EvaluationResult } from '../src/core/types';
 import { CIRCUIT_EXAMPLES } from '../src/examples/circuitExamples';
 import { CircuitCanvas, type WireStyle } from '../src/ui/editor/CircuitCanvas';
@@ -114,7 +116,7 @@ function format(summary: Summary): string {
 console.log('OpenCircuit profile — ULA de 4 bits');
 console.log('Tempos em ms: mediana / p95 / máximo');
 console.log(
-  'cópias | componentes | fios | simulação | rota ortogonal | render Bézier | render ortogonal',
+  'cópias | componentes | fios | flatten | índice | simulação | rota ortogonal | render Bézier | render ortogonal',
 );
 
 for (const copies of [1, 2, 4, 8, 16]) {
@@ -123,6 +125,8 @@ for (const copies of [1, 2, 4, 8, 16]) {
   if (simulation.unstable) throw new Error(`Circuito com ${copies} cópias ficou instável.`);
   const componentById = new Map(circuit.components.map((component) => [component.id, component]));
   const repetitions = Math.max(3, Math.floor(30 / Math.sqrt(copies)));
+  const flattenTime = benchmark(() => void flattenCircuit(circuit, []), repetitions);
+  const indexTime = benchmark(() => void buildIncomingWireIndex({ ...circuit }), repetitions);
   const simulationTime = benchmark(() => void simulateCircuit(circuit), repetitions);
   const routingTime = benchmark(
     () => void routeCircuitWires(circuit.wires, componentById, circuit.components),
@@ -142,6 +146,8 @@ for (const copies of [1, 2, 4, 8, 16]) {
       copies.toString().padStart(6),
       circuit.components.length.toString().padStart(11),
       circuit.wires.length.toString().padStart(4),
+      format(flattenTime).padStart(22),
+      format(indexTime).padStart(22),
       format(simulationTime).padStart(22),
       format(routingTime).padStart(22),
       format(bezierRenderTime).padStart(22),

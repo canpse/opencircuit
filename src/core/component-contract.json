@@ -1,0 +1,228 @@
+{
+  "input": { "pins": { "out": { "kind": "output", "width": 1 } } },
+  "button": { "pins": { "out": { "kind": "output", "width": 1 } } },
+  "led": { "pins": { "in": { "kind": "input", "width": 1 } } },
+  "and": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "nand": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "or": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "nor": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "xor": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "xnor": {
+    "pins": {
+      "a": { "kind": "input", "width": 1 },
+      "b": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "not": {
+    "pins": {
+      "in": { "kind": "input", "width": 1 },
+      "out": { "kind": "output", "width": 1 }
+    }
+  },
+  "text": { "pins": {} },
+  "half-adder": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "SUM": { "kind": "output", "width": 1 },
+      "CARRY": { "kind": "output", "width": 1 }
+    }
+  },
+  "full-adder": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "Cin": { "kind": "input", "width": 1 },
+      "SUM": { "kind": "output", "width": 1 },
+      "Cout": { "kind": "output", "width": 1 }
+    }
+  },
+  "mux-2-1": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "Sel": { "kind": "input", "width": 1 },
+      "OUT": { "kind": "output", "width": 1 }
+    }
+  },
+  "mux-4-1": {
+    "pins": {
+      "D0": { "kind": "input", "width": 1 },
+      "D1": { "kind": "input", "width": 1 },
+      "D2": { "kind": "input", "width": 1 },
+      "D3": { "kind": "input", "width": 1 },
+      "S0": { "kind": "input", "width": 1 },
+      "S1": { "kind": "input", "width": 1 },
+      "OUT": { "kind": "output", "width": 1 }
+    }
+  },
+  "decoder-2-4": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "Y0": { "kind": "output", "width": 1 },
+      "Y1": { "kind": "output", "width": 1 },
+      "Y2": { "kind": "output", "width": 1 },
+      "Y3": { "kind": "output", "width": 1 }
+    }
+  },
+  "comparator-1-bit": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "GT": { "kind": "output", "width": 1 },
+      "EQ": { "kind": "output", "width": 1 },
+      "LT": { "kind": "output", "width": 1 }
+    }
+  },
+  "encoder-4-2": {
+    "pins": {
+      "D0": { "kind": "input", "width": 1 },
+      "D1": { "kind": "input", "width": 1 },
+      "D2": { "kind": "input", "width": 1 },
+      "D3": { "kind": "input", "width": 1 },
+      "Y0": { "kind": "output", "width": 1 },
+      "Y1": { "kind": "output", "width": 1 }
+    }
+  },
+  "odd-parity-3": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "C": { "kind": "input", "width": 1 },
+      "OUT": { "kind": "output", "width": 1 }
+    }
+  },
+  "majority-3": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "C": { "kind": "input", "width": 1 },
+      "OUT": { "kind": "output", "width": 1 }
+    }
+  },
+  "half-subtractor": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "DIFF": { "kind": "output", "width": 1 },
+      "BORROW": { "kind": "output", "width": 1 }
+    }
+  },
+  "full-subtractor": {
+    "pins": {
+      "A": { "kind": "input", "width": 1 },
+      "B": { "kind": "input", "width": 1 },
+      "Bin": { "kind": "input", "width": 1 },
+      "DIFF": { "kind": "output", "width": 1 },
+      "Bout": { "kind": "output", "width": 1 }
+    }
+  },
+  "clock": { "pins": { "CLK": { "kind": "output", "width": 1 } } },
+  "d-latch": {
+    "pins": {
+      "D": { "kind": "input", "width": 1 },
+      "EN": { "kind": "input", "width": 1 },
+      "Q": { "kind": "output", "width": 1 }
+    }
+  },
+  "d-flip-flop": {
+    "pins": {
+      "D": { "kind": "input", "width": 1 },
+      "CLK": { "kind": "input", "width": 1 },
+      "Q": { "kind": "output", "width": 1 }
+    }
+  },
+  "register-4": {
+    "pins": {
+      "D0": { "kind": "input", "width": 1 },
+      "D1": { "kind": "input", "width": 1 },
+      "D2": { "kind": "input", "width": 1 },
+      "D3": { "kind": "input", "width": 1 },
+      "CLK": { "kind": "input", "width": 1 },
+      "Q0": { "kind": "output", "width": 1 },
+      "Q1": { "kind": "output", "width": 1 },
+      "Q2": { "kind": "output", "width": 1 },
+      "Q3": { "kind": "output", "width": 1 }
+    }
+  },
+  "merge-4": {
+    "pins": {
+      "I0": { "kind": "input", "width": 1 },
+      "I1": { "kind": "input", "width": 1 },
+      "I2": { "kind": "input", "width": 1 },
+      "I3": { "kind": "input", "width": 1 },
+      "OUT": { "kind": "output", "width": 4 }
+    }
+  },
+  "split-4": {
+    "pins": {
+      "IN": { "kind": "input", "width": 4 },
+      "O0": { "kind": "output", "width": 1 },
+      "O1": { "kind": "output", "width": 1 },
+      "O2": { "kind": "output", "width": 1 },
+      "O3": { "kind": "output", "width": 1 }
+    }
+  },
+  "display-4": { "pins": { "IN": { "kind": "input", "width": 4 } } },
+  "bus-in-4": { "pins": { "OUT": { "kind": "output", "width": 4 } } },
+  "adder-4": {
+    "pins": {
+      "A": { "kind": "input", "width": 4 },
+      "B": { "kind": "input", "width": 4 },
+      "Cin": { "kind": "input", "width": 1 },
+      "SUM": { "kind": "output", "width": 4 },
+      "Cout": { "kind": "output", "width": 1 }
+    }
+  },
+  "subtractor-4": {
+    "pins": {
+      "A": { "kind": "input", "width": 4 },
+      "B": { "kind": "input", "width": 4 },
+      "Bin": { "kind": "input", "width": 1 },
+      "DIFF": { "kind": "output", "width": 4 },
+      "Bout": { "kind": "output", "width": 1 }
+    }
+  },
+  "comparator-4": {
+    "pins": {
+      "A": { "kind": "input", "width": 4 },
+      "B": { "kind": "input", "width": 4 },
+      "GT": { "kind": "output", "width": 1 },
+      "EQ": { "kind": "output", "width": 1 },
+      "LT": { "kind": "output", "width": 1 }
+    }
+  },
+  "subcircuit": { "pins": {} }
+}

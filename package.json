@@ -13,7 +13,7 @@
     "test": "vitest run",
     "profile": "node scripts/run-profile.mjs",
     "preview": "vite preview",
-    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint": "eslint 'src/**/*.{ts,tsx}' 'tests/**/*.{ts,tsx,mjs}' 'server/**/*.mjs' 'scripts/**/*.{ts,tsx,mjs}' vite.config.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "format": "prettier --write . --ignore-path .gitignore",
     "format:check": "prettier --check . --ignore-path .gitignore",

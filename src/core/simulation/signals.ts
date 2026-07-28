@@ -6,7 +6,30 @@ import type {
   LogicValue,
   PinRef,
   SimulationResult,
+  Wire,
 } from '../types';
+
+const incomingWireIndexCache = new WeakMap<CircuitDocument, ReadonlyMap<string, Wire>>();
+
+function inputKey(componentId: string, pinId: string): string {
+  return `${componentId}::${pinId}`;
+}
+
+/**
+ * Circuit documents are immutable throughout the editor. Indexing by document identity
+ * turns every input lookup in the fixed-point loop into O(1), while a structurally changed
+ * document naturally receives a new index.
+ */
+export function buildIncomingWireIndex(circuit: CircuitDocument): ReadonlyMap<string, Wire> {
+  const cached = incomingWireIndexCache.get(circuit);
+  if (cached) return cached;
+  const index = new Map<string, Wire>();
+  for (const wire of circuit.wires) {
+    index.set(inputKey(wire.to.componentId, wire.to.pinId), wire);
+  }
+  incomingWireIndexCache.set(circuit, index);
+  return index;
+}
 
 export function initializeValues(
   circuit: CircuitDocument,
@@ -57,9 +80,7 @@ export function inputValue(
   componentId: string,
   pinId: string,
 ): boolean {
-  const incoming = circuit.wires.find(
-    (wire) => wire.to.componentId === componentId && wire.to.pinId === pinId,
-  );
+  const incoming = buildIncomingWireIndex(circuit).get(inputKey(componentId, pinId));
   if (!incoming) return false;
   const sourceComponent = componentById.get(incoming.from.componentId);
   if (!sourceComponent) return false;
@@ -75,9 +96,7 @@ export function inputBusValue(
   pinId: string,
   width: number,
 ): boolean[] {
-  const incoming = circuit.wires.find(
-    (wire) => wire.to.componentId === componentId && wire.to.pinId === pinId,
-  );
+  const incoming = buildIncomingWireIndex(circuit).get(inputKey(componentId, pinId));
   const fallback = () => new Array<boolean>(width).fill(false);
   if (!incoming) return fallback();
   const sourceComponent = componentById.get(incoming.from.componentId);

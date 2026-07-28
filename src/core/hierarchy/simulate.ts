@@ -8,6 +8,7 @@ import type {
 import { settleSequentialCircuit, simulateCircuit, stepCircuit } from '../evaluateCircuit';
 import { flattenCircuit, type FlattenNode } from './flatten';
 import { writeBackMemory } from './memory';
+import { measureProfile } from '../../performance/profiling';
 
 /**
  * Lifts a flattened evaluation result back to the given scope's own component/pin ids,
@@ -44,7 +45,15 @@ export function evaluateHierarchical(
   definitions: CircuitDefinition[],
   previousState?: SimulationState,
 ) {
-  const { flat, nodes } = flattenCircuit(scope, definitions);
+  const { flat, nodes } = measureProfile(
+    'hierarchy.flatten',
+    {
+      components: scope.components.length,
+      wires: scope.wires.length,
+      definitions: definitions.length,
+    },
+    () => flattenCircuit(scope, definitions),
+  );
   const result = simulateCircuit(flat, previousState);
   return { result, canvasEvaluation: liftEvaluationForScope(nodes, result.values), flat, nodes };
 }

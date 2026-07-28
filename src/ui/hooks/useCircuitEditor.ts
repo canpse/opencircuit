@@ -22,6 +22,7 @@ import {
 } from '../app/editorUtils';
 import type { Selection } from '../context-menu/ContextMenuView';
 import { settleHierarchical } from '../../core/hierarchy/simulate';
+import type { EditorTool } from '../editor/editorTypes';
 
 export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 
@@ -36,7 +37,7 @@ interface Options {
   mergeDefinitions: (definitions: CircuitDefinition[]) => void;
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
-  onSelectTool: (tool: GateType | 'select' | 'wire' | 'pan') => void;
+  onSelectTool: (tool: EditorTool) => void;
 }
 
 export function useCircuitEditor({
