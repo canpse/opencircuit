@@ -9,6 +9,10 @@ import type {
 } from '../../core/types';
 import { getPinWidth } from '../../core/catalog';
 import {
+  formatHierarchyExpansionViolation,
+  inspectHierarchyExpansion,
+} from '../../core/hierarchy/expansion.mjs';
+import {
   collectReferencedDefinitions,
   componentDefinitionLabel,
   createLogicComponent,
@@ -37,6 +41,7 @@ interface Options {
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
   onSelectTool: (tool: EditorTool) => void;
+  simulationBlocked?: boolean;
 }
 
 export function useCircuitEditor({
@@ -47,6 +52,7 @@ export function useCircuitEditor({
   rememberCircuit,
   onMessage,
   onSelectTool,
+  simulationBlocked = false,
 }: Options) {
   const [pendingWire, setPendingWire] = useState<PinRef | null>(null);
   const [selection, setSelection] = useState<Selection>(EMPTY_SELECTION);
@@ -56,8 +62,16 @@ export function useCircuitEditor({
     const snapped = snap(point, GRID);
     const id = nextId(type, circuit.components);
     const component = createLogicComponent(type, id, snapped, definitionId);
+    const nextCircuit = { ...circuit, components: [...circuit.components, component] };
+    const hierarchy = inspectHierarchyExpansion(nextCircuit, definitions);
+    if (!hierarchy.ok) {
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} O componente não foi inserido.`,
+      );
+      return;
+    }
     rememberCircuit();
-    setCircuit((current) => ({ ...current, components: [...current.components, component] }));
+    setCircuit(nextCircuit);
     setSelection({ componentIds: [id], wireIds: [] });
     onMessage(`${componentDefinitionLabel(type)} adicionado.`);
   }
@@ -71,6 +85,10 @@ export function useCircuitEditor({
   }
 
   function toggleInput(componentId: string) {
+    if (simulationBlocked) {
+      onMessage('Entrada não alterada: a simulação está bloqueada no modo de recuperação.');
+      return;
+    }
     rememberCircuit();
     setCircuit((current) =>
       settleHierarchical(
@@ -148,8 +166,18 @@ export function useCircuitEditor({
     }
 
     const wire: Wire = { id: `W${Date.now()}`, from: pendingWire, to: pin };
+    const nextCircuit = { ...circuit, wires: [...circuit.wires, wire] };
+    const hierarchy = inspectHierarchyExpansion(nextCircuit, definitions);
+    if (!hierarchy.ok) {
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} O fio não foi inserido.`,
+      );
+      setPendingWire(null);
+      onSelectTool('select');
+      return;
+    }
     rememberCircuit();
-    setCircuit((current) => ({ ...current, wires: [...current.wires, wire] }));
+    setCircuit(nextCircuit);
     setSelection({ componentIds: [], wireIds: [wire.id] });
     onMessage('Fio conectado.');
     setPendingWire(null);
@@ -385,8 +413,6 @@ export function useCircuitEditor({
       return;
     }
 
-    rememberCircuit();
-
     const pasted = pasteClipboard(
       circuit,
       clipboard,
@@ -394,6 +420,15 @@ export function useCircuitEditor({
       GRID,
       definitions,
     );
+    const nextDefinitions = [...definitions, ...pasted.definitions];
+    const hierarchy = inspectHierarchyExpansion(pasted.circuit, nextDefinitions);
+    if (!hierarchy.ok) {
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} A colagem foi cancelada.`,
+      );
+      return;
+    }
+    rememberCircuit();
     // Order matters: setCircuit(pasted.circuit) must run first. setScopedCircuit is
     // always a functional setCircuit((previousFull) => ...) update, but at the root
     // scope that function ignores previousFull entirely and just returns pasted.circuit

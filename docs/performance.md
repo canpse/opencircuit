@@ -39,6 +39,12 @@ corredores e saltos continuam sendo derivados novamente para manter a geometria 
 O formato aceita, por escopo, até 10.000 componentes e 20.000 fios. Esses são limites de
 integridade/transporte, não uma promessa de edição ortogonal interativa.
 
+Hierarquia tem um segundo orçamento, aplicado ao resultado expandido antes de alocar o grafo:
+profundidade 32, 10.000 componentes, 20.000 fios, 10.000 instâncias, caminho individual de 4.096
+caracteres, 2.000.000 de caracteres de IDs/caminhos e 50.000 unidades de trabalho do preflight.
+Assim, dividir um projeto em subcircuitos melhora a organização, mas não permite ultrapassar o
+limite total por multiplicação de instâncias.
+
 - Até 288 componentes e 520 fios: faixa interativa recomendada para o modo ortogonal.
 - Entre essa faixa e 576 componentes/1.040 fios: o modo funciona, mas Bézier é recomendado para
   navegação e edições frequentes.
@@ -48,6 +54,15 @@ integridade/transporte, não uma promessa de edição ortogonal interativa.
 O modo Bézier é a alternativa de baixa latência porque não executa busca de caminhos, corredores ou
 saltos. Uma regressão deve ser investigada quando `npm run profile` exceder um orçamento de mediana
 de modo repetível na mesma máquina.
+
+O perfil também monta uma hierarquia sintética com 10.000 componentes expandidos. Os objetivos são
+p95 abaixo de 15 ms para o preflight e abaixo de 50 ms para o flatten completo (incluindo a
+guarda). Como o flatten ainda começa na main thread antes do envio do circuito plano ao Worker,
+esses limites tornam o período bloqueante explicitamente finito; uma medição acima do orçamento
+deve motivar a migração do flatten para o Worker.
+
+Medição de 28/07/2026 na máquina de referência: preflight p95 de 11,87 ms e flatten p95 de 24,27
+ms para 10.000 componentes expandidos.
 
 ## Instrumentação e invalidação
 

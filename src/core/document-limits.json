@@ -2,5 +2,12 @@
   "maxComponentsPerScope": 10000,
   "maxWiresPerScope": 20000,
   "maxComponentIdLength": 200,
+  "maxHierarchyDepth": 32,
+  "maxFlattenedComponents": 10000,
+  "maxFlattenedWires": 20000,
+  "maxExpandedInstances": 10000,
+  "maxFlattenedPathLength": 4096,
+  "maxFlattenedIdCharacters": 2000000,
+  "maxHierarchyWork": 50000,
   "maxBodyBytes": 2097152
 }

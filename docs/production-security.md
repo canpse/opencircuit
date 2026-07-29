@@ -41,6 +41,13 @@ do provedor não são gravados nas tabelas de circuitos.
 - Não registre cookies, headers de autenticação, corpos de circuitos ou segredos.
 - Faça backup dos dois bancos SQLite e do segredo de sessão.
 
+## Documentos hierárquicos
+
+O servidor aceita até 2 MB por corpo e valida separadamente a estrutura declarada e o custo do
+grafo expandido. Requisições de escrita que excedem o orçamento hierárquico recebem HTTP 422 e não
+são persistidas. Leituras não reaplicam essa rejeição para que documentos gravados por versões
+antigas possam ser baixados e reduzidos no modo de recuperação do cliente.
+
 ## Migração dos owners legados
 
 Versões antigas aceitavam `X-OpenCircuit-User` criado pelo cliente. Esses registros permanecem no

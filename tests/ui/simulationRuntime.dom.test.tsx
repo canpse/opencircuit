@@ -130,4 +130,12 @@ describe('useSimulationRuntime', () => {
       expect(result.current.evaluation['output-1']?.in).toBe(true);
     });
   });
+
+  it('does not create a Worker or flatten when simulation is disabled', () => {
+    const { result } = renderHook(() => useSimulationRuntime(circuit, 0, [], false));
+
+    expect(ControlledWorker.instances).toHaveLength(0);
+    expect(result.current.evaluation).toEqual({});
+    expect(result.current.simulationCircuit).toBe(circuit);
+  });
 });

@@ -25,6 +25,7 @@ export function useSimulationRuntime(
   circuit: CircuitDocument,
   tick: number,
   definitions: CircuitDefinition[],
+  enabled = true,
 ) {
   const [resetToken, setResetToken] = useState(0);
   const [simulationState, setSimulationState] = useState<SimulationState>({
@@ -37,15 +38,16 @@ export function useSimulationRuntime(
   const messageIdRef = useRef(0);
 
   useEffect(() => {
+    if (!enabled) return;
     workerRef.current = new SimulationWorker();
     return () => {
       workerRef.current?.terminate();
       workerRef.current = null;
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!workerRef.current) return;
+    if (!enabled || !workerRef.current) return;
 
     const id = ++messageIdRef.current;
 
@@ -73,7 +75,7 @@ export function useSimulationRuntime(
     return () => {
       workerRef.current?.removeEventListener('message', handleMessage);
     };
-  }, [circuit, tick, resetToken, definitions]);
+  }, [circuit, tick, resetToken, definitions, enabled]);
 
   function resetSimulationRuntime() {
     const request: SimulationRequest = { type: 'reset' };
@@ -83,10 +85,10 @@ export function useSimulationRuntime(
   }
 
   return {
-    simulationResult: simulationState.result,
-    evaluation: simulationState.result.values,
-    simulationCircuit: simulationState.circuit,
-    simulationTick: simulationState.tick,
+    simulationResult: enabled ? simulationState.result : EMPTY_SIMULATION_RESULT,
+    evaluation: enabled ? simulationState.result.values : EMPTY_SIMULATION_RESULT.values,
+    simulationCircuit: enabled ? simulationState.circuit : circuit,
+    simulationTick: enabled ? simulationState.tick : tick,
     resetSimulationRuntime,
   };
 }
