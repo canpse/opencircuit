@@ -40,6 +40,17 @@ Alterações incompatíveis ao documento exigem uma nova versão e uma migraçã
 precisarem ser diferentes entre cliente e servidor devem ser documentados e testados como uma
 decisão deliberada.
 
+## Persistência local e remota
+
+O workspace aberto recebe autosave síncrono no armazenamento do navegador. A saúde desse autosave
+é independente da sincronização remota: um circuito salvo no servidor ainda pode estar sem rascunho
+local, e uma falha do servidor não implica falha do `localStorage`.
+
+A UI mantém estados explícitos para gravação local, sucesso, falha e recuperação. Enquanto uma
+falha persiste, um aviso não descartável explica o risco de recarregar ou fechar a página e oferece
+o download JSON do documento ativo. Falhas repetidas reutilizam o mesmo aviso; a primeira gravação
+local posterior bem-sucedida remove o alerta e registra a recuperação.
+
 ## Orçamento da hierarquia
 
 Os limites de 10.000 componentes e 20.000 fios por escopo validam a forma declarada, mas não

@@ -37,6 +37,8 @@ import { useContextMenuManager } from './hooks/useContextMenu';
 import { useResizableBottomPanel } from './hooks/useResizableBottomPanel';
 import type { EditorTool } from './editor/editorTypes';
 import { useDefinitionWorkspace } from './hooks/useDefinitionWorkspace';
+import { LocalAutosaveWarning } from './banners/LocalAutosaveWarning';
+import type { LocalAutosaveStatus } from './hooks/localAutosaveState';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
@@ -273,7 +275,7 @@ export function App() {
   const currentExample =
     CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
 
-  useAutoSaveWorkspace(workspace);
+  const localAutosaveStatus = useAutoSaveWorkspace(workspace);
   useReleaseMomentaryButtons(setCircuit);
 
   useEditorKeyboardShortcuts({
@@ -458,6 +460,9 @@ export function App() {
             )}
           </div>
           <div className="editor-panel">
+            {localAutosaveStatus === 'failed' && (
+              <LocalAutosaveWarning onDownload={downloadActiveDocument} />
+            )}
             <DefinitionBreadcrumb
               navigationPath={navigationPath}
               definitions={definitions}
@@ -681,8 +686,8 @@ export function App() {
       <footer className="statusbar app-footer">
         <span>{message}</span>
         <span>
-          {syncLabel(activeSyncState)} · {circuit.components.length} componentes ·{' '}
-          {circuit.wires.length} fios
+          {localAutosaveLabel(localAutosaveStatus)} · servidor: {syncLabel(activeSyncState)} ·{' '}
+          {circuit.components.length} componentes · {circuit.wires.length} fios
         </span>
       </footer>
 
@@ -780,11 +785,20 @@ export function App() {
 
 function syncLabel(state: import('./hooks/useWorkspaceManager').RemoteSyncState): string {
   return {
-    idle: 'rascunho local',
+    idle: 'não sincronizado',
     saving: 'salvando…',
     saved: 'salvo',
     offline: 'offline',
     error: 'erro ao salvar',
     conflict: 'conflito',
   }[state];
+}
+
+function localAutosaveLabel(status: LocalAutosaveStatus): string {
+  return {
+    saving: 'autosave local: salvando…',
+    saved: 'autosave local: salvo',
+    failed: 'autosave local: falhou',
+    recovered: 'autosave local: recuperado',
+  }[status];
 }

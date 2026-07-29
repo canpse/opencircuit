@@ -3,7 +3,7 @@ import { isCircuitDocument } from '../core/validateCircuitDocument';
 import { loadCircuit } from './storage';
 import { measureProfile } from '../performance/measure';
 
-const WORKSPACE_STORAGE_KEY = 'opencircuit.logic.workspace.v1';
+export const WORKSPACE_STORAGE_KEY = 'opencircuit.logic.workspace.v1';
 
 export type WorkspaceDocument = {
   id: string;

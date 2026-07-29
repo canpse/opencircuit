@@ -826,6 +826,43 @@ button:disabled {
   line-height: 1.45;
 }
 
+.local-autosave-warning {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 9px 14px;
+  color: #6f250d;
+  background: #ffeadf;
+  border-bottom: 1px solid #e89a78;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.local-autosave-warning > div {
+  display: grid;
+  gap: 2px;
+}
+.local-autosave-warning strong,
+.local-autosave-warning span {
+  display: block;
+}
+.local-autosave-warning button {
+  flex: none;
+  padding: 5px 11px;
+  color: #6f250d;
+  background: #fff;
+  border: 1px solid rgba(111, 37, 13, 0.3);
+  border-radius: 999px;
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 900;
+}
+.local-autosave-warning button:hover {
+  background: #fff7f2;
+  box-shadow: none;
+}
+
 .history-view-banner {
   display: flex;
   flex: none;

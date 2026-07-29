@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/ui/App';
+import { WORKSPACE_STORAGE_KEY } from '../../src/state/workspaceStorage';
 
 class IdleWorker {
   static instances = 0;
@@ -47,6 +48,7 @@ describe('App mounted interactions', () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -135,5 +137,68 @@ describe('App mounted interactions', () => {
     expect(screen.getByRole('alert').textContent).toContain('Modo de recuperação');
     expect(screen.getByText(/Análise desativada/)).toBeTruthy();
     expect(IdleWorker.instances).toBe(0);
+  });
+
+  it('mantém um aviso único quando o autosave falha e oferece o download do JSON', async () => {
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === WORKSPACE_STORAGE_KEY) {
+        throw new DOMException('Quota excedida', 'QuotaExceededError');
+      }
+      originalSetItem.call(this, key, value);
+    });
+    const createObjectURL = vi.fn(() => 'blob:recovery');
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
+    const anchorClick = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => undefined);
+    const { container } = render(<App />);
+
+    const warning = await screen.findByRole('alert');
+    expect(warning.textContent).toContain('O autosave local falhou');
+    expect(warning.textContent).toContain('alterações podem ser perdidas');
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    const footerText = container.querySelector('.app-footer')?.textContent;
+    expect(footerText).toContain('autosave local: falhou');
+    expect(footerText).toContain('servidor: não sincronizado');
+
+    const addTab = container.querySelector<HTMLButtonElement>('.add-tab');
+    expect(addTab).not.toBeNull();
+    fireEvent.click(addTab!);
+    await waitFor(() => {
+      expect(screen.getAllByRole('alert')).toHaveLength(1);
+      expect(screen.getByRole('alert')).toBe(warning);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baixar JSON agora' }));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:recovery');
+  });
+
+  it('remove o aviso e sinaliza recuperação após uma gravação local bem-sucedida', async () => {
+    const originalSetItem = Storage.prototype.setItem;
+    let shouldFail = true;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key, value) {
+      if (key === WORKSPACE_STORAGE_KEY && shouldFail) {
+        throw new DOMException('Storage bloqueado', 'SecurityError');
+      }
+      originalSetItem.call(this, key, value);
+    });
+    const { container } = render(<App />);
+
+    expect(await screen.findByRole('alert')).toBeTruthy();
+    shouldFail = false;
+    const addTab = container.querySelector<HTMLButtonElement>('.add-tab');
+    expect(addTab).not.toBeNull();
+    fireEvent.click(addTab!);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).toBeNull();
+      expect(container.querySelector('.app-footer')?.textContent).toContain(
+        'autosave local: recuperado',
+      );
+    });
   });
 });
