@@ -629,7 +629,7 @@ export function App() {
                 <CircuitTruthTable
                   circuit={scopedCircuit}
                   evaluation={canvasEvaluation}
-                  unstable={simulationResult.unstable}
+                  simulationStatus={simulationResult.status}
                   hasFeedback={hasFeedback}
                   definitions={definitions}
                   scopeName={activeDefinition?.name}

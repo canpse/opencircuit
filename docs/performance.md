@@ -8,7 +8,9 @@ npm run profile
 
 Ele replica a ULA de 4 bits em cinco tamanhos e mede mediana, p95 e máximo de flatten
 hierárquico, índice de fios, simulação, roteamento completo, edição local incremental e
-renderização nos dois estilos. Os limites abaixo são verificados e impressos pelo próprio comando.
+renderização nos dois estilos. Também mede uma cadeia combinacional em ordem inversa com 10.000
+componentes, tanto reutilizando quanto reconstruindo o plano topológico. Os limites abaixo são
+verificados e impressos pelo próprio comando.
 
 ## Orçamento do roteamento
 
@@ -55,20 +57,23 @@ O modo Bézier é a alternativa de baixa latência porque não executa busca de 
 saltos. Uma regressão deve ser investigada quando `npm run profile` exceder um orçamento de mediana
 de modo repetível na mesma máquina.
 
-O perfil também monta uma hierarquia sintética com 10.000 componentes expandidos. Os objetivos são
-p95 abaixo de 15 ms para o preflight e abaixo de 50 ms para o flatten completo (incluindo a
-guarda). Como o flatten ainda começa na main thread antes do envio do circuito plano ao Worker,
-esses limites tornam o período bloqueante explicitamente finito; uma medição acima do orçamento
-deve motivar a migração do flatten para o Worker.
+O perfil também monta uma hierarquia sintética com 10.000 componentes expandidos e uma cadeia
+combinacional de mesmo tamanho. Os objetivos da hierarquia são p95 abaixo de 15 ms para o preflight
+e abaixo de 50 ms para o flatten completo (incluindo a guarda). Como o flatten ainda começa na main
+thread antes do envio do circuito plano ao Worker, esses limites tornam o período bloqueante
+explicitamente finito; uma medição acima do orçamento deve motivar a migração do flatten para o
+Worker. A cadeia profunda é uma sentinela contra a volta da convergência proporcional à posição de
+um componente no documento: ela deve permanecer estável em uma passagem.
 
 Medição de 28/07/2026 na máquina de referência: preflight p95 de 11,87 ms e flatten p95 de 24,27
-ms para 10.000 componentes expandidos.
+ms para 10.000 componentes expandidos. Para a cadeia invertida com 10.000 componentes, a mediana
+foi 21,05 ms com plano cacheado e 58,18 ms reconstruindo plano e índice.
 
 ## Instrumentação e invalidação
 
 Com `?profile=1`, o perfil do navegador separa `routing.obstacles`, `routing.paths`,
 `routing.decorate` e `routing.orthogonal`, além de `hierarchy.flatten`, `simulation.index` e
-`simulation.evaluate`.
+`simulation.plan` dentro de `simulation.total`.
 
 Os caches dependem da imutabilidade adotada pelo editor. Uma mudança de componente, fio, ordem de
 fios ou lista de definições precisa produzir novas referências. O roteador invalida:

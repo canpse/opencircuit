@@ -6,6 +6,7 @@ import type {
   LogicValue,
   PinRef,
   SimulationResult,
+  SimulationStatus,
   Wire,
 } from '../types';
 
@@ -56,14 +57,16 @@ export function initializeValues(
 
 export function simulationResult(
   values: EvaluationResult,
-  unstable: boolean,
+  status: SimulationStatus,
   iterations: number,
 ): SimulationResult {
+  const unstable = status !== 'stable';
   return {
     values,
+    status,
     unstable,
     iterations,
-    state: { values: cloneValues(values), unstable, iterations },
+    state: { values: cloneValues(values), status, unstable, iterations },
   };
 }
 
@@ -112,8 +115,8 @@ export function readPin(values: EvaluationResult, pin: PinRef): LogicValue {
 /**
  * evaluateComponent for a bus pin always writes a fresh array (never mutates one in
  * place), so reference equality would report "changed" every iteration even when the
- * bits didn't -- compare by value instead, or the fixed-point loop in simulate.ts would
- * never converge and every circuit with a bus component would falsely flag `unstable`.
+ * bits didn't -- compare by value instead, or a feedback fixed-point loop would never
+ * converge and every feedback circuit with a bus component would hit its iteration limit.
  */
 export function logicValuesEqual(a: LogicValue | undefined, b: LogicValue): boolean {
   if (Array.isArray(a) && Array.isArray(b)) {

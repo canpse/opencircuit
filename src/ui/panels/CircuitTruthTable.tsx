@@ -8,19 +8,20 @@ import type {
   EvaluationResult,
   LogicComponent,
   LogicValue,
+  SimulationStatus,
 } from '../../core/types';
 
 export function CircuitTruthTable({
   circuit,
   evaluation,
-  unstable,
+  simulationStatus,
   hasFeedback,
   definitions = [],
   scopeName,
 }: {
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
-  unstable: boolean;
+  simulationStatus: SimulationStatus;
   hasFeedback: boolean;
   definitions?: CircuitDefinition[];
   /** Name of the subcircuit definition currently being viewed, if any -- shown in the panel title so it's clear the table reflects just that definition, not the whole document. */
@@ -35,7 +36,7 @@ export function CircuitTruthTable({
         circuit={circuit}
         components={sequentialComponents}
         evaluation={evaluation}
-        unstable={unstable}
+        simulationStatus={simulationStatus}
         hasFeedback={hasFeedback}
         scopeName={scopeName}
       />
@@ -128,14 +129,14 @@ function SequentialStatePanel({
   circuit,
   components,
   evaluation,
-  unstable,
+  simulationStatus,
   hasFeedback,
   scopeName,
 }: {
   circuit: CircuitDocument;
   components: LogicComponent[];
   evaluation: EvaluationResult;
-  unstable: boolean;
+  simulationStatus: SimulationStatus;
   hasFeedback: boolean;
   scopeName?: string;
 }) {
@@ -161,9 +162,11 @@ function SequentialStatePanel({
           </>
         )}
       </p>
-      {unstable && (
+      {simulationStatus !== 'stable' && (
         <p className="simulation-warning">
-          O circuito não estabilizou. Pode haver oscilação ou realimentação inválida.
+          {simulationStatus === 'oscillating'
+            ? 'O circuito entrou em oscilação: os sinais estão repetindo estados sem estabilizar.'
+            : 'O simulador atingiu o limite computacional antes de confirmar a estabilização.'}
         </p>
       )}
       <div className="sequential-state-list">

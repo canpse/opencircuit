@@ -66,6 +66,25 @@ Registros antigos continuam legíveis. No cliente eles abrem em modo de recupera
 navegação, remoção e download JSON permanecem disponíveis, enquanto flatten, simulação, clock,
 tabela verdade e salvamento remoto ficam bloqueados até o documento voltar ao orçamento.
 
+## Ordem e convergência da simulação
+
+O simulador constrói um grafo de dependências combinacionais e o reduz a componentes fortemente
+conexos (SCCs). Regiões acíclicas são avaliadas uma única vez em ordem topológica determinística;
+somente SCCs com realimentação passam pelo processo iterativo. A ordem das listas `components` e
+`wires` no documento, portanto, não altera o resultado.
+
+Componentes sequenciais são fronteiras do grafo combinacional: sua saída representa o estado já
+armazenado e não depende combinacionalmente da entrada do mesmo tick. Dentro de um SCC, a ordem é
+estável por ID. O motor registra os estados de saída visitados para distinguir três resultados:
+
+- `stable`: todos os SCCs atingiram um ponto fixo;
+- `oscillating`: um SCC repetiu um estado antes de estabilizar;
+- `iteration-limit`: o orçamento computacional terminou sem ponto fixo ou repetição confirmada.
+
+`unstable` continua disponível como compatibilidade e vale `status !== 'stable'`. Depois da
+avaliação, os valores são copiados aos pinos de destino dos fios para visualização; essa cópia não
+participa da decisão de convergência.
+
 ## Como adicionar um componente
 
 1. Adicione o tipo e os pinos em `component-contract.json`. `GateType` será derivado das chaves.
@@ -83,10 +102,10 @@ validando toda requisição.
 
 ## Imutabilidade e caches
 
-Índices de fios, flatten hierárquico e detecção de feedback usam caches por identidade com
-`WeakMap`. Essa estratégia depende do contrato já adotado pelo editor: mudanças estruturais criam
-novos objetos de documento/listas de definições, sem mutação in-place. Código novo deve preservar
-essa invariante.
+Índices de fios, flatten hierárquico e o plano topológico/SCC da simulação usam caches por
+identidade com `WeakMap`. Essa estratégia depende do contrato já adotado pelo editor: mudanças
+estruturais criam novos objetos de documento/listas de definições, sem mutação in-place. Código
+novo deve preservar essa invariante.
 
 ## Qualidade
 

@@ -76,9 +76,11 @@ export interface ComponentDefinition {
 }
 
 export type EvaluationResult = Record<string, Record<string, LogicValue>>;
+export type SimulationStatus = 'stable' | 'oscillating' | 'iteration-limit';
 
 export interface SimulationState {
   values: EvaluationResult;
+  status: SimulationStatus;
   unstable: boolean;
   iterations: number;
 }
@@ -86,6 +88,7 @@ export interface SimulationState {
 export interface SimulationResult {
   values: EvaluationResult;
   state: SimulationState;
+  status: SimulationStatus;
   unstable: boolean;
   iterations: number;
 }
