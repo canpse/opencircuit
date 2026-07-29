@@ -2,7 +2,8 @@
 
 Estes roteiros são para um agente com controle real de mouse/teclado/tela
 (não um script determinístico). Eles existem para complementar a suíte
-automatizada (`npm test`, 261 testes determinísticos) com o que ela
+automatizada (`npm test`; 363 testes determinísticos no baseline inicial da
+[issue #100](testing.md#baseline-inicial)) com o que ela
 estruturalmente não consegue ver: como o app realmente se comporta na tela,
 pra um usuário de verdade.
 
