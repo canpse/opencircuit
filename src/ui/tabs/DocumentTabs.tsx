@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { isDocumentDirty, type WorkspaceDocument } from '../../state/workspaceStorage';
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
+import { commandShortcutLabel } from '../commands/editorCommands';
+import { useEditorCommand } from '../commands/EditorCommandContext';
 
 interface Props {
   documents: WorkspaceDocument[];
@@ -10,7 +12,6 @@ interface Props {
   onSelect: (documentId: string) => void;
   onRequestClose: (documentId: string) => void;
   onRename: (documentId: string, name: string) => void;
-  onCreate: () => void;
 }
 
 export function DocumentTabs({
@@ -21,8 +22,9 @@ export function DocumentTabs({
   onSelect,
   onRequestClose,
   onRename,
-  onCreate,
 }: Props) {
+  const newDocumentCommand = useEditorCommand('file.new');
+  const newDocumentShortcut = commandShortcutLabel(newDocumentCommand);
   const [editing, setEditing] = useState<{ documentId: string; draft: string } | null>(null);
   // Escape precisa descartar o rascunho sem que o blur subsequente o confirme.
   const cancelledRef = useRef(false);
@@ -112,7 +114,16 @@ export function DocumentTabs({
           </button>
         </div>
       ))}
-      <button className="document-tab add-tab" onClick={onCreate}>
+      <button
+        className="document-tab add-tab"
+        onClick={newDocumentCommand.run}
+        aria-label={newDocumentCommand.label}
+        title={
+          newDocumentShortcut
+            ? `${newDocumentCommand.description} (${newDocumentShortcut})`
+            : newDocumentCommand.description
+        }
+      >
         +
       </button>
     </div>

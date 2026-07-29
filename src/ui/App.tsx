@@ -17,7 +17,7 @@ import { effectiveWatchedSignalKeys, signalKey } from '../core/simulation/wavefo
 import { CommandBar } from './commandbar/CommandBar';
 import { useAutoSaveWorkspace } from './hooks/useAutoSaveWorkspace';
 import { useCircuitHistory } from './hooks/useCircuitHistory';
-import { useEditorKeyboardShortcuts } from './hooks/useEditorKeyboardShortcuts';
+import { useCommandShortcuts } from './hooks/useCommandShortcuts';
 import { useReleaseMomentaryButtons } from './hooks/useReleaseMomentaryButtons';
 import { useResizableSidePanel } from './hooks/useResizableSidePanel';
 import { useWireStylePreference } from './hooks/useWireStylePreference';
@@ -39,6 +39,11 @@ import type { EditorTool } from './editor/editorTypes';
 import { useDefinitionWorkspace } from './hooks/useDefinitionWorkspace';
 import { LocalAutosaveWarning } from './banners/LocalAutosaveWarning';
 import type { LocalAutosaveStatus } from './hooks/localAutosaveState';
+import { createEditorCommands, type EditorCommandBindings } from './commands/editorCommands';
+import { EditorCommandProvider } from './commands/EditorCommandContext';
+import { ShortcutHelpDialog } from './dialogs/ShortcutHelpDialog';
+import type { CanvasCameraCommands } from './editor/CanvasViewport';
+import { useEventCallback } from './hooks/useEventCallback';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
@@ -47,7 +52,9 @@ export function App() {
   const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'lesson'>('truth');
   const [waveformPanelOpen, setWaveformPanelOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<EditorTool>('select');
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraCommandsRef = useRef<CanvasCameraCommands>(null);
 
   const {
     workspace,
@@ -171,6 +178,7 @@ export function App() {
     removeComponent,
     renameComponent,
     resizeTextComponent,
+    clipboard,
     onCopy,
     onPaste,
   } = useCircuitEditor({
@@ -282,32 +290,6 @@ export function App() {
   const localAutosaveStatus = useAutoSaveWorkspace(workspace);
   useReleaseMomentaryButtons(setCircuit);
 
-  useEditorKeyboardShortcuts({
-    selectedTool,
-    selection,
-    pendingWire,
-    contextMenu,
-    dialogOpen:
-      pendingCloseDocument !== null ||
-      remoteBrowserOpen ||
-      conflict !== null ||
-      libraryDialogOpen ||
-      libraryConflict !== null,
-    hasSelection,
-    onCancelContextMenu: closeContextMenu,
-    onCancelPendingWire: () => setPendingWire(null),
-    onSelectTool: setSelectedTool,
-    onMessage: setMessage,
-    onUndo: undo,
-    onRedo: redo,
-    onSave: saveActiveDocument,
-    onSaveAs: saveActiveDocumentAs,
-    onOpen: openRemoteBrowser,
-    onRemoveSelection: removeSelection,
-    onCopy,
-    onPaste,
-  });
-
   // Reset editor state when switching documents, without emitting a status
   // message: the handler that switched the document already set its own.
   // Simulation state (tick count, waveform history) is NOT reset here anymore --
@@ -371,6 +353,107 @@ export function App() {
     }
   }
 
+  function toggleHandTool() {
+    if (selectedTool === 'pan') {
+      setSelectedTool('select');
+      setMessage('Modo selecionar.');
+      return;
+    }
+    setSelectedTool('pan');
+    setMessage('Ferramenta Mão ativa.');
+  }
+
+  function cancelEditorInteraction() {
+    if (contextMenu) {
+      closeContextMenu();
+      return;
+    }
+    const hadPendingWire = Boolean(pendingWire);
+    setPendingWire(null);
+    setSelectedTool('select');
+    setMessage(hadPendingWire ? 'Conexão cancelada. Modo selecionar.' : 'Modo selecionar.');
+  }
+
+  const importJsonFromFile = useEventCallback(() => {
+    fileInputRef.current?.click();
+  });
+
+  const zoomIn = useEventCallback(() => {
+    cameraCommandsRef.current?.zoomIn();
+  });
+
+  const zoomOut = useEventCallback(() => {
+    cameraCommandsRef.current?.zoomOut();
+  });
+
+  const resetZoom = useEventCallback(() => {
+    cameraCommandsRef.current?.resetZoom();
+  });
+
+  const zoomToFit = useEventCallback(() => {
+    cameraCommandsRef.current?.zoomToFit();
+  });
+
+  const dialogOpen =
+    pendingCloseDocument !== null ||
+    remoteBrowserOpen ||
+    conflict !== null ||
+    libraryDialogOpen ||
+    libraryConflict !== null ||
+    shortcutHelpOpen;
+
+  const commandBindings: EditorCommandBindings = {
+    'file.new': { run: createNewDocument },
+    'file.openCircuits': { run: openRemoteBrowser },
+    'file.openLibrary': { run: openLibraryDialog },
+    'file.save': {
+      run: () => void saveActiveDocument(),
+      enabled: !hierarchyBlocked,
+    },
+    'file.saveAs': {
+      run: () => void saveActiveDocumentAs(),
+      enabled: !hierarchyBlocked,
+    },
+    'file.importJson': { run: importJsonFromFile },
+    'file.downloadJson': { run: downloadActiveDocument },
+    'file.exportPng': {
+      run: () => void exportImage('png'),
+      enabled: circuit.components.length > 0,
+    },
+    'file.exportSvg': {
+      run: () => void exportImage('svg'),
+      enabled: circuit.components.length > 0,
+    },
+    'edit.undo': { run: undo, enabled: canUndo },
+    'edit.redo': { run: redo, enabled: canRedo },
+    'edit.copy': { run: onCopy, enabled: hasSelection(selection) },
+    'edit.paste': { run: onPaste, enabled: clipboard !== null },
+    'edit.delete': { run: removeSelection, enabled: hasSelection(selection) },
+    'view.zoomIn': { run: zoomIn },
+    'view.zoomOut': { run: zoomOut },
+    'view.zoomReset': { run: resetZoom },
+    'view.zoomFit': { run: zoomToFit },
+    'view.toggleHand': {
+      run: toggleHandTool,
+      checked: selectedTool === 'pan',
+    },
+    'view.selectTool': {
+      run: () => {
+        setSelectedTool('select');
+        setMessage('Modo selecionar.');
+      },
+      checked: selectedTool === 'select',
+    },
+    'view.toggleWaveforms': {
+      run: () => setWaveformPanelOpen((open) => !open),
+      checked: waveformPanelOpen,
+    },
+    'help.shortcuts': { run: () => setShortcutHelpOpen(true) },
+    'editor.cancel': { run: cancelEditorInteraction },
+  };
+  const commands = createEditorCommands(commandBindings);
+  useCommandShortcuts(commands, { suspended: dialogOpen });
+
   return (
     <main className="app-shell">
       <header className="app-titlebar">
@@ -381,33 +464,22 @@ export function App() {
         </div>
       </header>
 
-      <CommandBar
-        selectedTool={selectedTool}
-        wireStyle={wireStyle}
-        lessons={CIRCUIT_LESSONS}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        autoClockRunning={autoClockRunning}
-        autoClockIntervalMs={autoClockIntervalMs}
-        fileInputRef={fileInputRef}
-        onOpen={openRemoteBrowser}
-        onOpenLibrary={openLibraryDialog}
-        onSave={saveActiveDocument}
-        onSaveAs={saveActiveDocumentAs}
-        onDownloadJson={downloadActiveDocument}
-        onImportClick={() => fileInputRef.current?.click()}
-        onExportImage={exportImage}
-        onLoadExample={openLessonExample}
-        onUndo={undo}
-        onRedo={redo}
-        onSelectTool={setSelectedTool}
-        onTick={tickSequentialCircuit}
-        onToggleAutoClock={toggleAutoClock}
-        onAutoClockIntervalChange={setAutoClockIntervalMs}
-        onResetSimulation={resetSimulation}
-        onWireStyleChange={setWireStyle}
-        onImportJson={importJson}
-      />
+      <EditorCommandProvider commands={commands}>
+        <CommandBar
+          wireStyle={wireStyle}
+          lessons={CIRCUIT_LESSONS}
+          autoClockRunning={autoClockRunning}
+          autoClockIntervalMs={autoClockIntervalMs}
+          fileInputRef={fileInputRef}
+          onLoadExample={openLessonExample}
+          onTick={tickSequentialCircuit}
+          onToggleAutoClock={toggleAutoClock}
+          onAutoClockIntervalChange={setAutoClockIntervalMs}
+          onResetSimulation={resetSimulation}
+          onWireStyleChange={setWireStyle}
+          onImportJson={importJson}
+        />
+      </EditorCommandProvider>
 
       <section
         className="app-layout"
@@ -427,16 +499,17 @@ export function App() {
         />
 
         <div className="center-panel">
-          <DocumentTabs
-            documents={documents}
-            activeDocumentId={activeDocumentId}
-            remoteDocumentIds={remoteDocumentIds}
-            libraryDocumentIds={libraryDocumentIds}
-            onSelect={selectDocument}
-            onRequestClose={requestCloseDocument}
-            onRename={renameDocument}
-            onCreate={createNewDocument}
-          />
+          <EditorCommandProvider commands={commands}>
+            <DocumentTabs
+              documents={documents}
+              activeDocumentId={activeDocumentId}
+              remoteDocumentIds={remoteDocumentIds}
+              libraryDocumentIds={libraryDocumentIds}
+              onSelect={selectDocument}
+              onRequestClose={requestCloseDocument}
+              onRename={renameDocument}
+            />
+          </EditorCommandProvider>
           <div className="definitions-bar">
             <span className="definitions-bar-label">Subcircuitos:</span>
             {definitions.length === 0 && (
@@ -489,44 +562,47 @@ export function App() {
               </div>
             )}
             <Profiler id="CircuitCanvas" onRender={recordReactProfile}>
-              <CircuitCanvas
-                circuit={scopedCircuit}
-                evaluation={canvasEvaluation}
-                changedSignals={canvasChangedSignals}
-                selectedTool={selectedTool}
-                wireStyle={wireStyle}
-                pendingWire={pendingWire}
-                selection={selection}
-                renameRequest={renameRequest}
-                onRenameRequestHandled={() => setRenameRequest(null)}
-                definitions={definitions}
-                pendingSubcircuitDefinitionId={pendingSubcircuitDefinitionId}
-                onCanvasAdd={addComponent}
-                onBeginMoveComponent={beginMoveComponent}
-                onMoveComponents={moveComponents}
-                onResizeTextComponent={resizeTextComponent}
-                onToggleInput={toggleInput}
-                onSetButtonPressed={setButtonPressed}
-                onPinClick={onPinClick}
-                onEnterInstance={enterInstance}
-                onRenameWire={renameWire}
-                onAddWireWaypoint={addWireWaypoint}
-                onBeginMoveWireWaypoint={beginMoveWireWaypoint}
-                onMoveWireWaypoint={moveWireWaypoint}
-                onRemoveWireWaypoint={removeWireWaypoint}
-                onRemoveComponent={removeComponent}
-                onRenameComponent={renameComponent}
-                onCancelPendingWire={cancelPendingWire}
-                onOpenCanvasMenu={openCanvasMenu}
-                onOpenComponentMenu={openComponentMenu}
-                onOpenWireMenu={openWireMenu}
-                onOpenWaypointMenu={openWaypointMenu}
-                onSelectComponent={selectComponent}
-                onSelectWire={selectWire}
-                onSelectItems={selectItems}
-                onClearSelection={clearSelection}
-                onSelectTool={setSelectedTool}
-              />
+              <EditorCommandProvider commands={commands}>
+                <CircuitCanvas
+                  cameraCommandsRef={cameraCommandsRef}
+                  circuit={scopedCircuit}
+                  evaluation={canvasEvaluation}
+                  changedSignals={canvasChangedSignals}
+                  selectedTool={selectedTool}
+                  wireStyle={wireStyle}
+                  pendingWire={pendingWire}
+                  selection={selection}
+                  renameRequest={renameRequest}
+                  onRenameRequestHandled={() => setRenameRequest(null)}
+                  definitions={definitions}
+                  pendingSubcircuitDefinitionId={pendingSubcircuitDefinitionId}
+                  onCanvasAdd={addComponent}
+                  onBeginMoveComponent={beginMoveComponent}
+                  onMoveComponents={moveComponents}
+                  onResizeTextComponent={resizeTextComponent}
+                  onToggleInput={toggleInput}
+                  onSetButtonPressed={setButtonPressed}
+                  onPinClick={onPinClick}
+                  onEnterInstance={enterInstance}
+                  onRenameWire={renameWire}
+                  onAddWireWaypoint={addWireWaypoint}
+                  onBeginMoveWireWaypoint={beginMoveWireWaypoint}
+                  onMoveWireWaypoint={moveWireWaypoint}
+                  onRemoveWireWaypoint={removeWireWaypoint}
+                  onRemoveComponent={removeComponent}
+                  onRenameComponent={renameComponent}
+                  onCancelPendingWire={cancelPendingWire}
+                  onOpenCanvasMenu={openCanvasMenu}
+                  onOpenComponentMenu={openComponentMenu}
+                  onOpenWireMenu={openWireMenu}
+                  onOpenWaypointMenu={openWaypointMenu}
+                  onSelectComponent={selectComponent}
+                  onSelectWire={selectWire}
+                  onSelectItems={selectItems}
+                  onClearSelection={clearSelection}
+                  onSelectTool={setSelectedTool}
+                />
+              </EditorCommandProvider>
             </Profiler>
           </div>
           <section
@@ -566,7 +642,7 @@ export function App() {
                 className="waveform-drawer-toggle"
                 aria-expanded={waveformPanelOpen}
                 aria-controls="waveform-bottom-content"
-                onClick={() => setWaveformPanelOpen((open) => !open)}
+                onClick={commands['view.toggleWaveforms'].run}
               >
                 <span className="waveform-drawer-chevron" aria-hidden="true">
                   {waveformPanelOpen ? '⌄' : '⌃'}
@@ -747,6 +823,12 @@ export function App() {
           onSaveCopy={saveLibraryConflictAsCopy}
           onClose={closeLibraryConflict}
         />
+      )}
+
+      {shortcutHelpOpen && (
+        <EditorCommandProvider commands={commands}>
+          <ShortcutHelpDialog onClose={() => setShortcutHelpOpen(false)} />
+        </EditorCommandProvider>
       )}
 
       {contextMenu && (

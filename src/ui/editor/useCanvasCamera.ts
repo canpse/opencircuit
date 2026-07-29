@@ -160,42 +160,15 @@ export function useCanvasCamera(svgRef: RefObject<SVGSVGElement | null>) {
   }, [svgRef]);
 
   useEffect(() => {
-    function isEditingText(target: EventTarget | null): boolean {
-      const element = target as HTMLElement | null;
-      return (
-        element?.tagName === 'INPUT' ||
-        element?.tagName === 'TEXTAREA' ||
-        Boolean(element?.isContentEditable)
-      );
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (isEditingText(event.target)) return;
-      const command = event.ctrlKey || event.metaKey;
-      if (!command) return;
-      if (event.key === '+' || event.key === '=') {
-        event.preventDefault();
-        zoomAtCenter(1 / 1.2);
-      } else if (event.key === '-') {
-        event.preventDefault();
-        zoomAtCenter(1.2);
-      } else if (event.key === '0') {
-        event.preventDefault();
-        zoomToFit();
-      }
-    }
-
     function onBlur() {
       setPanning(null);
     }
 
-    window.addEventListener('keydown', onKeyDown);
     window.addEventListener('blur', onBlur);
     return () => {
-      window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('blur', onBlur);
     };
-  }, [zoomAtCenter, zoomToFit]);
+  }, []);
 
   function onWheelZoom(event: WheelEvent<SVGSVGElement>) {
     event.preventDefault();

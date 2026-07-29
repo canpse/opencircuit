@@ -1,11 +1,21 @@
-import { MouseEvent, useLayoutEffect } from 'react';
+import { MouseEvent, useImperativeHandle, useLayoutEffect, useRef } from 'react';
 import type { DragEventHandler, MouseEventHandler, ReactNode, RefObject } from 'react';
 import { commitProfileInteractions } from '../../performance/profiling';
+import { commandDefinition, commandShortcutLabel } from '../commands/editorCommands';
+import { useOptionalEditorCommands } from '../commands/EditorCommandContext';
 import { useCanvasCamera } from './useCanvasCamera';
 import type { WireStyle } from './editorTypes';
 
+export interface CanvasCameraCommands {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+  zoomToFit: () => void;
+}
+
 interface Props {
   svgRef: RefObject<SVGSVGElement | null>;
+  cameraCommandsRef?: RefObject<CanvasCameraCommands | null>;
   panToolSelected: boolean;
   componentCount: number;
   wireCount: number;
@@ -24,6 +34,7 @@ interface Props {
 
 export function CanvasViewport({
   svgRef,
+  cameraCommandsRef,
   panToolSelected,
   componentCount,
   wireCount,
@@ -47,6 +58,28 @@ export function CanvasViewport({
     updatePan,
     setPanning,
   } = useCanvasCamera(svgRef);
+  const commands = useOptionalEditorCommands();
+  const fallbackCameraCommandsRef = useRef<CanvasCameraCommands>(null);
+  const effectiveCameraCommandsRef = cameraCommandsRef ?? fallbackCameraCommandsRef;
+  const zoomInCommand = commands?.['view.zoomIn'];
+  const zoomOutCommand = commands?.['view.zoomOut'];
+  const zoomResetCommand = commands?.['view.zoomReset'];
+  const zoomFitCommand = commands?.['view.zoomFit'];
+  const zoomInDefinition = zoomInCommand ?? commandDefinition('view.zoomIn');
+  const zoomOutDefinition = zoomOutCommand ?? commandDefinition('view.zoomOut');
+  const zoomResetDefinition = zoomResetCommand ?? commandDefinition('view.zoomReset');
+  const zoomFitDefinition = zoomFitCommand ?? commandDefinition('view.zoomFit');
+
+  useImperativeHandle(
+    effectiveCameraCommandsRef,
+    () => ({
+      zoomIn: () => zoomAtCenter(1 / 1.2),
+      zoomOut: () => zoomAtCenter(1.2),
+      resetZoom: resetCamera,
+      zoomToFit,
+    }),
+    [resetCamera, zoomAtCenter, zoomToFit],
+  );
 
   useLayoutEffect(() => {
     commitProfileInteractions({
@@ -103,16 +136,32 @@ export function CanvasViewport({
         {children}
       </svg>
       <div className="zoom-controls" onMouseDown={(event) => event.stopPropagation()}>
-        <button onClick={() => zoomAtCenter(1 / 1.2)} title="Aproximar">
+        <button
+          onClick={zoomInCommand?.run ?? (() => zoomAtCenter(1 / 1.2))}
+          title={`${zoomInDefinition.label} (${commandShortcutLabel(zoomInDefinition)})`}
+          aria-label={zoomInDefinition.label}
+        >
           +
         </button>
-        <button onClick={() => zoomAtCenter(1.2)} title="Afastar">
+        <button
+          onClick={zoomOutCommand?.run ?? (() => zoomAtCenter(1.2))}
+          title={`${zoomOutDefinition.label} (${commandShortcutLabel(zoomOutDefinition)})`}
+          aria-label={zoomOutDefinition.label}
+        >
           −
         </button>
-        <button onClick={resetCamera} title="Resetar zoom">
+        <button
+          onClick={zoomResetCommand?.run ?? resetCamera}
+          title={zoomResetDefinition.description}
+          aria-label={zoomResetDefinition.label}
+        >
           {zoomPercent}%
         </button>
-        <button onClick={zoomToFit} title="Enquadrar circuito (Ctrl+0)">
+        <button
+          onClick={zoomFitCommand?.run ?? zoomToFit}
+          title={`${zoomFitDefinition.label} (${commandShortcutLabel(zoomFitDefinition)})`}
+          aria-label={zoomFitDefinition.label}
+        >
           Fit
         </button>
       </div>
