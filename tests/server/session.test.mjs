@@ -42,7 +42,11 @@ describe('sessão autenticada', () => {
     const identity = createSessionIdentity(SECRET);
     const first = resolve(identity);
     const signedCookie = first.headers.get('set-cookie').split(';', 1)[0];
-    const forged = signedCookie.replace(/.$/, signedCookie.endsWith('A') ? 'B' : 'A');
+    const signatureStart = signedCookie.lastIndexOf('.') + 1;
+    const firstSignatureCharacter = signedCookie[signatureStart];
+    const forged = `${signedCookie.slice(0, signatureStart)}${
+      firstSignatureCharacter === 'A' ? 'B' : 'A'
+    }${signedCookie.slice(signatureStart + 1)}`;
     const second = resolve(identity, forged);
     expect(second.ownerId).not.toBe(first.ownerId);
     expect(second.headers.has('set-cookie')).toBe(true);
