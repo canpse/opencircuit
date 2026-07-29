@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/ui/App';
+import { CIRCUIT_EXAMPLES } from '../../src/examples/circuitExamples';
 import { WORKSPACE_STORAGE_KEY } from '../../src/state/workspaceStorage';
 
 class IdleWorker {
@@ -27,6 +28,23 @@ class IdleResizeObserver {
   unobserve() {}
 
   disconnect() {}
+}
+
+const SIGNAL_EXAMPLE = CIRCUIT_EXAMPLES.find((example) => example.id === 'signal-led-basic')!;
+const NOT_EXAMPLE = CIRCUIT_EXAMPLES.find((example) => example.id === 'not-basic')!;
+
+function openExample(exampleId: string) {
+  fireEvent.change(screen.getByRole('combobox', { name: 'Aulas e exemplos' }), {
+    target: { value: exampleId },
+  });
+}
+
+function documentTab(container: HTMLElement, documentName: string): HTMLElement {
+  const tab = Array.from(container.querySelectorAll<HTMLElement>('.document-tab')).find((item) =>
+    item.querySelector('.document-tab-title')?.textContent?.includes(documentName),
+  );
+  expect(tab).toBeTruthy();
+  return tab!;
 }
 
 describe('App mounted interactions', () => {
@@ -85,6 +103,100 @@ describe('App mounted interactions', () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('abre exemplo limpo na Lição e fecha sem confirmação quando intocado', () => {
+    const { container } = render(<App />);
+
+    openExample(SIGNAL_EXAMPLE.id);
+
+    expect(screen.getByRole('tab', { name: 'Lição' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('heading', { name: SIGNAL_EXAMPLE.name })).toBeTruthy();
+    const tab = documentTab(container, SIGNAL_EXAMPLE.name);
+    expect(tab.querySelector('[aria-label="Mudanças não salvas"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: `Fechar ${SIGNAL_EXAMPLE.name}` }));
+
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(
+      Array.from(container.querySelectorAll('.document-tab-title')).some((item) =>
+        item.textContent?.includes(SIGNAL_EXAMPLE.name),
+      ),
+    ).toBe(false);
+  });
+
+  it('marca exemplo alterado como sujo e protege o fechamento', () => {
+    const { container } = render(<App />);
+
+    openExample(SIGNAL_EXAMPLE.id);
+    const input = container.querySelector<SVGImageElement>('.input-asset');
+    expect(input).not.toBeNull();
+    fireEvent.click(input!);
+
+    const tab = documentTab(container, SIGNAL_EXAMPLE.name);
+    expect(tab.querySelector('[aria-label="Mudanças não salvas"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: `Fechar ${SIGNAL_EXAMPLE.name}` }));
+
+    expect(
+      screen.getByRole('alertdialog', { name: `Fechar ${SIGNAL_EXAMPLE.name}?` }),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Descartar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeTruthy();
+  });
+
+  it('salva uma cópia remota do exemplo sem alterar o catálogo embutido', async () => {
+    const catalogBefore = JSON.stringify(SIGNAL_EXAMPLE.circuit);
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          id: 'remote-example',
+          ownerId: 'owner-test',
+          name: SIGNAL_EXAMPLE.name,
+          revision: 1,
+          createdAt: '2026-07-29T12:00:00.000Z',
+          updatedAt: '2026-07-29T12:00:00.000Z',
+          circuit: SIGNAL_EXAMPLE.circuit,
+        }),
+        {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+
+    fireEvent.keyDown(window, { key: 's', code: 'KeyS', ctrlKey: true });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(documentTab(container, SIGNAL_EXAMPLE.name).textContent).toContain('☁');
+    });
+    const [path, request] = fetchMock.mock.calls[0]!;
+    expect(path).toBe('/api/circuits');
+    expect(request?.method).toBe('POST');
+    const body = JSON.parse(String(request?.body)) as {
+      name: string;
+      circuit: unknown;
+    };
+    expect(body.name).toBe(SIGNAL_EXAMPLE.name);
+    expect(body.circuit).toEqual(SIGNAL_EXAMPLE.circuit);
+    expect(JSON.stringify(SIGNAL_EXAMPLE.circuit)).toBe(catalogBefore);
+  });
+
+  it('abre exemplos relacionados em abas independentes e mantém a Lição ativa', () => {
+    const { container } = render(<App />);
+
+    openExample(SIGNAL_EXAMPLE.id);
+    fireEvent.click(screen.getByRole('button', { name: NOT_EXAMPLE.name }));
+
+    expect(documentTab(container, SIGNAL_EXAMPLE.name)).toBeTruthy();
+    expect(documentTab(container, NOT_EXAMPLE.name)).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Lição' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('heading', { name: NOT_EXAMPLE.name })).toBeTruthy();
   });
 
   it('opens an over-budget legacy document in recovery mode without starting simulation', () => {
