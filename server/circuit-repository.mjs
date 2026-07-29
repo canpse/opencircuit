@@ -7,6 +7,7 @@ export class CircuitRepository extends VersionedJsonRepository {
       jsonColumn: 'circuit_json',
       valueField: 'circuit',
       resultField: 'circuit',
+      migrationNamespace: 'circuits',
     });
   }
 }

@@ -51,6 +51,24 @@ falha persiste, um aviso não descartável explica o risco de recarregar ou fech
 o download JSON do documento ativo. Falhas repetidas reutilizam o mesmo aviso; a primeira gravação
 local posterior bem-sucedida remove o alerta e registra a recuperação.
 
+## Migrations da persistência remota
+
+Circuitos e componentes da biblioteca usam migrations independentes, mesmo quando
+`OPENCIRCUIT_DB` e `OPENCIRCUIT_LIBRARY_DB` apontam para o mesmo arquivo SQLite. A tabela
+`schema_migrations` identifica cada execução pela chave composta `(namespace, version)`: os
+namespaces estáveis atuais são `circuits` e `library`.
+
+Cada namespace numera suas versões a partir de 1 e nunca reutiliza uma versão publicada. A
+verificação, o DDL e o registro da versão são executados sob a mesma transação
+`BEGIN IMMEDIATE`; uma falha reverte tanto o schema quanto o ledger. O DDL também deve ser
+idempotente para recuperar bancos interrompidos antes da adoção desse protocolo.
+
+Bancos que ainda possuem o ledger global legado são reconhecidos automaticamente. Como a versão
+global antiga não informa a qual recurso pertence, o servidor troca o ledger pelo formato com
+namespace e reaplica a migration 1 idempotente de cada repositório inicializado, sem alterar suas
+tabelas ou registros. Versões legadas desconhecidas e formatos inesperados são recusados para não
+descartar histórico de migrations silenciosamente.
+
 ## Orçamento da hierarquia
 
 Os limites de 10.000 componentes e 20.000 fios por escopo validam a forma declarada, mas não

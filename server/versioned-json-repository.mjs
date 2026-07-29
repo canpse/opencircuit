@@ -6,45 +6,143 @@ function sqlIdentifier(value) {
   return value;
 }
 
+function repositoryNamespace(value) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error('Namespace de migrations inválido');
+  }
+  return value;
+}
+
 export class VersionedJsonRepository {
   constructor(
     filename,
-    { table, jsonColumn, valueField, resultField, indexName = `${table}_owner_updated` },
+    {
+      table,
+      jsonColumn,
+      valueField,
+      resultField,
+      migrationNamespace,
+      indexName = `${table}_owner_updated`,
+    },
   ) {
     this.table = sqlIdentifier(table);
     this.jsonColumn = sqlIdentifier(jsonColumn);
     this.valueField = valueField;
     this.resultField = resultField;
+    this.migrationNamespace = repositoryNamespace(migrationNamespace);
     this.indexName = sqlIdentifier(indexName);
     this.db = new DatabaseSync(filename);
-    this.db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
-    this.migrate();
+    try {
+      this.db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+      this.migrate();
+    } catch (error) {
+      try {
+        this.db.close();
+      } catch {
+        // Preserva o erro original da migration.
+      }
+      throw error;
+    }
   }
 
   migrate() {
+    this.ensureMigrationLedger();
+    this.applyMigration(1, () => {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS ${this.table} (
+          id TEXT PRIMARY KEY,
+          owner_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          ${this.jsonColumn} TEXT NOT NULL,
+          revision INTEGER NOT NULL CHECK (revision > 0),
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ${this.indexName}
+          ON ${this.table}(owner_id, updated_at DESC);
+      `);
+    });
+  }
+
+  ensureMigrationLedger() {
+    this.runInTransaction(() => {
+      const columns = this.db.prepare('PRAGMA table_info(schema_migrations)').all();
+      if (columns.length === 0) {
+        this.createMigrationLedger();
+        return;
+      }
+
+      const columnNames = columns.map(({ name }) => name);
+      if (
+        columnNames.length === 3 &&
+        columnNames[0] === 'namespace' &&
+        columnNames[1] === 'version' &&
+        columnNames[2] === 'applied_at' &&
+        columns[0].pk === 1 &&
+        columns[1].pk === 2
+      ) {
+        return;
+      }
+
+      const legacyLedger =
+        columnNames.length === 2 &&
+        columnNames[0] === 'version' &&
+        columnNames[1] === 'applied_at' &&
+        columns[0].pk === 1;
+      if (!legacyLedger) {
+        throw new Error('Formato desconhecido da tabela schema_migrations');
+      }
+
+      const unknownMigration = this.db
+        .prepare('SELECT version FROM schema_migrations WHERE version <> 1 LIMIT 1')
+        .get();
+      if (unknownMigration) {
+        throw new Error(
+          `Migration legada desconhecida: versão ${String(unknownMigration.version)}`,
+        );
+      }
+
+      this.db.exec('ALTER TABLE schema_migrations RENAME TO schema_migrations_legacy;');
+      this.createMigrationLedger();
+      this.db.exec('DROP TABLE schema_migrations_legacy;');
+    });
+  }
+
+  createMigrationLedger() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
-        version INTEGER PRIMARY KEY,
-        applied_at TEXT NOT NULL
+        namespace TEXT NOT NULL,
+        version INTEGER NOT NULL CHECK (version > 0),
+        applied_at TEXT NOT NULL,
+        PRIMARY KEY (namespace, version)
       );
     `);
-    const migrated = this.db.prepare('SELECT 1 FROM schema_migrations WHERE version = 1').get();
-    if (migrated) return;
-    this.db.exec(`
-      CREATE TABLE ${this.table} (
-        id TEXT PRIMARY KEY,
-        owner_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        ${this.jsonColumn} TEXT NOT NULL,
-        revision INTEGER NOT NULL CHECK (revision > 0),
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX ${this.indexName} ON ${this.table}(owner_id, updated_at DESC);
-    `);
-    this.db
-      .prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)')
-      .run(1, new Date().toISOString());
+  }
+
+  applyMigration(version, migrate) {
+    this.runInTransaction(() => {
+      const migrated = this.db
+        .prepare('SELECT 1 FROM schema_migrations WHERE namespace = ? AND version = ?')
+        .get(this.migrationNamespace, version);
+      if (migrated) return;
+
+      migrate();
+      this.db
+        .prepare('INSERT INTO schema_migrations(namespace, version, applied_at) VALUES (?, ?, ?)')
+        .run(this.migrationNamespace, version, new Date().toISOString());
+    });
+  }
+
+  runInTransaction(operation) {
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      const result = operation();
+      this.db.exec('COMMIT;');
+      return result;
+    } catch (error) {
+      if (this.db.isTransaction) this.db.exec('ROLLBACK;');
+      throw error;
+    }
   }
 
   list(ownerId) {

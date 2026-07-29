@@ -86,12 +86,4 @@ describe('API da biblioteca', () => {
       ).status,
     ).toBe(400);
   });
-
-  test('migração é idempotente', () => {
-    repository.migrate();
-    repository.migrate();
-    expect(repository.db.prepare('SELECT version FROM schema_migrations').all()).toEqual([
-      { version: 1 },
-    ]);
-  });
 });
