@@ -48,6 +48,7 @@ Os comandos individuais são:
 - `npm run format:check`: confere a formatação sem alterar arquivos;
 - `npm run lint`: verifica cliente, backend, scripts e testes com ambientes separados;
 - `npm test`: compila e executa os testes automatizados;
+- `npm run coverage`: executa os testes e gera os relatórios de cobertura;
 - `npm run build`: verifica os tipos e gera a aplicação de produção em `dist`;
 - `npm run audit:prod`: audita somente dependências presentes em produção;
 - `npm run audit`: audita a árvore completa, incluindo a toolchain;
@@ -56,6 +57,8 @@ Os comandos individuais são:
 Use `npm run format` para formatar os arquivos versionados do projeto.
 Atualizações e advisories de dependências seguem a política descrita em
 [docs/dependency-security.md](docs/dependency-security.md).
+A classificação das áreas, o baseline e a política de testes estão em
+[docs/testing.md](docs/testing.md).
 
 ## Persistência e arquivos
 
