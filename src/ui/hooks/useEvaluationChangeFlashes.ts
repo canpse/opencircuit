@@ -43,7 +43,6 @@ export function useEvaluationChangeFlashes(evaluation: EvaluationResult) {
     const changed = diffChangedSignals(previous, evaluation, generationRef.current + 1);
     if (changed.size > 0) {
       generationRef.current += 1;
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setChangedSignals(changed);
     }
   }, [evaluation]);

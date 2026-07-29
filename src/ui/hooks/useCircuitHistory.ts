@@ -8,7 +8,6 @@ export function useCircuitHistory<T>(current: T, limit = 100, resetKey?: string)
   const [history, updateHistory] = useImmer<HistoryState<T>>({ past: [], future: [] });
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     updateHistory(() => ({ past: [], future: [] }));
   }, [resetKey, updateHistory]);
 

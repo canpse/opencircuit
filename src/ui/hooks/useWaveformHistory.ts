@@ -71,7 +71,6 @@ export function useWaveformHistory({
     // Qualquer avaliação nova ao vivo sai do modo histórico automaticamente
     // — evita editar ou avançar o circuito enquanto uma amostra congelada
     // do passado está sendo mostrada, sem precisar bloquear nada no canvas.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHistoryTick(null);
     // circuit/tickCount já vêm emparelhados com simulationResult (ver
     // comentário na interface Options acima), então só o resultado

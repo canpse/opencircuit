@@ -19,6 +19,8 @@ export function DefinitionBreadcrumb({
         const label = definition?.name ?? '?';
         const isLast = index === navigationPath.length - 1;
         return (
+          // Definições recursivas podem repetir o mesmo ID; a posição distingue cada nível.
+          // eslint-disable-next-line @eslint-react/no-array-index-key
           <span className="definition-breadcrumb-segment" key={`${definitionId}-${index}`}>
             <span aria-hidden="true" className="definition-breadcrumb-separator">
               ›

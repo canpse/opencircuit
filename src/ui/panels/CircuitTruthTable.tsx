@@ -95,15 +95,18 @@ export function CircuitTruthTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => {
+            {rows.map((row) => {
               const isCurrent = sameBooleanValues(row.inputs, currentInputValues);
               return (
-                <tr key={rowIndex} className={isCurrent ? 'current-truth-row' : undefined}>
+                <tr
+                  key={row.inputs.map(bit).join('')}
+                  className={isCurrent ? 'current-truth-row' : undefined}
+                >
                   {row.inputs.map((value, index) => (
-                    <td key={`i-${index}`}>{bit(value)}</td>
+                    <td key={inputs[index].id}>{bit(value)}</td>
                   ))}
                   {row.outputs.map((value, index) => (
-                    <td key={`o-${index}`} className={truthOutputClass(value)}>
+                    <td key={outputs[index].id} className={truthOutputClass(value)}>
                       {Array.isArray(value) ? formatBusHex(value) : bit(value)}
                     </td>
                   ))}

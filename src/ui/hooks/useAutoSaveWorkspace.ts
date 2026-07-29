@@ -12,7 +12,6 @@ export function useAutoSaveWorkspace(workspace: WorkspaceState): LocalAutosaveSt
   useEffect(() => {
     // The external write and the state describing its outcome belong to the same
     // synchronization effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     dispatch({ type: 'started' });
     dispatch({ type: saveWorkspace(workspace) ? 'succeeded' : 'failed' });
   }, [workspace]);

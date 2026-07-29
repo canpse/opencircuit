@@ -1,3 +1,5 @@
+/* eslint-disable @eslint-react/no-array-index-key -- Waypoints usam a posição como identidade persistida. */
+
 import { memo, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { getPinPosition, getPinWidth } from '../../core/catalog';
 import type { CircuitDefinition, LogicComponent, PinRef, Point, Wire } from '../../core/types';
