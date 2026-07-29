@@ -7,6 +7,7 @@ export class LibraryRepository extends VersionedJsonRepository {
       jsonColumn: 'definition_json',
       valueField: 'definition',
       resultField: 'entry',
+      migrationNamespace: 'library',
     });
   }
 }

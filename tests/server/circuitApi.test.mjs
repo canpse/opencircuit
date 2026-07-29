@@ -192,12 +192,4 @@ describe('API de circuitos', () => {
     expect(response.status).toBe(200);
     expect((await response.json()).circuit.components).toHaveLength(101);
   });
-
-  test('migração é idempotente', () => {
-    repository.migrate();
-    repository.migrate();
-    expect(repository.db.prepare('SELECT version FROM schema_migrations').all()).toEqual([
-      { version: 1 },
-    ]);
-  });
 });

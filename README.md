@@ -30,9 +30,11 @@ npm run build
 npm start
 ```
 
-Use `PORT` para trocar a porta e `OPENCIRCUIT_DB` para escolher o arquivo SQLite. O segredo de
-sessão é persistido ao lado do banco por padrão; em produção, prefira
-`OPENCIRCUIT_SESSION_SECRET`. As demais opções estão documentadas em `.env.example`.
+Use `PORT` para trocar a porta, `OPENCIRCUIT_DB` para escolher o arquivo SQLite dos circuitos e
+`OPENCIRCUIT_LIBRARY_DB` para escolher o banco da biblioteca. Os dois recursos podem compartilhar
+o mesmo arquivo: suas migrations possuem namespaces independentes. O segredo de sessão é persistido
+ao lado do banco por padrão; em produção, prefira `OPENCIRCUIT_SESSION_SECRET`. As demais opções
+estão documentadas em `.env.example`.
 
 O Vite informa a URL local ao iniciar. Para validar a mesma sequência executada na integração
 contínua:
