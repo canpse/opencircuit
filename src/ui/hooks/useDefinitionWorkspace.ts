@@ -134,6 +134,7 @@ export function useDefinitionWorkspace({
       nextDefinitionId(definitions),
       name.trim(),
       GRID,
+      definitions,
     );
     if (!result) return null;
 
