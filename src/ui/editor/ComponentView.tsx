@@ -231,6 +231,8 @@ export const ComponentView = memo(function ComponentView({
             }}
           >
             {labelLines.map((line, index) => (
+              // Linhas repetidas não possuem outra identidade além da posição no texto.
+              // eslint-disable-next-line @eslint-react/no-array-index-key
               <tspan key={`${line}-${index}`} x="14" dy={index === 0 ? 0 : 18}>
                 {line}
               </tspan>

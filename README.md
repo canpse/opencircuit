@@ -6,7 +6,7 @@ de circuitos em JSON.
 
 ## Requisitos
 
-- Node.js 24 (o mínimo técnico é 22.12)
+- Node.js 24 (o mínimo técnico é 22.13)
 - npm 11 ou compatível
 
 ## Desenvolvimento
@@ -49,9 +49,13 @@ Os comandos individuais são:
 - `npm run lint`: verifica cliente, backend, scripts e testes com ambientes separados;
 - `npm test`: compila e executa os testes automatizados;
 - `npm run build`: verifica os tipos e gera a aplicação de produção em `dist`;
+- `npm run audit:prod`: audita somente dependências presentes em produção;
+- `npm run audit`: audita a árvore completa, incluindo a toolchain;
 - `npm run profile`: mede os principais cenários de simulação.
 
 Use `npm run format` para formatar os arquivos versionados do projeto.
+Atualizações e advisories de dependências seguem a política descrita em
+[docs/dependency-security.md](docs/dependency-security.md).
 
 ## Persistência e arquivos
 

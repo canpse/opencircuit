@@ -51,6 +51,8 @@ interface Options {
   onSelectTool: (tool: EditorTool) => void;
 }
 
+// O prefixo informa ao analisador oficial que refs recebidos só são lidos pelos handlers retornados.
+// eslint-disable-next-line @eslint-react/no-unnecessary-use-prefix
 export function useCanvasPointerInteractions(options: Options) {
   function svgPoint(event: { clientX: number; clientY: number }): Point {
     const svg = options.svgRef.current;
