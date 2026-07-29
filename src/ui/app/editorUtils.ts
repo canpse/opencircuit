@@ -1,4 +1,4 @@
-import { COMPONENT_DEFINITIONS } from '../../core/catalog';
+import { COMPONENT_DEFINITIONS, getPinWidth } from '../../core/catalog';
 import { COMPONENT_REGISTRY } from '../../core/componentRegistry';
 import { withSequentialDefaults } from '../../core/evaluateCircuit';
 import { nextDefinitionId } from '../../core/hierarchy/scope';
@@ -371,10 +371,11 @@ export interface ExtractedSubcircuit {
 /**
  * Extracts a selection of components (plus whatever wires connect them) out of
  * `scope` into a brand-new CircuitDefinition, replacing the selection in `scope`
- * with a single subcircuit instance. Wires crossing the selection boundary get an
- * input/clock or LED marker synthesized inside the new definition (mirroring the
- * type-based pin rule from deriveSubcircuitPins), and get rewired to the new
- * instance's derived pin instead of the original inner component.
+ * with a single subcircuit instance. Wires crossing the selection boundary get a
+ * scalar input/clock/LED or 4-bit bus-in-4/display-4 marker synthesized inside
+ * the new definition (mirroring the type-and-width rule from
+ * deriveSubcircuitPins), and get rewired to the new instance's derived pin
+ * instead of the original inner component.
  *
  * This relies on a global invariant enforced by isCircuitDocument: every Wire.from
  * is always an output-kind pin and every Wire.to is always an input-kind pin. That
@@ -389,6 +390,7 @@ export function extractSelectionIntoDefinition(
   definitionId: string,
   definitionName: string,
   grid: number,
+  definitions: CircuitDefinition[] = scope.definitions ?? [],
 ): ExtractedSubcircuit | null {
   const selectedIds = new Set(
     componentIds.filter((id) => scope.components.some((component) => component.id === id)),
@@ -447,14 +449,18 @@ export function extractSelectionIntoDefinition(
   let inputIndex = 0;
   for (const { source, targets } of inboundGroups.values()) {
     const outsideComponent = componentById.get(source.componentId);
-    const markerType: GateType = outsideComponent?.type === 'clock' ? 'clock' : 'input';
+    const sourceWidth = outsideComponent
+      ? getPinWidth(outsideComponent, source.pinId, definitions)
+      : 1;
+    const markerType: GateType =
+      sourceWidth === 4 ? 'bus-in-4' : outsideComponent?.type === 'clock' ? 'clock' : 'input';
     const markerId = nextId(markerType, definitionComponents);
     definitionComponents.push(
       createLogicComponent(markerType, markerId, { x: minX - 160, y: minY + inputIndex * 80 }),
     );
     inputIndex += 1;
 
-    const markerOutPin = markerType === 'clock' ? 'CLK' : 'out';
+    const markerOutPin = markerType === 'bus-in-4' ? 'OUT' : markerType === 'clock' ? 'CLK' : 'out';
     for (const target of targets) {
       definitionWires.push({
         id: mintWireId(definitionUsedWireIds),
@@ -472,16 +478,24 @@ export function extractSelectionIntoDefinition(
 
   let outputIndex = 0;
   for (const { source, wires: originalWires } of outboundGroups.values()) {
-    const markerId = nextId('led', definitionComponents);
+    const insideComponent = componentById.get(source.componentId);
+    const sourceWidth = insideComponent
+      ? getPinWidth(insideComponent, source.pinId, definitions)
+      : 1;
+    const markerType: GateType = sourceWidth === 4 ? 'display-4' : 'led';
+    const markerId = nextId(markerType, definitionComponents);
     definitionComponents.push(
-      createLogicComponent('led', markerId, { x: maxX + 160, y: minY + outputIndex * 80 }),
+      createLogicComponent(markerType, markerId, {
+        x: maxX + 160,
+        y: minY + outputIndex * 80,
+      }),
     );
     outputIndex += 1;
 
     definitionWires.push({
       id: mintWireId(definitionUsedWireIds),
       from: source,
-      to: { componentId: markerId, pinId: 'in' },
+      to: { componentId: markerId, pinId: markerType === 'display-4' ? 'IN' : 'in' },
     });
 
     for (const original of originalWires) {

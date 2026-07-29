@@ -1,9 +1,16 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { extractSelectionIntoDefinition } from '../../src/ui/app/editorUtils';
+import { deriveSubcircuitPins } from '../../src/core/catalog';
 import { flattenCircuit } from '../../src/core/hierarchy/flatten';
 import { simulateCircuit } from '../../src/core/evaluateCircuit';
-import type { CircuitDocument, LogicComponent, Wire } from '../../src/core/types';
+import { isCircuitDocument } from '../../src/core/validateCircuitDocument';
+import type {
+  CircuitDefinition,
+  CircuitDocument,
+  LogicComponent,
+  Wire,
+} from '../../src/core/types';
 
 // Cobre a Fase 2 de subcircuitos (issue #18): extrair uma seleção de
 // componentes para uma nova CircuitDefinition, sintetizando marcadores
@@ -240,4 +247,145 @@ test("integration: extracting a selection preserves the circuit's logical behavi
   assert.equal(after.values.SUM.in, before.values.SUM.in);
   assert.equal(after.values.CARRY.in, before.values.CARRY.in);
   assert.equal(result.definition.components.filter((c) => c.type === 'led').length, 2);
+});
+
+test('bus fan-in uses one bus-in-4 marker for multiple selected targets', () => {
+  const source = component({ id: 'SOURCE', type: 'merge-4', x: -200, y: 0 });
+  const adder = component({ id: 'ADDER', type: 'adder-4', x: 0, y: 0 });
+  const scope = circuitWith(
+    [source, adder],
+    [wire('W1', 'SOURCE', 'ADDER', 'OUT', 'A'), wire('W2', 'SOURCE', 'ADDER', 'OUT', 'B')],
+  );
+
+  const result = extractSelectionIntoDefinition(scope, ['ADDER'], 'def-bus', 'Bus', GRID);
+  assert.ok(result);
+
+  const markers = result.definition.components.filter((item) => item.type === 'bus-in-4');
+  assert.equal(markers.length, 1);
+  const markerId = markers[0].id;
+  assert.equal(
+    result.definition.wires.filter((item) => item.from.componentId === markerId).length,
+    2,
+  );
+  assert.equal(result.scope.wires.length, 1);
+  assert.equal(result.scope.wires[0].to.pinId, markerId);
+});
+
+test('bus fan-out uses one display-4 marker and preserves external wire metadata', () => {
+  const selected = component({ id: 'MERGE', type: 'merge-4', x: 0, y: 0 });
+  const display = component({ id: 'DISPLAY', type: 'display-4', x: 240, y: 0 });
+  const split = component({ id: 'SPLIT', type: 'split-4', x: 240, y: 100 });
+  const scope = circuitWith(
+    [selected, display, split],
+    [
+      { ...wire('W1', 'MERGE', 'DISPLAY', 'OUT', 'IN'), label: 'resultado' },
+      wire('W2', 'MERGE', 'SPLIT', 'OUT', 'IN'),
+    ],
+  );
+
+  const result = extractSelectionIntoDefinition(scope, ['MERGE'], 'def-bus', 'Bus', GRID);
+  assert.ok(result);
+
+  const markers = result.definition.components.filter((item) => item.type === 'display-4');
+  assert.equal(markers.length, 1);
+  const markerId = markers[0].id;
+  assert.equal(result.scope.wires.length, 2);
+  assert.equal(result.scope.wires.find((item) => item.id === 'W1')?.from.pinId, markerId);
+  assert.equal(result.scope.wires.find((item) => item.id === 'W1')?.label, 'resultado');
+  assert.equal(result.scope.wires.find((item) => item.id === 'W2')?.from.pinId, markerId);
+});
+
+test('integration: a transformed bus boundary remains valid and preserves its value', () => {
+  const bits = [true, false, true, true];
+  const inputs = bits.map((state, index) =>
+    component({ id: `I${index}`, type: 'input', x: 0, y: index * 60, state }),
+  );
+  const outerMerge = component({ id: 'OUTER_MERGE', type: 'merge-4', x: 140, y: 80 });
+  const innerSplit = component({ id: 'INNER_SPLIT', type: 'split-4', x: 300, y: 80 });
+  const innerMerge = component({ id: 'INNER_MERGE', type: 'merge-4', x: 460, y: 80 });
+  const display = component({ id: 'DISPLAY', type: 'display-4', x: 640, y: 80 });
+  const wires = [
+    ...inputs.map((input, index) =>
+      wire(`WI${index}`, input.id, 'OUTER_MERGE', 'out', `I${index}`),
+    ),
+    wire('W-IN', 'OUTER_MERGE', 'INNER_SPLIT', 'OUT', 'IN'),
+    ...bits.map((_, index) =>
+      wire(`W-INTERNAL-${index}`, 'INNER_SPLIT', 'INNER_MERGE', `O${index}`, `I${index}`),
+    ),
+    wire('W-OUT', 'INNER_MERGE', 'DISPLAY', 'OUT', 'IN'),
+  ];
+  const scope = circuitWith([...inputs, outerMerge, innerSplit, innerMerge, display], wires);
+  const before = simulateCircuit(scope);
+
+  const result = extractSelectionIntoDefinition(
+    scope,
+    ['INNER_SPLIT', 'INNER_MERGE'],
+    'def-bus',
+    'Bus passthrough',
+    GRID,
+  );
+  assert.ok(result);
+
+  const inputMarker = result.definition.components.find((item) => item.type === 'bus-in-4');
+  const outputMarker = result.definition.components.find((item) => item.type === 'display-4');
+  assert.ok(inputMarker);
+  assert.ok(outputMarker);
+  assert.equal(
+    result.definition.components.some((item) => item.type === 'input' || item.type === 'led'),
+    false,
+  );
+  assert.deepEqual(
+    deriveSubcircuitPins(result.definition).map((pin) => ({
+      id: pin.id,
+      kind: pin.kind,
+      width: pin.width,
+    })),
+    [
+      { id: inputMarker.id, kind: 'input', width: 4 },
+      { id: outputMarker.id, kind: 'output', width: 4 },
+    ],
+  );
+
+  const transformed: CircuitDocument = {
+    ...result.scope,
+    definitions: [result.definition],
+  };
+  assert.equal(isCircuitDocument(transformed), true);
+
+  const { flat } = flattenCircuit(transformed, [result.definition]);
+  const after = simulateCircuit(flat);
+  assert.deepEqual(after.values.DISPLAY?.IN, before.values.DISPLAY?.IN);
+  assert.deepEqual(after.values.DISPLAY?.IN, bits);
+});
+
+test('width derived from another subcircuit instance selects a bus marker', () => {
+  const passthrough: CircuitDefinition = {
+    id: 'existing-bus',
+    name: 'Existing bus',
+    components: [
+      component({ id: 'BIN', type: 'bus-in-4', x: 0, y: 0 }),
+      component({ id: 'BOUT', type: 'display-4', x: 200, y: 0 }),
+    ],
+    wires: [wire('INNER', 'BIN', 'BOUT', 'OUT', 'IN')],
+  };
+  const instance = component({
+    id: 'U1',
+    type: 'subcircuit',
+    x: -200,
+    y: 0,
+    definitionId: passthrough.id,
+  });
+  const selected = component({ id: 'SPLIT', type: 'split-4', x: 0, y: 0 });
+  const scope = circuitWith([instance, selected], [wire('W1', 'U1', 'SPLIT', 'BOUT', 'IN')]);
+
+  const result = extractSelectionIntoDefinition(
+    scope,
+    ['SPLIT'],
+    'new-definition',
+    'Nested bus',
+    GRID,
+    [passthrough],
+  );
+  assert.ok(result);
+  assert.equal(result.definition.components.filter((item) => item.type === 'bus-in-4').length, 1);
 });
