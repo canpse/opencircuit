@@ -36,6 +36,17 @@ test('DocumentoSalvoNaoEstaSujo', () => {
   assert.equal(isDocumentDirty(documentWith(true, circuitWith(3, 2), true)), false);
 });
 
+test('ExemploNoBaselineDoCatalogoNaoEstaSujo', () => {
+  const document = {
+    ...documentWith(true, circuitWith(3, 2), true),
+    exampleId: 'half-adder',
+    remoteId: null,
+    revision: null,
+  };
+
+  assert.equal(isDocumentDirty(document), false);
+});
+
 test('AbaNovaVaziaNaoEstaSuja', () => {
   assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0), false)), false);
 });
@@ -50,6 +61,17 @@ test('DocumentoNaoSalvoApenasComFiosEstaSujo', () => {
 
 test('DocumentoJaSalvoQueFoiEsvaziadoEstaSujo', () => {
   assert.equal(isDocumentDirty(documentWith(false, circuitWith(0, 0), true)), true);
+});
+
+test('ExemploModificadoQueFoiEsvaziadoContinuaSujo', () => {
+  const document = {
+    ...documentWith(false, circuitWith(0, 0), true),
+    exampleId: 'half-adder',
+    remoteId: null,
+    revision: null,
+  };
+
+  assert.equal(isDocumentDirty(document), true);
 });
 
 test('EnsureJsonExtensionAcrescentaSufixoQuandoFalta', () => {

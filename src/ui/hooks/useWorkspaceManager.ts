@@ -373,9 +373,9 @@ export function useWorkspaceManager({ onMessage }: Options) {
     }
   }
 
-  function loadExample(exampleId: string) {
+  function loadExample(exampleId: string): boolean {
     const example = CIRCUIT_EXAMPLES.find((item) => item.id === exampleId);
-    if (!example) return;
+    if (!example) return false;
     const id = `doc-${Date.now()}`;
     setDocuments((current) => [
       ...current,
@@ -384,14 +384,19 @@ export function useWorkspaceManager({ onMessage }: Options) {
         name: example.name,
         circuit: normalizeCircuitForEditor(cloneCircuit(example.circuit)),
         exampleId: example.id,
-        saved: false,
-        everSaved: false,
+        // O catálogo embutido é o baseline limpo desta aba. Isso não cria
+        // vínculo remoto: Ctrl+S continua criando um circuito do usuário
+        // porque remoteId/revision permanecem nulos.
+        saved: true,
+        // Mantém a remoção completa do exemplo como mudança protegida.
+        everSaved: true,
         remoteId: null,
         revision: null,
       },
     ]);
     setActiveDocumentId(id);
     onMessage(`Exemplo aberto em nova aba: ${example.name}.`);
+    return true;
   }
 
   function importJson(event: ChangeEvent<HTMLInputElement>) {

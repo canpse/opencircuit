@@ -275,6 +275,10 @@ export function App() {
   const currentExample =
     CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
 
+  function openLessonExample(exampleId: string) {
+    if (loadExample(exampleId)) setSidePanelTab('lesson');
+  }
+
   const localAutosaveStatus = useAutoSaveWorkspace(workspace);
   useReleaseMomentaryButtons(setCircuit);
 
@@ -393,7 +397,7 @@ export function App() {
         onDownloadJson={downloadActiveDocument}
         onImportClick={() => fileInputRef.current?.click()}
         onExportImage={exportImage}
-        onLoadExample={loadExample}
+        onLoadExample={openLessonExample}
         onUndo={undo}
         onRedo={redo}
         onSelectTool={setSelectedTool}
@@ -676,7 +680,7 @@ export function App() {
               <LessonPanel
                 example={currentExample}
                 examples={CIRCUIT_EXAMPLES}
-                onLoadExample={loadExample}
+                onLoadExample={openLessonExample}
               />
             </div>
           )}
