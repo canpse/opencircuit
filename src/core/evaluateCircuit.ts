@@ -1,4 +1,4 @@
-export { evaluateCircuit, simulateCircuit } from './simulation/simulate';
+export { evaluateCircuit, simulateCircuit, type SimulationOptions } from './simulation/simulate';
 export {
   SEQUENTIAL_TYPES,
   isSequentialType,

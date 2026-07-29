@@ -4,7 +4,13 @@ import { simulateCircuit } from '../src/core/evaluateCircuit';
 import { flattenCircuit } from '../src/core/hierarchy/flatten';
 import { inspectHierarchyExpansion } from '../src/core/hierarchy/expansion.mjs';
 import { buildIncomingWireIndex } from '../src/core/simulation/signals';
-import type { CircuitDefinition, CircuitDocument, EvaluationResult } from '../src/core/types';
+import type {
+  CircuitDefinition,
+  CircuitDocument,
+  EvaluationResult,
+  LogicComponent,
+  Wire,
+} from '../src/core/types';
 import { CIRCUIT_EXAMPLES } from '../src/examples/circuitExamples';
 import { CircuitCanvas, type WireStyle } from '../src/ui/editor/CircuitCanvas';
 import { createIncrementalWireRouter, routeCircuitWires } from '../src/ui/editor/wireRouting';
@@ -62,6 +68,38 @@ function tileCircuit(circuit: CircuitDocument, copies: number): CircuitDocument 
         to: { ...wire.to, componentId: `${prefix}${wire.to.componentId}` },
       }));
     }).flat(),
+  };
+}
+
+function inverterChain(length: number, reversed: boolean): CircuitDocument {
+  const gates: LogicComponent[] = Array.from({ length }, (_, index) => ({
+    id: `N${String(index).padStart(5, '0')}`,
+    type: 'not',
+    x: index,
+    y: 0,
+  }));
+  const components: LogicComponent[] = [
+    { id: 'IN', type: 'input', x: 0, y: 0, state: true },
+    ...gates,
+    { id: 'OUT', type: 'led', x: length, y: 0 },
+  ];
+  const wires: Wire[] = gates.map((gate, index) => ({
+    id: `W${String(index).padStart(5, '0')}`,
+    from:
+      index === 0
+        ? { componentId: 'IN', pinId: 'out' }
+        : { componentId: gates[index - 1].id, pinId: 'out' },
+    to: { componentId: gate.id, pinId: 'in' },
+  }));
+  wires.push({
+    id: 'W-OUT',
+    from: { componentId: gates[gates.length - 1].id, pinId: 'out' },
+    to: { componentId: 'OUT', pinId: 'in' },
+  });
+  return {
+    version: 1,
+    components: reversed ? [...components].reverse() : components,
+    wires: reversed ? [...wires].reverse() : wires,
   };
 }
 
@@ -235,6 +273,22 @@ budgetResults.push(
     hierarchyFlatten.p95 <= 50 ? 'OK' : 'ACIMA DO ORÇAMENTO'
   }`,
 );
+
+const deepChain = inverterChain(9_998, true);
+const deepChainResult = simulateCircuit(deepChain);
+if (
+  deepChainResult.status !== 'stable' ||
+  deepChainResult.iterations !== 1 ||
+  deepChainResult.values.OUT?.in !== true
+) {
+  throw new Error('A cadeia combinacional profunda não convergiu corretamente.');
+}
+const deepChainWarm = benchmark(() => void simulateCircuit(deepChain), 15);
+const deepChainCold = benchmark(() => void simulateCircuit({ ...deepChain }), 10);
+
+console.log('\nCadeia combinacional invertida com 10.000 componentes:');
+console.log(`- simulação com plano cacheado: ${format(deepChainWarm)} ms`);
+console.log(`- simulação com plano e índice novos: ${format(deepChainCold)} ms`);
 
 console.log('\nOrçamentos de mediana (medido / limite):');
 for (const result of budgetResults) console.log(`- ${result}`);

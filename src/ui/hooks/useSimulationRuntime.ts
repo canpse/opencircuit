@@ -10,7 +10,8 @@ import { liftEvaluationForScope } from '../../core/hierarchy/simulate';
 
 export const EMPTY_SIMULATION_RESULT: SimulationResult = {
   values: {},
-  state: { values: {}, unstable: false, iterations: 0 },
+  state: { values: {}, status: 'stable', unstable: false, iterations: 0 },
+  status: 'stable',
   unstable: false,
   iterations: 0,
 };
