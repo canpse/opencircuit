@@ -1,7 +1,15 @@
+/**
+ * @typedef {import('./contracts.mjs').RateLimiter} RateLimiter
+ * @typedef {import('./contracts.mjs').RateLimiterOptions} RateLimiterOptions
+ */
+
+/** @param {RateLimiterOptions} [options] @returns {RateLimiter} */
 export function createRateLimiter({ limit = 300, windowMs = 60_000, now = Date.now } = {}) {
+  /** @type {Map<string, {count: number, resetAt: number}>} */
   const buckets = new Map();
   let checksSinceSweep = 0;
 
+  /** @param {number} currentTime */
   function sweepExpiredBuckets(currentTime) {
     for (const [key, bucket] of buckets) {
       if (currentTime >= bucket.resetAt) buckets.delete(key);
@@ -9,6 +17,7 @@ export function createRateLimiter({ limit = 300, windowMs = 60_000, now = Date.n
   }
 
   return {
+    /** @param {string} key */
     check(key) {
       const currentTime = now();
       checksSinceSweep += 1;

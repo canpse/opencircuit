@@ -1,9 +1,19 @@
 import { applyApiHeaders, send } from './api-helpers.mjs';
 import { AuthenticationError } from './session.mjs';
 
+/**
+ * @typedef {import('./contracts.mjs').ApiHandler} ApiHandler
+ * @typedef {import('./contracts.mjs').HttpRequest} HttpRequest
+ * @typedef {import('./contracts.mjs').HttpResponse} HttpResponse
+ * @typedef {import('./contracts.mjs').Identity} Identity
+ * @typedef {import('./contracts.mjs').RateLimiter} RateLimiter
+ */
+
+/** @param {Identity} identity @param {RateLimiter} rateLimiter @returns {ApiHandler} */
 export function createSessionApiHandler(identity, rateLimiter) {
+  /** @param {HttpRequest} request @param {HttpResponse} response */
   return function handle(request, response) {
-    const url = new URL(request.url, 'http://localhost');
+    const url = new URL(request.url ?? '/', 'http://localhost');
     if (url.pathname !== '/api/session') return false;
     applyApiHeaders(response);
     if (request.method !== 'GET') return send(response, 405, { error: 'Método não permitido.' });

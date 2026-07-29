@@ -5,6 +5,18 @@ import {
   inspectHierarchyExpansion,
 } from '../src/core/hierarchy/expansion.mjs';
 
+/**
+ * @typedef {import('./contracts.mjs').Identity} Identity
+ * @typedef {import('./contracts.mjs').LibraryComponentDefinition} LibraryComponentDefinition
+ * @typedef {import('./contracts.mjs').OperationalError} OperationalError
+ * @typedef {import('./contracts.mjs').RateLimiter} RateLimiter
+ */
+
+/**
+ * @param {import('./library-repository.mjs').LibraryRepository} repository
+ * @param {Identity} identity
+ * @param {RateLimiter} rateLimiter
+ */
 export function createLibraryApiHandler(repository, identity, rateLimiter) {
   return createVersionedResourceApiHandler({
     basePath: '/api/library',
@@ -12,7 +24,6 @@ export function createLibraryApiHandler(repository, identity, rateLimiter) {
     identity,
     rateLimiter,
     resourceField: 'definition',
-    resultField: 'entry',
     conflictResponseField: 'definition',
     validateResource: isValidDefinition,
     validateResourceOperation: validateHierarchyBudget,
@@ -26,11 +37,18 @@ export function createLibraryApiHandler(repository, identity, rateLimiter) {
   });
 }
 
+/** @param {unknown} value @returns {value is Record<string, unknown>} */
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** @param {unknown} definition @returns {definition is LibraryComponentDefinition} */
 function isValidDefinition(definition) {
-  if (!definition || typeof definition !== 'object' || Array.isArray(definition)) return false;
+  if (!isRecord(definition)) return false;
   return validateScope(definition.components, definition.wires, new Map());
 }
 
+/** @param {LibraryComponentDefinition} definition @returns {OperationalError | null} */
 function validateHierarchyBudget(definition) {
   const result = inspectHierarchyExpansion(
     { version: 1, components: definition.components, wires: definition.wires },

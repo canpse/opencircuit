@@ -1,11 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 
+/**
+ * @typedef {import('./contracts.mjs').RepositoryOptions} RepositoryOptions
+ * @typedef {import('./contracts.mjs').RepositoryUpdateResult<import('./contracts.mjs').StoredResource>} RepositoryUpdateResult
+ * @typedef {import('./contracts.mjs').ResourceSummary} ResourceSummary
+ * @typedef {import('./contracts.mjs').StoredResource} StoredResource
+ */
+
+/** @param {string} value */
 function sqlIdentifier(value) {
   if (!/^[a-z_][a-z0-9_]*$/i.test(value)) throw new Error(`Identificador SQL inválido: ${value}`);
   return value;
 }
 
+/** @param {string} value */
 function repositoryNamespace(value) {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error('Namespace de migrations inválido');
@@ -13,22 +22,36 @@ function repositoryNamespace(value) {
   return value;
 }
 
+/** @param {Record<string, import('node:sqlite').SQLInputValue>} row @param {string} column */
+function requiredText(row, column) {
+  const value = row[column];
+  if (typeof value !== 'string') throw new Error(`Coluna textual inválida: ${column}`);
+  return value;
+}
+
+/** @param {Record<string, import('node:sqlite').SQLInputValue>} row @param {string} column */
+function requiredNumber(row, column) {
+  const value = row[column];
+  if (typeof value !== 'number') throw new Error(`Coluna numérica inválida: ${column}`);
+  return value;
+}
+
+/**
+ * @template {unknown} Value
+ * @template {StoredResource} Resource
+ */
 export class VersionedJsonRepository {
+  /**
+   * @param {string} filename
+   * @param {RepositoryOptions} options
+   */
   constructor(
     filename,
-    {
-      table,
-      jsonColumn,
-      valueField,
-      resultField,
-      migrationNamespace,
-      indexName = `${table}_owner_updated`,
-    },
+    { table, jsonColumn, valueField, migrationNamespace, indexName = `${table}_owner_updated` },
   ) {
     this.table = sqlIdentifier(table);
     this.jsonColumn = sqlIdentifier(jsonColumn);
     this.valueField = valueField;
-    this.resultField = resultField;
     this.migrationNamespace = repositoryNamespace(migrationNamespace);
     this.indexName = sqlIdentifier(indexName);
     this.db = new DatabaseSync(filename);
@@ -119,6 +142,7 @@ export class VersionedJsonRepository {
     `);
   }
 
+  /** @param {number} version @param {() => void} migrate */
   applyMigration(version, migrate) {
     this.runInTransaction(() => {
       const migrated = this.db
@@ -133,6 +157,11 @@ export class VersionedJsonRepository {
     });
   }
 
+  /**
+   * @template Result
+   * @param {() => Result} operation
+   * @returns {Result}
+   */
   runInTransaction(operation) {
     this.db.exec('BEGIN IMMEDIATE;');
     try {
@@ -145,6 +174,7 @@ export class VersionedJsonRepository {
     }
   }
 
+  /** @param {string} ownerId @returns {ResourceSummary[]} */
   list(ownerId) {
     return this.db
       .prepare(
@@ -154,6 +184,7 @@ export class VersionedJsonRepository {
       .map(mapSummary);
   }
 
+  /** @param {string} ownerId @param {string} id @returns {Resource | null} */
   get(ownerId, id) {
     const row = this.db
       .prepare(`SELECT * FROM ${this.table} WHERE owner_id = ? AND id = ?`)
@@ -161,6 +192,12 @@ export class VersionedJsonRepository {
     return row ? this.mapResource(row) : null;
   }
 
+  /**
+   * @param {string} ownerId
+   * @param {string} name
+   * @param {Value} value
+   * @returns {Resource}
+   */
   create(ownerId, name, value) {
     const id = randomUUID();
     const now = new Date().toISOString();
@@ -169,14 +206,24 @@ export class VersionedJsonRepository {
         `INSERT INTO ${this.table}(id, owner_id, name, ${this.jsonColumn}, revision, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)`,
       )
       .run(id, ownerId, name, JSON.stringify(value), now, now);
-    return this.get(ownerId, id);
+    const created = this.get(ownerId, id);
+    if (!created) throw new Error('Recurso recém-criado não foi encontrado.');
+    return created;
   }
 
+  /**
+   * @param {string} ownerId
+   * @param {string} id
+   * @param {number} revision
+   * @param {string} name
+   * @param {Value} value
+   * @returns {import('./contracts.mjs').RepositoryUpdateResult<Resource>}
+   */
   update(ownerId, id, revision, name, value) {
     const current = this.get(ownerId, id);
     if (!current) return { kind: 'not-found' };
     if (current.revision !== revision) {
-      return { kind: 'conflict', [this.resultField]: current };
+      return { kind: 'conflict', resource: current };
     }
     const updatedAt = new Date().toISOString();
     const result = this.db
@@ -185,11 +232,14 @@ export class VersionedJsonRepository {
       )
       .run(name, JSON.stringify(value), updatedAt, ownerId, id, revision);
     if (result.changes === 0) {
-      return { kind: 'conflict', [this.resultField]: this.get(ownerId, id) };
+      return { kind: 'conflict', resource: this.get(ownerId, id) };
     }
-    return { kind: 'updated', [this.resultField]: this.get(ownerId, id) };
+    const updated = this.get(ownerId, id);
+    if (!updated) return { kind: 'not-found' };
+    return { kind: 'updated', resource: updated };
   }
 
+  /** @param {string} ownerId @param {string} id */
   delete(ownerId, id) {
     return (
       this.db.prepare(`DELETE FROM ${this.table} WHERE owner_id = ? AND id = ?`).run(ownerId, id)
@@ -201,25 +251,27 @@ export class VersionedJsonRepository {
     this.db.close();
   }
 
+  /** @param {Record<string, import('node:sqlite').SQLInputValue>} row @returns {Resource} */
   mapResource(row) {
-    return {
-      id: row.id,
-      ownerId: row.owner_id,
-      name: row.name,
-      [this.valueField]: JSON.parse(row[this.jsonColumn]),
-      revision: row.revision,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+    return /** @type {Resource} */ ({
+      id: requiredText(row, 'id'),
+      ownerId: requiredText(row, 'owner_id'),
+      name: requiredText(row, 'name'),
+      [this.valueField]: JSON.parse(requiredText(row, this.jsonColumn)),
+      revision: requiredNumber(row, 'revision'),
+      createdAt: requiredText(row, 'created_at'),
+      updatedAt: requiredText(row, 'updated_at'),
+    });
   }
 }
 
+/** @param {Record<string, import('node:sqlite').SQLInputValue>} row @returns {ResourceSummary} */
 function mapSummary(row) {
   return {
-    id: row.id,
-    name: row.name,
-    revision: row.revision,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: requiredText(row, 'id'),
+    name: requiredText(row, 'name'),
+    revision: requiredNumber(row, 'revision'),
+    createdAt: requiredText(row, 'created_at'),
+    updatedAt: requiredText(row, 'updated_at'),
   };
 }
