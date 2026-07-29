@@ -76,11 +76,39 @@ describe('App mounted interactions', () => {
     expect(screen.getByText('OpenCircuit')).toBeTruthy();
     expect(screen.getByText('circuito_logico.json')).toBeTruthy();
 
-    const addTab = container.querySelector<HTMLButtonElement>('.add-tab');
-    expect(addTab).not.toBeNull();
-    fireEvent.click(addTab!);
+    const addTab = screen.getByRole('button', { name: 'Novo circuito' });
+    expect(container.querySelector('.add-tab')).toBe(addTab);
+    fireEvent.click(addTab);
 
     expect(screen.getByText('Sem título 2')).toBeTruthy();
+  });
+
+  it('uses the same new-document command from tab button and menu', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Novo circuito' }));
+    expect(screen.getByText('Sem título 2')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Arquivo/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Novo circuito/ }));
+    expect(screen.getByText('Sem título 3')).toBeTruthy();
+  });
+
+  it('navigates command menus with arrows and restores focus on Escape', () => {
+    render(<App />);
+    const fileMenu = screen.getByRole('button', { name: /Arquivo/ });
+    fileMenu.focus();
+
+    fireEvent.keyDown(fileMenu, { key: 'ArrowDown' });
+
+    const newDocument = screen.getByRole('menuitem', { name: /Novo circuito/ });
+    expect(document.activeElement).toBe(newDocument);
+    fireEvent.keyDown(newDocument, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: /Meus circuitos/ }));
+
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    expect(screen.queryByRole('menu', { name: 'Arquivo' })).toBeNull();
+    expect(document.activeElement).toBe(fileMenu);
   });
 
   it('toggles the hand tool through the Space shortcut', () => {
@@ -92,6 +120,106 @@ describe('App mounted interactions', () => {
 
     fireEvent.keyDown(window, { key: ' ', code: 'Space' });
     expect(handTool.classList.contains('active')).toBe(false);
+  });
+
+  it('does not steal Space from a focused button', () => {
+    render(<App />);
+    const handTool = screen.getByRole('button', { name: 'Mão' });
+    const tickButton = screen.getByRole('button', { name: 'Tick' });
+    tickButton.focus();
+
+    fireEvent.keyDown(tickButton, { key: ' ', code: 'Space' });
+
+    expect(handTool.classList.contains('active')).toBe(false);
+  });
+
+  it('suspends command shortcuts while editing text', () => {
+    render(<App />);
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'circuito_logico.json' }));
+    const renameInput = document.querySelector<HTMLInputElement>('.document-tab-rename');
+    expect(renameInput).not.toBeNull();
+
+    fireEvent.keyDown(renameInput!, { key: 'o', code: 'KeyO', ctrlKey: true });
+
+    expect(screen.queryByRole('dialog', { name: 'Meus circuitos' })).toBeNull();
+    fireEvent.keyDown(renameInput!, { key: 'Escape' });
+  });
+
+  it('opens shortcut help and suspends editor commands while the dialog is open', () => {
+    render(<App />);
+    const helpMenu = screen.getByRole('button', { name: /Ajuda/ });
+    fireEvent.click(helpMenu);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Atalhos e gestos' }));
+
+    expect(screen.getByRole('dialog', { name: 'Atalhos e gestos' })).toBeTruthy();
+    const close = screen.getByRole('button', { name: 'Fechar' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, { key: 'Tab' });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(window, { key: 'o', code: 'KeyO', ctrlKey: true });
+    expect(screen.queryByRole('dialog', { name: 'Meus circuitos' })).toBeNull();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Atalhos e gestos' })).toBeNull();
+    expect(document.activeElement).toBe(helpMenu);
+  });
+
+  it('keeps copy, paste and delete availability aligned with selection and clipboard', () => {
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    expect((screen.getByRole('menuitem', { name: /Copiar/ }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect((screen.getByRole('menuitem', { name: /Colar/ }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: /Copiar/ }), { key: 'Escape' });
+
+    const firstComponent = container.querySelector<SVGGElement>('.component');
+    expect(firstComponent).not.toBeNull();
+    fireEvent.contextMenu(firstComponent!, { clientX: 300, clientY: 300 });
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    const copy = screen.getByRole('menuitem', { name: /Copiar/ }) as HTMLButtonElement;
+    expect(copy.disabled).toBe(false);
+    fireEvent.click(copy);
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    const paste = screen.getByRole('menuitem', { name: /Colar/ }) as HTMLButtonElement;
+    expect(paste.disabled).toBe(false);
+    fireEvent.click(paste);
+    expect(container.querySelectorAll('.component')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.components.length + 1,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    const remove = screen.getByRole('menuitem', {
+      name: /Excluir seleção/,
+    }) as HTMLButtonElement;
+    expect(remove.disabled).toBe(false);
+    fireEvent.click(remove);
+    expect(container.querySelectorAll('.component')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.components.length,
+    );
+  });
+
+  it('shares zoom execution between keyboard, controls and menu', () => {
+    render(<App />);
+    const zoomReset = screen.getByRole('button', { name: 'Restaurar zoom a 100%' });
+    expect(zoomReset.textContent).toBe('100%');
+
+    fireEvent.keyDown(window, { key: '=', code: 'Equal', ctrlKey: true });
+    expect(zoomReset.textContent).toBe('120%');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Afastar' }));
+    expect(zoomReset.textContent).toBe('100%');
+
+    fireEvent.click(screen.getByRole('button', { name: /Exibir/ }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Aproximar/ }));
+    expect(zoomReset.textContent).toBe('120%');
   });
 
   it('opens the remote circuit browser through Ctrl+O', async () => {

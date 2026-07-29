@@ -1,4 +1,5 @@
 import { MouseEvent, useEffect, useMemo, useRef } from 'react';
+import type { RefObject } from 'react';
 import { getPinPosition, resolveComponentDefinition } from '../../core/catalog';
 import { ComponentView } from './ComponentView';
 import { isPinActive } from './canvasMemo';
@@ -11,7 +12,7 @@ import {
 } from './wireRouting';
 import { PendingWire, WireView } from './WireView';
 import { useLabelEditing } from './useLabelEditing';
-import { CanvasViewport } from './CanvasViewport';
+import { CanvasViewport, type CanvasCameraCommands } from './CanvasViewport';
 import type { EditorTool, Selection, WireStyle } from './editorTypes';
 import { useCanvasInteractionState, type Marquee } from './useCanvasInteractionState';
 import { useCanvasDerivedState } from './useCanvasDerivedState';
@@ -29,6 +30,7 @@ import type {
 export type { WireStyle } from './editorTypes';
 
 interface Props {
+  cameraCommandsRef?: RefObject<CanvasCameraCommands | null>;
   circuit: CircuitDocument;
   evaluation: EvaluationResult;
   changedSignals: ReadonlyMap<string, number>;
@@ -315,6 +317,7 @@ export function CircuitCanvas(props: Props) {
     <div className="canvas-wrap">
       <CanvasViewport
         svgRef={svgRef}
+        cameraCommandsRef={props.cameraCommandsRef}
         panToolSelected={props.selectedTool === 'pan'}
         componentCount={props.circuit.components.length}
         wireCount={props.circuit.wires.length}
