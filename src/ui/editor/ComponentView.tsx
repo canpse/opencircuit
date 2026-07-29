@@ -102,6 +102,7 @@ export const ComponentView = memo(function ComponentView({
     component.type === 'subcircuit' && !isDanglingSubcircuit
       ? () => onEnterInstance(component.id)
       : () => onRenameStart(component.id);
+  const accessibleName = component.label?.trim() || definition.label || component.id;
 
   return (
     <g
@@ -128,12 +129,22 @@ export const ComponentView = memo(function ComponentView({
       <g
         className="remove-component"
         transform={`translate(${bodyWidth - 8}, 8)`}
+        role="button"
+        tabIndex={0}
+        aria-label={`Excluir ${accessibleName}`}
         onMouseDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
           onRemove(component.id);
         }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          event.stopPropagation();
+          onRemove(component.id);
+        }}
       >
+        <title>{`Excluir ${accessibleName}`}</title>
         <circle r="10" />
         <text y="4" textAnchor="middle">
           ×
@@ -171,6 +182,7 @@ export const ComponentView = memo(function ComponentView({
           preserveAspectRatio="xMidYMid meet"
           onClick={(event) => {
             event.stopPropagation();
+            if (event.shiftKey) return;
             onToggleInput(component.id);
           }}
         />
@@ -190,11 +202,17 @@ export const ComponentView = memo(function ComponentView({
         <g
           className="pulse-button"
           onMouseDown={(event) => {
+            if (event.shiftKey) {
+              event.stopPropagation();
+              onMouseDown(event, component.id);
+              return;
+            }
             event.stopPropagation();
             onSetButtonPressed(component.id, true);
           }}
           onMouseUp={(event) => {
             event.stopPropagation();
+            if (event.shiftKey) return;
             onSetButtonPressed(component.id, false);
           }}
           onMouseLeave={() => onSetButtonPressed(component.id, false)}
@@ -218,12 +236,6 @@ export const ComponentView = memo(function ComponentView({
             x="14"
             y="22"
             textAnchor="start"
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onRenameStart(component.id);
-            }}
             onDoubleClick={(event) => {
               event.preventDefault();
               event.stopPropagation();
@@ -255,16 +267,6 @@ export const ComponentView = memo(function ComponentView({
           x={definition.width / 2}
           y="18"
           textAnchor="middle"
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            // A subcircuit instance's single click stays a no-op here (it's already
-            // selected via mousedown): renaming on click would flash open right before
-            // a double-click enters the instance, since click always fires first.
-            if (component.type === 'subcircuit') return;
-            onRenameStart(component.id);
-          }}
           onDoubleClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -291,12 +293,6 @@ export const ComponentView = memo(function ComponentView({
           x={definition.width / 2}
           y={definition.height + 18}
           textAnchor="middle"
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onRenameStart(component.id);
-          }}
           onDoubleClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -314,6 +310,11 @@ export const ComponentView = memo(function ComponentView({
             key={pin.id}
             className="pin-hitbox"
             onMouseDown={(event) => {
+              if (event.shiftKey) {
+                event.stopPropagation();
+                onMouseDown(event, component.id);
+                return;
+              }
               event.stopPropagation();
               if (event.button !== 0) return;
               onPinMouseDown({ componentId: component.id, pinId: pin.id }, pin.kind);
@@ -321,10 +322,12 @@ export const ComponentView = memo(function ComponentView({
             onMouseUp={(event) => {
               if (event.button !== 0) return;
               event.stopPropagation();
+              if (event.shiftKey) return;
               onPinMouseUp({ componentId: component.id, pinId: pin.id }, pin.kind);
             }}
             onClick={(event) => {
               event.stopPropagation();
+              if (event.shiftKey) return;
               onPinClick({ componentId: component.id, pinId: pin.id }, pin.kind);
             }}
           >

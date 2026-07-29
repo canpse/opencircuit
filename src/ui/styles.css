@@ -1765,6 +1765,14 @@ button:disabled {
 .component:hover .remove-component {
   opacity: 1;
 }
+.remove-component:focus-visible {
+  opacity: 1;
+  outline: none;
+}
+.remove-component:focus-visible circle {
+  stroke-width: 3;
+  filter: drop-shadow(0 0 3px rgba(179, 38, 30, 0.4));
+}
 .remove-component circle {
   fill: #fff2f0;
   stroke: var(--danger);

@@ -206,6 +206,124 @@ describe('App mounted interactions', () => {
     );
   });
 
+  it('adds and removes components and wires with Shift without losing the mixed selection', () => {
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+
+    const components = Array.from(container.querySelectorAll<SVGGElement>('g.component'));
+    expect(components.length).toBeGreaterThanOrEqual(2);
+
+    fireEvent.mouseDown(components[0], { button: 0, shiftKey: true });
+    fireEvent.mouseDown(components[1], { button: 0, shiftKey: true });
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(2);
+
+    const wire = container.querySelector<SVGPathElement>('path.wire:not(.wire-trunk-stem)');
+    expect(wire).not.toBeNull();
+    fireEvent.click(wire!, { shiftKey: true });
+
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(2);
+    expect(wire!.classList.contains('selected')).toBe(true);
+    expect(screen.getByText('2 componentes e 1 fio selecionados.')).toBeTruthy();
+
+    fireEvent.mouseDown(components[0], { button: 0, shiftKey: true });
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(1);
+    expect(wire!.classList.contains('selected')).toBe(true);
+  });
+
+  it('uses Ctrl+A and the Edit menu to select everything in the current scope', () => {
+    const { container } = render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'Novo circuito' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    expect(
+      (screen.getByRole('menuitem', { name: /Selecionar tudo/ }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    fireEvent.keyDown(screen.getByRole('menuitem', { name: /Selecionar tudo/ }), {
+      key: 'Escape',
+    });
+
+    openExample(SIGNAL_EXAMPLE.id);
+    fireEvent.keyDown(window, { key: 'a', code: 'KeyA', ctrlKey: true });
+
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.components.length,
+    );
+    expect(container.querySelectorAll('path.wire.selected')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.wires.length,
+    );
+
+    fireEvent.click(container.querySelector('.canvas-bg')!);
+    expect(container.querySelectorAll('.selected')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    const selectAll = screen.getByRole('menuitem', {
+      name: /Selecionar tudo/,
+    }) as HTMLButtonElement;
+    expect(selectAll.disabled).toBe(false);
+    fireEvent.click(selectAll);
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.components.length,
+    );
+  });
+
+  it('uses Escape first for the active tool and then to clear the selection', () => {
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+    fireEvent.keyDown(window, { key: 'a', code: 'KeyA', ctrlKey: true });
+    fireEvent.keyDown(window, { key: ' ', code: 'Space' });
+
+    const handTool = screen.getByRole('button', { name: 'Mão' });
+    expect(handTool.classList.contains('active')).toBe(true);
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(handTool.classList.contains('active')).toBe(false);
+    expect(container.querySelectorAll('g.component.selected')).toHaveLength(
+      SIGNAL_EXAMPLE.circuit.components.length,
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(container.querySelectorAll('.selected')).toHaveLength(0);
+    expect(screen.getByText('Nada selecionado.')).toBeTruthy();
+  });
+
+  it('gives direct deletion an accessible name, keyboard activation and Undo', () => {
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+    const originalCount = SIGNAL_EXAMPLE.circuit.components.length;
+
+    const removeButtons = screen.getAllByRole('button', { name: /^Excluir / });
+    expect(removeButtons).toHaveLength(originalCount);
+    fireEvent.keyDown(removeButtons[0], { key: 'Enter' });
+
+    expect(container.querySelectorAll('g.component')).toHaveLength(originalCount - 1);
+    expect(screen.getByText('Componente removido. Use Desfazer para restaurar.')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(container.querySelectorAll('g.component')).toHaveLength(originalCount);
+  });
+
+  it('keeps Shift selection from toggling an Input and renames labels only on double click', () => {
+    const { container } = render(<App />);
+    openExample(SIGNAL_EXAMPLE.id);
+
+    const inputAsset = container.querySelector<SVGImageElement>('image.input-asset');
+    expect(inputAsset).not.toBeNull();
+    const hrefBefore = inputAsset!.getAttribute('href');
+    fireEvent.mouseDown(inputAsset!, { button: 0, shiftKey: true });
+    fireEvent.click(inputAsset!, { shiftKey: true });
+    expect(inputAsset!.getAttribute('href')).toBe(hrefBefore);
+    expect(inputAsset!.closest('g.component')?.classList.contains('selected')).toBe(true);
+
+    openExample(NOT_EXAMPLE.id);
+    const editableLabel = container.querySelector<SVGTextElement>('.editable-label');
+    expect(editableLabel).not.toBeNull();
+    fireEvent.click(editableLabel!);
+    expect(container.querySelector('.label-editor-object')).toBeNull();
+
+    fireEvent.doubleClick(editableLabel!);
+    expect(container.querySelector('.label-editor-object input')).not.toBeNull();
+  });
+
   it('shares zoom execution between keyboard, controls and menu', () => {
     render(<App />);
     const zoomReset = screen.getByRole('button', { name: 'Restaurar zoom a 100%' });

@@ -26,6 +26,7 @@ import {
 } from '../app/editorUtils';
 import { settleHierarchical } from '../../core/hierarchy/simulate';
 import type { EditorTool, Selection } from '../editor/editorTypes';
+import { selectAllInCircuit, selectionMessage, toggleSelectionTarget } from '../editor/selection';
 
 export const EMPTY_SELECTION: Selection = { componentIds: [], wireIds: [] };
 
@@ -188,18 +189,33 @@ export function useCircuitEditor({
     setSelection(EMPTY_SELECTION);
   }
 
+  function clearSelectionWithMessage() {
+    selectItems(EMPTY_SELECTION);
+  }
+
   function selectComponent(componentId: string) {
-    setSelection({ componentIds: [componentId], wireIds: [] });
+    selectItems({ componentIds: [componentId], wireIds: [] });
+  }
+
+  function toggleComponentSelection(componentId: string) {
+    selectItems(toggleSelectionTarget(selection, { kind: 'component', id: componentId }));
   }
 
   function selectWire(wireId: string) {
-    setSelection({ componentIds: [], wireIds: [wireId] });
+    selectItems({ componentIds: [], wireIds: [wireId] });
+  }
+
+  function toggleWireSelection(wireId: string) {
+    selectItems(toggleSelectionTarget(selection, { kind: 'wire', id: wireId }));
   }
 
   function selectItems(nextSelection: Selection) {
     setSelection(nextSelection);
-    const count = nextSelection.componentIds.length + nextSelection.wireIds.length;
-    onMessage(count === 0 ? 'Nada selecionado.' : `${count} item(ns) selecionado(s).`);
+    onMessage(selectionMessage(nextSelection));
+  }
+
+  function selectAll() {
+    selectItems(selectAllInCircuit(circuit));
   }
 
   function removeSelection() {
@@ -222,7 +238,7 @@ export function useCircuitEditor({
       onSelectTool('select');
     }
     setSelection(EMPTY_SELECTION);
-    onMessage('Seleção removida.');
+    onMessage('Seleção removida. Use Desfazer para restaurar.');
   }
 
   function cancelPendingWire() {
@@ -363,7 +379,7 @@ export function useCircuitEditor({
       componentIds: current.componentIds.filter((id) => id !== componentId),
       wireIds: [],
     }));
-    onMessage('Componente removido.');
+    onMessage('Componente removido. Use Desfazer para restaurar.');
   }
 
   function renameComponent(componentId: string, label: string) {
@@ -456,9 +472,13 @@ export function useCircuitEditor({
     setButtonPressed,
     onPinClick,
     clearSelection,
+    clearSelectionWithMessage,
     selectComponent,
+    toggleComponentSelection,
     selectWire,
+    toggleWireSelection,
     selectItems,
+    selectAll,
     removeSelection,
     cancelPendingWire,
     removeWire,
