@@ -35,6 +35,32 @@ Alterações incompatíveis ao documento exigem uma nova versão e uma migraçã
 precisarem ser diferentes entre cliente e servidor devem ser documentados e testados como uma
 decisão deliberada.
 
+## Orçamento da hierarquia
+
+Os limites de 10.000 componentes e 20.000 fios por escopo validam a forma declarada, mas não
+impedem crescimento multiplicativo por instâncias. Por isso, `hierarchy/expansion.mjs` faz um
+preflight antes de qualquer flatten e calcula o grafo efetivo sem materializá-lo.
+
+| Métrica expandida                  |           Limite |
+| ---------------------------------- | ---------------: |
+| profundidade de instâncias         |               32 |
+| componentes achatados              |           10.000 |
+| fios achatados                     |           20.000 |
+| instâncias visitadas               |           10.000 |
+| comprimento de um ID/caminho       | 4.096 caracteres |
+| caracteres somados de IDs/caminhos |        2.000.000 |
+| unidades de trabalho do preflight  |           50.000 |
+
+O contador de fios segue aliases de fronteira e fan-out, inclusive passthrough direto entre
+marcadores. `flattenCircuit` sempre executa a guarda, mesmo quando chamado fora da UI. O servidor
+verifica a raiz e a visualização direta de cada definição: falhas estruturais retornam HTTP 400;
+documentos estruturalmente válidos acima do orçamento retornam HTTP 422 com código, métrica,
+limite, valor observado e escopo.
+
+Registros antigos continuam legíveis. No cliente eles abrem em modo de recuperação: canvas,
+navegação, remoção e download JSON permanecem disponíveis, enquanto flatten, simulação, clock,
+tabela verdade e salvamento remoto ficam bloqueados até o documento voltar ao orçamento.
+
 ## Como adicionar um componente
 
 1. Adicione o tipo e os pinos em `component-contract.json`. `GateType` será derivado das chaves.

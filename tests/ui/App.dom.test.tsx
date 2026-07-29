@@ -5,6 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/ui/App';
 
 class IdleWorker {
+  static instances = 0;
+
+  constructor() {
+    IdleWorker.instances += 1;
+  }
+
   addEventListener() {}
 
   removeEventListener() {}
@@ -25,6 +31,7 @@ class IdleResizeObserver {
 describe('App mounted interactions', () => {
   beforeEach(() => {
     localStorage.clear();
+    IdleWorker.instances = 0;
     vi.stubGlobal('Worker', IdleWorker);
     vi.stubGlobal('ResizeObserver', IdleResizeObserver);
     vi.stubGlobal(
@@ -76,5 +83,57 @@ describe('App mounted interactions', () => {
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('opens an over-budget legacy document in recovery mode without starting simulation', () => {
+    const definition = {
+      id: 'wide',
+      name: 'Larga',
+      components: Array.from({ length: 100 }, (_, index) => ({
+        id: `g${index}`,
+        type: 'not',
+        x: index,
+        y: 0,
+      })),
+      wires: [],
+    };
+    const circuit = {
+      version: 1,
+      definitions: [definition],
+      components: Array.from({ length: 101 }, (_, index) => ({
+        id: `u${index}`,
+        type: 'subcircuit',
+        x: index,
+        y: 0,
+        definitionId: definition.id,
+      })),
+      wires: [],
+    };
+    localStorage.setItem(
+      'opencircuit.logic.workspace.v1',
+      JSON.stringify({
+        version: 2,
+        activeDocumentId: 'legacy',
+        documents: [
+          {
+            id: 'legacy',
+            name: 'legado.json',
+            circuit,
+            exampleId: null,
+            saved: true,
+            everSaved: true,
+            remoteId: null,
+            revision: null,
+            libraryId: null,
+          },
+        ],
+      }),
+    );
+
+    render(<App />);
+
+    expect(screen.getByRole('alert').textContent).toContain('Modo de recuperação');
+    expect(screen.getByText(/Análise desativada/)).toBeTruthy();
+    expect(IdleWorker.instances).toBe(0);
   });
 });

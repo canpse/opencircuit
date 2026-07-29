@@ -10,6 +10,32 @@ import { createApiTestClient } from './api-test-client.mjs';
 
 const emptyCircuit = { version: 1, components: [], wires: [] };
 
+function overBudgetCircuit() {
+  const definition = {
+    id: 'wide',
+    name: 'Larga',
+    components: Array.from({ length: 100 }, (_, index) => ({
+      id: `g${index}`,
+      type: 'not',
+      x: index,
+      y: 0,
+    })),
+    wires: [],
+  };
+  return {
+    version: 1,
+    definitions: [definition],
+    components: Array.from({ length: 101 }, (_, index) => ({
+      id: `u${index}`,
+      type: 'subcircuit',
+      x: index,
+      y: 0,
+      definitionId: definition.id,
+    })),
+    wires: [],
+  };
+}
+
 describe('API de circuitos', () => {
   let directory;
   let repository;
@@ -130,6 +156,41 @@ describe('API de circuitos', () => {
       body: JSON.stringify({ name: 'Com subcircuito', circuit: circuitWithSubcircuit }),
     });
     expect(response.status).toBe(201);
+  });
+
+  test('rejeita expansão hierárquica excessiva com erro operacional estruturado', async () => {
+    const response = await userA.call('/api/circuits', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Expansão excessiva', circuit: overBudgetCircuit() }),
+    });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      code: 'HIERARCHY_EXPANSION_LIMIT',
+      violation: {
+        code: 'max-components',
+        metric: 'components',
+        limit: 10_000,
+        actual: 10_001,
+        scopeId: 'root',
+      },
+    });
+    expect(await userA.call('/api/circuits')).toMatchObject({ status: 200 });
+    expect(await (await userA.call('/api/circuits')).json()).toHaveLength(0);
+  });
+
+  test('mantém documentos legados acima do orçamento disponíveis para recuperação', async () => {
+    const ownerId = 'legacy-owner';
+    const stored = repository.create(ownerId, 'Legado', overBudgetCircuit());
+    const legacyApi = createApiHandler(
+      repository,
+      { resolve: () => ownerId },
+      createRateLimiter({ limit: 10_000 }),
+    );
+    const legacyClient = createApiTestClient(legacyApi, '192.0.2.3');
+
+    const response = await legacyClient.call(`/api/circuits/${stored.id}`);
+    expect(response.status).toBe(200);
+    expect((await response.json()).circuit.components).toHaveLength(101);
   });
 
   test('migração é idempotente', () => {

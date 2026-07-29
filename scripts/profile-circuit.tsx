@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { simulateCircuit } from '../src/core/evaluateCircuit';
 import { flattenCircuit } from '../src/core/hierarchy/flatten';
+import { inspectHierarchyExpansion } from '../src/core/hierarchy/expansion.mjs';
 import { buildIncomingWireIndex } from '../src/core/simulation/signals';
 import type { CircuitDefinition, CircuitDocument, EvaluationResult } from '../src/core/types';
 import { CIRCUIT_EXAMPLES } from '../src/examples/circuitExamples';
@@ -188,6 +189,52 @@ for (const copies of [1, 2, 4, 8, 16]) {
     );
   }
 }
+
+const hierarchyLeaf: CircuitDefinition = {
+  id: 'profile-leaf',
+  name: 'Folha de perfil',
+  components: Array.from({ length: 100 }, (_, index) => ({
+    id: `G${index}`,
+    type: 'not',
+    x: index,
+    y: 0,
+  })),
+  wires: [],
+};
+const hierarchyCircuit: CircuitDocument = {
+  version: 1,
+  components: Array.from({ length: 100 }, (_, index) => ({
+    id: `U${index}`,
+    type: 'subcircuit',
+    x: index,
+    y: 0,
+    definitionId: hierarchyLeaf.id,
+  })),
+  wires: [],
+};
+const hierarchyPreflight = benchmark(
+  () => void inspectHierarchyExpansion(hierarchyCircuit, [hierarchyLeaf]),
+  30,
+);
+const hierarchyFlatten = benchmark(
+  () =>
+    void flattenCircuit({ ...hierarchyCircuit, components: [...hierarchyCircuit.components] }, [
+      hierarchyLeaf,
+    ]),
+  30,
+);
+
+console.log('\nHierarquia sintética no limite de 10.000 componentes:');
+console.log(`- preflight: ${format(hierarchyPreflight)} ms`);
+console.log(`- flatten (inclui preflight): ${format(hierarchyFlatten)} ms`);
+budgetResults.push(
+  `preflight hierárquico p95 ${hierarchyPreflight.p95.toFixed(2)}/15 ms — ${
+    hierarchyPreflight.p95 <= 15 ? 'OK' : 'ACIMA DO ORÇAMENTO'
+  }`,
+  `flatten hierárquico p95 ${hierarchyFlatten.p95.toFixed(2)}/50 ms — ${
+    hierarchyFlatten.p95 <= 50 ? 'OK' : 'ACIMA DO ORÇAMENTO'
+  }`,
+);
 
 console.log('\nOrçamentos de mediana (medido / limite):');
 for (const result of budgetResults) console.log(`- ${result}`);

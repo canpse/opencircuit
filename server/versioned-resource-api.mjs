@@ -10,6 +10,7 @@ export function createVersionedResourceApiHandler({
   resultField,
   conflictResponseField,
   validateResource,
+  validateResourceOperation,
   messages,
 }) {
   const routePattern = new RegExp(`^${basePath}(?:/([0-9a-f-]+))?$`, 'i');
@@ -42,8 +43,10 @@ export function createVersionedResourceApiHandler({
           validateResource,
           messages.invalid,
         );
-        return error
-          ? send(response, 400, { error })
+        if (error) return send(response, 400, { error });
+        const operationalError = validateResourceOperation?.(body[resourceField]);
+        return operationalError
+          ? send(response, 422, operationalError)
           : send(response, 201, repository.create(ownerId, body.name.trim(), body[resourceField]));
       }
       if (request.method === 'PUT' && id) {
@@ -56,6 +59,8 @@ export function createVersionedResourceApiHandler({
           messages.invalid,
         );
         if (error) return send(response, 400, { error });
+        const operationalError = validateResourceOperation?.(body[resourceField]);
+        if (operationalError) return send(response, 422, operationalError);
         const result = repository.update(
           ownerId,
           id,

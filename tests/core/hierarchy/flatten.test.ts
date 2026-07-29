@@ -105,6 +105,59 @@ test('a single instance splices external drivers through its input markers and a
   assert.equal(result.values.LED_SUM.in, true);
 });
 
+test('a direct input-marker to output-marker wire passes the external scalar value through', () => {
+  const passthrough: CircuitDefinition = {
+    id: 'passthrough-def',
+    name: 'Passthrough',
+    components: [
+      { id: 'IN', type: 'input', x: 0, y: 0 },
+      { id: 'OUT', type: 'led', x: 200, y: 0 },
+    ],
+    wires: [
+      {
+        id: 'inside',
+        from: { componentId: 'IN', pinId: 'out' },
+        to: { componentId: 'OUT', pinId: 'in' },
+      },
+    ],
+  };
+  const doc: CircuitDocument = {
+    version: 1,
+    components: [
+      { id: 'SOURCE', type: 'input', x: 0, y: 0, state: true },
+      { id: 'U1', type: 'subcircuit', x: 150, y: 0, definitionId: passthrough.id },
+      { id: 'RESULT', type: 'led', x: 350, y: 0 },
+    ],
+    wires: [
+      {
+        id: 'into-instance',
+        from: { componentId: 'SOURCE', pinId: 'out' },
+        to: { componentId: 'U1', pinId: 'IN' },
+      },
+      {
+        id: 'out-of-instance',
+        from: { componentId: 'U1', pinId: 'OUT' },
+        to: { componentId: 'RESULT', pinId: 'in' },
+      },
+    ],
+  };
+
+  const { flat, canvasEvaluation } = evaluateHierarchical(doc, [passthrough]);
+
+  assert.deepEqual(
+    flat.wires.map((wire) => [wire.from, wire.to]),
+    [
+      [
+        { componentId: 'SOURCE', pinId: 'out' },
+        { componentId: 'RESULT', pinId: 'in' },
+      ],
+    ],
+  );
+  assert.equal(simulateCircuit(flat).values.RESULT?.in, true);
+  assert.equal(canvasEvaluation.U1?.IN, true);
+  assert.equal(canvasEvaluation.U1?.OUT, true);
+});
+
 test('an instance output pin with no external wire simply has no flattened wire (unconnected reads false)', () => {
   // U1's CARRY pin (backed internally by AND1 -> the CARRY LED marker) is
   // deliberately left unwired from the outside -- nothing external reads it.
@@ -335,48 +388,17 @@ test('two instances with an internal flip-flop keep independent state via instan
   assert.deepEqual(templateFF?.memory, { q: false, previousClk: false });
 });
 
-// Fase 3 da #19: um barramento pode atravessar a fronteira de um subcircuito via os
+// Um barramento pode atravessar diretamente a fronteira de um subcircuito via os
 // marcadores bus-in-4 (entrada) e display-4 (saída), espelhando input/clock e led.
-// Deliberadamente NÃO liga bus-in-4 direto em display-4 dentro da definição -- dois
-// marcadores nunca se resolvem um ao outro (bug pré-existente do mecanismo de
-// subcircuitos, não desta fase) -- por isso split-4/merge-4 fazem o papel de "porta
-// real" no meio, exatamente como qualquer definição funcional de verdade já precisa.
 function passthrough4Definition(): CircuitDefinition {
   const components: LogicComponent[] = [
     { id: 'BIN', type: 'bus-in-4', x: 0, y: 0 },
-    { id: 'SPLIT', type: 'split-4', x: 120, y: 0 },
-    { id: 'MERGE', type: 'merge-4', x: 280, y: 0 },
-    { id: 'DISP', type: 'display-4', x: 440, y: 0 },
+    { id: 'DISP', type: 'display-4', x: 200, y: 0 },
   ];
   const wires: Wire[] = [
     {
       id: 'iw1',
       from: { componentId: 'BIN', pinId: 'OUT' },
-      to: { componentId: 'SPLIT', pinId: 'IN' },
-    },
-    {
-      id: 'iw2',
-      from: { componentId: 'SPLIT', pinId: 'O0' },
-      to: { componentId: 'MERGE', pinId: 'I0' },
-    },
-    {
-      id: 'iw3',
-      from: { componentId: 'SPLIT', pinId: 'O1' },
-      to: { componentId: 'MERGE', pinId: 'I1' },
-    },
-    {
-      id: 'iw4',
-      from: { componentId: 'SPLIT', pinId: 'O2' },
-      to: { componentId: 'MERGE', pinId: 'I2' },
-    },
-    {
-      id: 'iw5',
-      from: { componentId: 'SPLIT', pinId: 'O3' },
-      to: { componentId: 'MERGE', pinId: 'I3' },
-    },
-    {
-      id: 'iw6',
-      from: { componentId: 'MERGE', pinId: 'OUT' },
       to: { componentId: 'DISP', pinId: 'IN' },
     },
   ];

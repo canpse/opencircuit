@@ -8,6 +8,10 @@ import {
 } from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isCircuitDocument } from '../../core/validateCircuitDocument';
+import {
+  formatHierarchyExpansionViolation,
+  inspectCircuitHierarchy,
+} from '../../core/hierarchy/expansion.mjs';
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
 import { circuitApi, CircuitApiError, type StoredCircuit } from '../../state/circuitApi';
 import {
@@ -226,6 +230,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
   }
 
   async function saveDocument(target: WorkspaceDocument): Promise<boolean> {
+    const hierarchy = inspectCircuitHierarchy(target.circuit);
+    if (!hierarchy.ok) {
+      setSyncState(target.id, 'error');
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} Reduza o circuito antes de salvar.`,
+      );
+      return false;
+    }
     setSyncState(target.id, 'saving');
     try {
       if (target.libraryId && target.revision) {
@@ -273,6 +285,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
   }
 
   async function saveDocumentAs(target: WorkspaceDocument): Promise<boolean> {
+    const hierarchy = inspectCircuitHierarchy(target.circuit);
+    if (!hierarchy.ok) {
+      setSyncState(target.id, 'error');
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} Reduza o circuito antes de salvar.`,
+      );
+      return false;
+    }
     const suggested = target.name.replace(/\.json$/i, '');
     const name = window
       .prompt(target.libraryId ? 'Nome do novo componente:' : 'Nome do novo circuito:', suggested)
@@ -382,6 +402,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
       .then((text) => {
         const parsed: unknown = JSON.parse(text);
         if (!isCircuitDocument(parsed)) throw new Error('Formato inválido');
+        const hierarchy = inspectCircuitHierarchy(parsed);
         const id = `doc-${Date.now()}`;
         setDocuments((current) => [
           ...current,
@@ -397,7 +418,11 @@ export function useWorkspaceManager({ onMessage }: Options) {
           },
         ]);
         setActiveDocumentId(id);
-        onMessage('JSON importado como cópia ainda não salva.');
+        onMessage(
+          hierarchy.ok
+            ? 'JSON importado como cópia ainda não salva.'
+            : `${formatHierarchyExpansionViolation(hierarchy.violation)} Aberto em modo de recuperação.`,
+        );
       })
       .catch(() => onMessage('Não foi possível importar esse JSON.'));
     event.target.value = '';

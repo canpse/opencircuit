@@ -1,4 +1,5 @@
 import type { CircuitDefinition, CircuitDocument, LogicComponent, PinRef, Wire } from '../types';
+import { assertHierarchyExpansionAllowed } from './expansion.mjs';
 
 export interface FlattenPinSource {
   componentId: string;
@@ -31,10 +32,13 @@ type LocalResolution =
   | { kind: 'marker-output' }
   | {
       kind: 'instance';
-      outputs: Record<string, FlattenPinSource>;
+      outputs: Record<string, BoundarySource>;
       inputSinks: Record<string, FlattenPinSource[]>;
     }
   | { kind: 'dangling-instance' };
+
+type BoundarySource =
+  { kind: 'component'; source: FlattenPinSource } | { kind: 'input'; pinId: string };
 
 function prefixedId(instancePath: string, localId: string): string {
   return instancePath ? `${instancePath}.${localId}` : localId;
@@ -52,7 +56,7 @@ interface ExpandParams {
 
 interface Boundary {
   inputSinks: Record<string, FlattenPinSource[]>;
-  outputSources: Record<string, FlattenPinSource>;
+  outputSources: Record<string, BoundarySource>;
 }
 
 /**
@@ -76,6 +80,14 @@ export function flattenCircuit(
   const cached = flattenCache.get(scope)?.get(definitions);
   if (cached) return cached;
 
+  // This preflight is intentionally before the output arrays are created/populated:
+  // hierarchical growth can be multiplicative even when every individual definition
+  // respects the per-scope document limits.
+  assertHierarchyExpansionAllowed(scope, definitions);
+
+  const definitionsById = new Map(
+    definitions.map((definition) => [definition.id, definition] as const),
+  );
   const flatComponents: LogicComponent[] = [];
   const flatWires: Wire[] = [];
   const nodes: FlattenNode[] = [];
@@ -92,6 +104,12 @@ export function flattenCircuit(
       relativePathPrefix,
     } = params;
     const resolutions = new Map<string, LocalResolution>();
+    const instanceNodes: Array<{
+      componentId: string;
+      node: FlattenNode;
+      inputPinIds: string[];
+      outputPinIds: string[];
+    }> = [];
 
     for (const component of components) {
       if (
@@ -109,7 +127,7 @@ export function flattenCircuit(
 
       if (component.type === 'subcircuit') {
         const definition = component.definitionId
-          ? definitions.find((candidate) => candidate.id === component.definitionId)
+          ? definitionsById.get(component.definitionId)
           : undefined;
         const childInstancePath = prefixedId(instancePath, component.id);
 
@@ -151,17 +169,27 @@ export function flattenCircuit(
           inputSinks: childBoundary.inputSinks,
         });
 
-        const pinSources: Record<string, FlattenPinSource> = { ...childBoundary.outputSources };
+        const pinSources: Record<string, FlattenPinSource> = {};
+        for (const [pinId, boundarySource] of Object.entries(childBoundary.outputSources)) {
+          if (boundarySource.kind === 'component') pinSources[pinId] = boundarySource.source;
+        }
         for (const [pinId, sinks] of Object.entries(childBoundary.inputSinks)) {
           if (sinks.length > 0) pinSources[pinId] = sinks[0];
         }
-        nodes.push({
+        const node: FlattenNode = {
           instancePath: childInstancePath,
           localId: component.id,
           parentScopePath: instancePath || null,
           definitionId: definition.id,
           isDangling: false,
           pinSources,
+        };
+        nodes.push(node);
+        instanceNodes.push({
+          componentId: component.id,
+          node,
+          inputPinIds: Object.keys(childBoundary.inputSinks),
+          outputPinIds: Object.keys(childBoundary.outputSources),
         });
         continue;
       }
@@ -179,15 +207,47 @@ export function flattenCircuit(
       resolutions.set(component.id, { kind: 'component', flatId });
     }
 
-    function resolveSource(ref: PinRef): FlattenPinSource | null {
+    const incomingByTarget = new Map<string, Wire>();
+    for (const wire of wires) {
+      const key = `${wire.to.componentId}\0${wire.to.pinId}`;
+      if (!incomingByTarget.has(key)) incomingByTarget.set(key, wire);
+    }
+    const sourceCache = new Map<string, BoundarySource | null>();
+
+    function resolveBoundarySource(
+      ref: PinRef,
+      resolving = new Set<string>(),
+    ): BoundarySource | null {
+      const resolutionKey = `${ref.componentId}\0${ref.pinId}`;
+      if (sourceCache.has(resolutionKey)) return sourceCache.get(resolutionKey) ?? null;
+      if (resolving.has(resolutionKey)) return null;
+
       const resolution = resolutions.get(ref.componentId);
       if (!resolution) return null;
-      if (resolution.kind === 'component')
-        return { componentId: resolution.flatId, pinId: ref.pinId };
-      if (resolution.kind === 'instance') return resolution.outputs[ref.pinId] ?? null;
-      return null;
+      let source: BoundarySource | null = null;
+      if (resolution.kind === 'component') {
+        source = {
+          kind: 'component',
+          source: { componentId: resolution.flatId, pinId: ref.pinId },
+        };
+      } else if (resolution.kind === 'marker-input') {
+        source = { kind: 'input', pinId: ref.componentId };
+      } else if (resolution.kind === 'instance') {
+        const output = resolution.outputs[ref.pinId];
+        if (output?.kind === 'component') {
+          source = output;
+        } else if (output?.kind === 'input') {
+          const feedingWire = incomingByTarget.get(`${ref.componentId}\0${output.pinId}`);
+          if (feedingWire) {
+            const nextResolving = new Set(resolving);
+            nextResolving.add(resolutionKey);
+            source = resolveBoundarySource(feedingWire.from, nextResolving);
+          }
+        }
+      }
+      sourceCache.set(resolutionKey, source);
+      return source;
     }
-
     function resolveSinks(ref: PinRef): FlattenPinSource[] {
       const resolution = resolutions.get(ref.componentId);
       if (!resolution) return [];
@@ -200,23 +260,45 @@ export function flattenCircuit(
       return [];
     }
 
+    // Once every component in this scope has a resolution, aliases that cross a
+    // child boundary can be followed to their real source in this scope. Besides
+    // preserving the flattened wire, this keeps the instance pins shown on the
+    // canvas tied to the value that actually drives them.
+    for (const instanceNode of instanceNodes) {
+      for (const pinId of instanceNode.inputPinIds) {
+        if (instanceNode.node.pinSources[pinId]) continue;
+        const feedingWire = incomingByTarget.get(`${instanceNode.componentId}\0${pinId}`);
+        const source = feedingWire ? resolveBoundarySource(feedingWire.from) : null;
+        if (source?.kind === 'component') {
+          instanceNode.node.pinSources[pinId] = source.source;
+        }
+      }
+      for (const pinId of instanceNode.outputPinIds) {
+        if (instanceNode.node.pinSources[pinId]) continue;
+        const source = resolveBoundarySource({ componentId: instanceNode.componentId, pinId });
+        if (source?.kind === 'component') {
+          instanceNode.node.pinSources[pinId] = source.source;
+        }
+      }
+    }
+
     const pendingInputSinks = new Map<string, FlattenPinSource[]>();
 
     for (const wire of wires) {
       const sinks = resolveSinks(wire.to);
       if (sinks.length === 0) continue;
 
-      const fromResolution = resolutions.get(wire.from.componentId);
-      if (fromResolution?.kind === 'marker-input') {
-        const existing = pendingInputSinks.get(wire.from.componentId) ?? [];
-        pendingInputSinks.set(wire.from.componentId, [...existing, ...sinks]);
+      const source = resolveBoundarySource(wire.from);
+      if (source?.kind === 'input') {
+        const existing = pendingInputSinks.get(source.pinId);
+        if (existing) existing.push(...sinks);
+        else pendingInputSinks.set(source.pinId, [...sinks]);
         continue;
       }
 
-      const source = resolveSource(wire.from);
       if (!source) continue;
       for (const sink of sinks) {
-        flatWires.push({ id: `w${nextWireId++}`, from: source, to: sink });
+        flatWires.push({ id: `w${nextWireId++}`, from: source.source, to: sink });
       }
     }
 
@@ -231,12 +313,14 @@ export function flattenCircuit(
       }
     }
 
-    const outputSources: Record<string, FlattenPinSource> = {};
+    const outputSources: Record<string, BoundarySource> = {};
     for (const component of components) {
       if (component.type !== 'led' && component.type !== 'display-4') continue;
-      const feedingWire = wires.find((wire) => wire.to.componentId === component.id);
+      const feedingWire = incomingByTarget.get(
+        `${component.id}\0${component.type === 'led' ? 'in' : 'IN'}`,
+      );
       if (!feedingWire) continue;
-      const source = resolveSource(feedingWire.from);
+      const source = resolveBoundarySource(feedingWire.from);
       if (source) outputSources[component.id] = source;
     }
 

@@ -1,6 +1,10 @@
 import { Profiler, useEffect, useMemo, useRef, useState } from 'react';
 import type { CircuitDocument } from '../core/types';
 import { flattenCircuit } from '../core/hierarchy/flatten';
+import {
+  formatHierarchyExpansionViolation,
+  inspectCircuitHierarchy,
+} from '../core/hierarchy/expansion.mjs';
 import { CircuitCanvas } from './editor/CircuitCanvas';
 import { exportCircuitImage, type CircuitImageFormat } from './editor/exportCircuitImage';
 import { recordReactProfile } from '../performance/profiling';
@@ -134,6 +138,10 @@ export function App() {
     onSelectTool: setSelectedTool,
   });
 
+  const hierarchyInspection = useMemo(() => inspectCircuitHierarchy(circuit), [circuit]);
+  const hierarchyViolation = hierarchyInspection.ok ? null : hierarchyInspection.violation;
+  const hierarchyBlocked = hierarchyViolation !== null;
+
   const {
     pendingWire,
     setPendingWire,
@@ -175,6 +183,7 @@ export function App() {
     rememberCircuit,
     onMessage: setMessage,
     onSelectTool: setSelectedTool,
+    simulationBlocked: hierarchyBlocked,
   });
 
   function transformSelectionIntoSubcircuit(componentIds: string[]) {
@@ -213,6 +222,7 @@ export function App() {
     setWatchedSignals,
     rememberCircuit,
     onMessage: setMessage,
+    simulationBlocked: hierarchyBlocked,
     scopeKey: JSON.stringify([activeDocumentId, activeDefinitionId]),
   });
 
@@ -256,10 +266,10 @@ export function App() {
   // circuitHasFeedback roda sobre o grafo achatado (memoizado): uma realimentação que
   // atravessa a fronteira de uma instância de subcircuito só aparece depois de expandida.
   const flattenedScope = useMemo(
-    () => flattenCircuit(scopedCircuit, definitions),
-    [scopedCircuit, definitions],
+    () => (hierarchyBlocked ? null : flattenCircuit(scopedCircuit, definitions)),
+    [scopedCircuit, definitions, hierarchyBlocked],
   );
-  const hasFeedback = circuitHasFeedback(flattenedScope.flat);
+  const hasFeedback = flattenedScope ? circuitHasFeedback(flattenedScope.flat) : false;
   const currentExample =
     CIRCUIT_EXAMPLES.find((example) => example.id === currentExampleId) ?? null;
 
@@ -453,6 +463,14 @@ export function App() {
               definitions={definitions}
               onNavigate={goToBreadcrumbIndex}
             />
+            {hierarchyViolation && (
+              <div className="hierarchy-recovery-banner" role="alert">
+                <strong>Modo de recuperação.</strong>{' '}
+                {formatHierarchyExpansionViolation(hierarchyViolation)} A simulação, o clock, a
+                tabela verdade e o salvamento remoto ficam bloqueados. Remova instâncias ou
+                simplifique definições; o canvas e o download do JSON continuam disponíveis.
+              </div>
+            )}
             {!activeDefinition && historyTick !== null && (
               <div className="history-view-banner">
                 <span>
@@ -603,14 +621,20 @@ export function App() {
                 {hasSequentialComponents || hasFeedback ? 'Estado do Circuito' : 'Tabela Verdade'}
                 {historyTick !== null && ` (tick ${historyTick})`}
               </div>
-              <CircuitTruthTable
-                circuit={scopedCircuit}
-                evaluation={canvasEvaluation}
-                unstable={simulationResult.unstable}
-                hasFeedback={hasFeedback}
-                definitions={definitions}
-                scopeName={activeDefinition?.name}
-              />
+              {hierarchyBlocked ? (
+                <div className="properties-card muted-card">
+                  Análise desativada enquanto o documento estiver no modo de recuperação.
+                </div>
+              ) : (
+                <CircuitTruthTable
+                  circuit={scopedCircuit}
+                  evaluation={canvasEvaluation}
+                  unstable={simulationResult.unstable}
+                  hasFeedback={hasFeedback}
+                  definitions={definitions}
+                  scopeName={activeDefinition?.name}
+                />
+              )}
               <div className="analysis-guide-card">
                 {hasSequentialComponents || hasFeedback ? (
                   <>

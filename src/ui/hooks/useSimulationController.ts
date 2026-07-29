@@ -17,6 +17,7 @@ interface Options {
   setWatchedSignals: (signals: string[]) => void;
   rememberCircuit: () => void;
   onMessage: (message: string) => void;
+  simulationBlocked?: boolean;
   /** Identifies which document (and, when editing a subcircuit definition directly,
    * which definition within it) the tick count and waveform history below belong to.
    * Switching to a different scopeKey restores that scope's own tick count/waveform
@@ -34,11 +35,17 @@ export function useSimulationController({
   setWatchedSignals,
   rememberCircuit,
   onMessage,
+  simulationBlocked = false,
   scopeKey,
 }: Options) {
   const [autoClockRunning, setAutoClockRunning] = useState(false);
   const [autoClockIntervalMs, setAutoClockIntervalMs] = useState(500);
   const [tickCount, setTickCount] = useState(0);
+  const [trackedSimulationBlocked, setTrackedSimulationBlocked] = useState(simulationBlocked);
+  if (simulationBlocked !== trackedSimulationBlocked) {
+    setTrackedSimulationBlocked(simulationBlocked);
+    if (simulationBlocked) setAutoClockRunning(false);
+  }
 
   // Cada aba de documento (ou definição de subcircuito sendo editada diretamente) guarda
   // seu próprio contador de tick, restaurado ao voltar pra ela em vez de sempre voltar
@@ -78,7 +85,7 @@ export function useSimulationController({
     simulationCircuit,
     simulationTick,
     resetSimulationRuntime,
-  } = useSimulationRuntime(circuit, tickCount, definitions);
+  } = useSimulationRuntime(circuit, tickCount, definitions, !simulationBlocked);
 
   // waveformHistory usa o circuito/tick emparelhados com simulationResult
   // (não circuit/tickCount direto): sob carga pesada, o React pode juntar
@@ -133,24 +140,30 @@ export function useSimulationController({
     toggleWatchedSignal(wire.from.componentId, wire.from.pinId);
   }
 
-  const hasSequentialComponents = circuitOrInstancesHaveSequential(circuit.components, definitions);
+  const hasSequentialComponents =
+    !simulationBlocked && circuitOrInstancesHaveSequential(circuit.components, definitions);
 
   const autoClockTick = useCallback(() => {
+    if (simulationBlocked) return;
     setCircuit((current) => stepHierarchical(current, definitions));
     setTickCount((current) => current + 1);
-  }, [setCircuit, definitions]);
+  }, [setCircuit, definitions, simulationBlocked]);
 
   useAutoClock({
-    running: autoClockRunning,
+    running: autoClockRunning && !simulationBlocked,
     intervalMs: autoClockIntervalMs,
     onTick: autoClockTick,
   });
 
   function circuitCanTick() {
-    return circuitOrInstancesHaveSequential(circuit.components, definitions);
+    return !simulationBlocked && circuitOrInstancesHaveSequential(circuit.components, definitions);
   }
 
   function tickSequentialCircuit() {
+    if (simulationBlocked) {
+      onMessage('Simulação bloqueada: reduza a hierarquia para ficar dentro dos limites.');
+      return;
+    }
     if (!circuitCanTick()) {
       onMessage('Adicione Clock, Latch D ou Flip-Flop D para usar Tick.');
       return;
@@ -162,6 +175,11 @@ export function useSimulationController({
   }
 
   function toggleAutoClock() {
+    if (simulationBlocked) {
+      setAutoClockRunning(false);
+      onMessage('Clock bloqueado: reduza a hierarquia para ficar dentro dos limites.');
+      return;
+    }
     if (!autoClockRunning && !circuitCanTick()) {
       onMessage('Adicione Clock, Latch D ou Flip-Flop D para rodar o clock automático.');
       return;
@@ -210,7 +228,7 @@ export function useSimulationController({
   }
 
   return {
-    autoClockRunning,
+    autoClockRunning: autoClockRunning && !simulationBlocked,
     autoClockIntervalMs,
     setAutoClockIntervalMs,
     simulationResult,
