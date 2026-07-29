@@ -10,8 +10,8 @@ core <- state <- ui
 
 - `src/core` contém tipos, contrato de componentes, validação, hierarquia e simulação. Não depende
   de React, persistência ou UI.
-- `src/state` implementa arquivos, armazenamento do workspace e transporte HTTP. Depende apenas do
-  domínio.
+- `src/state` implementa armazenamento do workspace, download JSON e transporte HTTP. Depende
+  apenas do domínio.
 - `src/ui` coordena React, canvas SVG, interações e painéis.
 - `src/performance/measure.ts` é instrumentação opcional e neutra de ambiente, consumível pelo
   núcleo, Worker e Node; a integração específica com o Profiler do React fica separada.
@@ -23,6 +23,11 @@ typecheck por meio de `checkJs`.
 
 O servidor de desenvolvimento do Vite e o servidor de produção instanciam os mesmos handlers,
 repositórios, identidade e rate limiter.
+
+O cliente não usa File System Access API nem persiste handles em IndexedDB. Arquivos locais entram
+por importação JSON e saem por download JSON; o restante da persistência usa o workspace do
+navegador ou o servidor. O teste de arquitetura percorre imports estáticos e dinâmicos a partir de
+`src/main.tsx` e rejeita módulos de produção do cliente que não estejam alcançáveis.
 
 ## Contrato dos documentos
 

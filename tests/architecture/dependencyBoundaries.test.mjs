@@ -7,17 +7,44 @@ const sourceFiles = import.meta.glob('../../src/**/*.{ts,tsx,mjs}', {
   query: '?raw',
   import: 'default',
 });
+const sourcePathByRelativeFile = new Map(
+  Object.keys(sourceFiles).map((relativeFile) => [
+    relativeFile,
+    resolve(projectRoot, 'tests/architecture', relativeFile),
+  ]),
+);
+const sourcePaths = new Set(sourcePathByRelativeFile.values());
 
 function importsOf(source) {
-  return Array.from(
+  const declarations = Array.from(
     source.matchAll(/(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g),
     (match) => match[1],
   );
+  const dynamicImports = Array.from(
+    source.matchAll(/import\(\s*['"]([^'"]+)['"]\s*\)/g),
+    (match) => match[1],
+  );
+  return [...declarations, ...dynamicImports];
 }
 
 function absoluteImport(fromFile, specifier) {
   if (!specifier.startsWith('.')) return specifier;
   return resolve(fromFile, '..', specifier);
+}
+
+function resolveSourceImport(fromFile, specifier) {
+  if (!specifier.startsWith('.')) return null;
+  const base = absoluteImport(fromFile, specifier.split(/[?#]/, 1)[0]);
+  const candidates = [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    `${base}.mjs`,
+    resolve(base, 'index.ts'),
+    resolve(base, 'index.tsx'),
+    resolve(base, 'index.mjs'),
+  ];
+  return candidates.find((candidate) => sourcePaths.has(candidate)) ?? null;
 }
 
 describe('fronteiras arquiteturais', () => {
@@ -63,5 +90,31 @@ describe('fronteiras arquiteturais', () => {
       forbidden.some((fragment) => String(source).includes(fragment)) ? [file] : [],
     );
     expect(offenders).toEqual([]);
+  });
+
+  test('todos os módulos de produção do cliente são alcançáveis pelo entrypoint', () => {
+    const entrypoint = resolve(projectRoot, 'src/main.tsx');
+    const reachable = new Set();
+    const pending = [entrypoint];
+
+    while (pending.length > 0) {
+      const current = pending.pop();
+      if (!current || reachable.has(current)) continue;
+      reachable.add(current);
+      const sourceEntry = Array.from(sourcePathByRelativeFile.entries()).find(
+        ([, absolutePath]) => absolutePath === current,
+      );
+      if (!sourceEntry) continue;
+      for (const specifier of importsOf(String(sourceFiles[sourceEntry[0]]))) {
+        const imported = resolveSourceImport(current, specifier);
+        if (imported && !reachable.has(imported)) pending.push(imported);
+      }
+    }
+
+    const unreachable = [...sourcePaths]
+      .filter((file) => !file.endsWith('.d.ts') && !reachable.has(file))
+      .map((file) => relative(projectRoot, file))
+      .sort();
+    expect(unreachable).toEqual([]);
   });
 });
