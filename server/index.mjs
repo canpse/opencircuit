@@ -46,7 +46,7 @@ const server = createServer(async (request, response) => {
   if (sessionApi(request, response)) return;
   if (await api(request, response)) return;
   if (await libraryApi(request, response)) return;
-  const pathname = new URL(request.url, 'http://localhost').pathname;
+  const pathname = new URL(request.url ?? '/', 'http://localhost').pathname;
   const relative = normalize(pathname)
     .replace(/^(\.\.(\/|\\|$))+/, '')
     .replace(/^\//, '');
@@ -74,15 +74,17 @@ process.on('SIGTERM', () => {
   libraryRepository.close();
 });
 
+/** @type {Record<string, string>} */
+const MIME_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.json': 'application/json',
+};
+
+/** @param {string} extension */
 function mime(extension) {
-  return (
-    {
-      '.html': 'text/html; charset=utf-8',
-      '.js': 'text/javascript; charset=utf-8',
-      '.css': 'text/css; charset=utf-8',
-      '.svg': 'image/svg+xml',
-      '.png': 'image/png',
-      '.json': 'application/json',
-    }[extension] ?? 'application/octet-stream'
-  );
+  return MIME_TYPES[extension] ?? 'application/octet-stream';
 }

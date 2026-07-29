@@ -6,9 +6,9 @@
     "allowJs": true,
     "checkJs": true,
     "noEmit": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server/**/*.mjs"]
+  "include": ["server/**/*"]
 }

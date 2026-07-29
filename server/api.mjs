@@ -5,6 +5,18 @@ import {
   inspectCircuitHierarchy,
 } from '../src/core/hierarchy/expansion.mjs';
 
+/**
+ * @typedef {import('../src/core/types.js').CircuitDocument} CircuitDocument
+ * @typedef {import('./contracts.mjs').Identity} Identity
+ * @typedef {import('./contracts.mjs').OperationalError} OperationalError
+ * @typedef {import('./contracts.mjs').RateLimiter} RateLimiter
+ */
+
+/**
+ * @param {import('./circuit-repository.mjs').CircuitRepository} repository
+ * @param {Identity} identity
+ * @param {RateLimiter} rateLimiter
+ */
 export function createApiHandler(repository, identity, rateLimiter) {
   return createVersionedResourceApiHandler({
     basePath: '/api/circuits',
@@ -12,7 +24,6 @@ export function createApiHandler(repository, identity, rateLimiter) {
     identity,
     rateLimiter,
     resourceField: 'circuit',
-    resultField: 'circuit',
     conflictResponseField: 'circuit',
     validateResource: isCircuitDocument,
     validateResourceOperation: validateHierarchyBudget,
@@ -26,6 +37,7 @@ export function createApiHandler(repository, identity, rateLimiter) {
   });
 }
 
+/** @param {CircuitDocument} circuit @returns {OperationalError | null} */
 function validateHierarchyBudget(circuit) {
   const result = inspectCircuitHierarchy(circuit);
   if (result.ok === true) return null;
