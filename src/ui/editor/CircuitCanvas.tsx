@@ -63,7 +63,9 @@ interface Props {
   onOpenWireMenu: (x: number, y: number, wireId: string) => void;
   onOpenWaypointMenu: (x: number, y: number, wireId: string, waypointIndex: number) => void;
   onSelectComponent: (componentId: string) => void;
+  onToggleComponentSelection: (componentId: string) => void;
   onSelectWire: (wireId: string) => void;
+  onToggleWireSelection: (wireId: string) => void;
   onSelectItems: (selection: Selection) => void;
   onClearSelection: () => void;
   onSelectTool: (tool: EditorTool) => void;
@@ -177,7 +179,13 @@ export function CircuitCanvas(props: Props) {
   // Handlers com identidade permanente (useEventCallback) e parametrizados
   // por ID: sem arrow functions novas a cada render dentro dos .map(), o
   // React.memo dos filhos passa a bloquear reconciliações de verdade.
-  const handleWireSelect = useEventCallback((wireId: string) => props.onSelectWire(wireId));
+  const handleWireSelect = useEventCallback((event: MouseEvent<SVGElement>, wireId: string) => {
+    if (event.shiftKey) {
+      props.onToggleWireSelection(wireId);
+      return;
+    }
+    props.onSelectWire(wireId);
+  });
   const handleWireContextMenu = useEventCallback((event: MouseEvent<SVGElement>, wireId: string) =>
     props.onOpenWireMenu(event.clientX, event.clientY, wireId),
   );
@@ -185,6 +193,7 @@ export function CircuitCanvas(props: Props) {
     (event: MouseEvent<SVGPathElement>, wireId: string) => {
       if (event.button !== 0 || props.selectedTool !== 'select') return;
       event.stopPropagation();
+      if (event.shiftKey) return;
       const startMouse = svgPoint(event);
       const wire = props.circuit.wires.find((candidate) => candidate.id === wireId);
       const route = routeByWireId.get(wireId);
@@ -230,6 +239,13 @@ export function CircuitCanvas(props: Props) {
 
   const handleComponentMouseDown = useEventCallback(
     (event: MouseEvent<SVGGElement>, componentId: string) => {
+      if (event.button !== 0) return;
+      if (event.shiftKey) {
+        event.preventDefault();
+        setDragging(null);
+        props.onToggleComponentSelection(componentId);
+        return;
+      }
       const point = svgPoint(event);
       const componentIds = props.selection.componentIds.includes(componentId)
         ? props.selection.componentIds
@@ -281,6 +297,11 @@ export function CircuitCanvas(props: Props) {
       const component = componentById.get(componentId);
       if (!component) return;
       event.stopPropagation();
+      if (event.shiftKey) {
+        setResizingText(null);
+        props.onToggleComponentSelection(componentId);
+        return;
+      }
       const point = svgPoint(event);
       props.onSelectComponent(componentId);
       setDragging(null);

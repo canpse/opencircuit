@@ -12,6 +12,7 @@ export type EditorCommandId =
   | 'file.exportSvg'
   | 'edit.undo'
   | 'edit.redo'
+  | 'edit.selectAll'
   | 'edit.copy'
   | 'edit.paste'
   | 'edit.delete'
@@ -144,6 +145,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     ],
   },
   {
+    id: 'edit.selectAll',
+    group: 'edit',
+    label: 'Selecionar tudo',
+    description: 'Seleciona todos os componentes e fios do escopo atual.',
+    shortcuts: [{ key: 'a', primary: true, displayKey: 'A' }],
+  },
+  {
     id: 'edit.copy',
     group: 'edit',
     label: 'Copiar',
@@ -234,7 +242,8 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     id: 'editor.cancel',
     group: 'editor',
     label: 'Cancelar interação',
-    description: 'Cancela menus, conexões pendentes e volta à ferramenta Selecionar.',
+    description:
+      'Cancela a interação atual ou limpa a seleção quando nenhuma interação está ativa.',
     shortcuts: [{ key: 'Escape', displayKey: 'Esc', allowRepeat: false }],
   },
 ] as const;
@@ -268,6 +277,7 @@ export const COMMAND_MENU_GROUPS: ReadonlyArray<{
       'edit.undo',
       'edit.redo',
       'separator:history',
+      'edit.selectAll',
       'edit.copy',
       'edit.paste',
       'edit.delete',
@@ -296,12 +306,32 @@ export const COMMAND_MENU_GROUPS: ReadonlyArray<{
 
 export const EDITOR_GESTURES: ReadonlyArray<{ gesture: string; description: string }> = [
   {
+    gesture: 'Arrastar no vazio',
+    description: 'Cria uma seleção retangular de componentes e fios.',
+  },
+  {
+    gesture: 'Shift+clique',
+    description: 'Adiciona ou remove um componente ou fio da seleção atual.',
+  },
+  {
+    gesture: 'Clique no vazio',
+    description: 'Limpa a seleção atual.',
+  },
+  {
+    gesture: 'Arrastar item selecionado',
+    description: 'Move em conjunto todos os componentes selecionados.',
+  },
+  {
     gesture: 'Botão direito',
     description: 'Abre ações contextuais do canvas, componente, fio ou ponto de controle.',
   },
   {
-    gesture: 'Duplo clique',
-    description: 'Renomeia abas e rótulos ou entra em uma instância de subcircuito.',
+    gesture: 'Duplo clique em aba ou rótulo',
+    description: 'Renomeia a aba, o componente ou o túnel.',
+  },
+  {
+    gesture: 'Duplo clique em subcircuito',
+    description: 'Entra na definição usada pela instância.',
   },
   {
     gesture: 'Arrastar um fio',

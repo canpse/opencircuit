@@ -140,7 +140,9 @@ function renderCircuit(
       onOpenWireMenu={() => undefined}
       onOpenWaypointMenu={() => undefined}
       onSelectComponent={() => undefined}
+      onToggleComponentSelection={() => undefined}
       onSelectWire={() => undefined}
+      onToggleWireSelection={() => undefined}
       onSelectItems={() => undefined}
       onClearSelection={() => undefined}
       onSelectTool={() => undefined}

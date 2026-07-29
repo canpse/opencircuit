@@ -42,7 +42,7 @@ export const WireView = memo(function WireView({
   selected: boolean;
   tunnelFromOffset?: number;
   definitions?: CircuitDefinition[];
-  onSelect: (wireId: string) => void;
+  onSelect: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onContextMenu: (event: MouseEvent<SVGElement>, wireId: string) => void;
   onRename: (wireId: string, label: string) => void;
   onWireMouseDown: (event: MouseEvent<SVGPathElement>, wireId: string) => void;
@@ -120,7 +120,7 @@ export const WireView = memo(function WireView({
         className="wire-tunnel"
         onClick={(event) => {
           event.stopPropagation();
-          onSelect(wire.id);
+          onSelect(event, wire.id);
         }}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -173,7 +173,7 @@ export const WireView = memo(function WireView({
         onMouseDown={(event) => onWireMouseDown(event, wire.id)}
         onClick={(event) => {
           event.stopPropagation();
-          onSelect(wire.id);
+          onSelect(event, wire.id);
         }}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -202,7 +202,7 @@ export const WireView = memo(function WireView({
             }}
             onClick={(event) => {
               event.stopPropagation();
-              onSelect(wire.id);
+              onSelect(event, wire.id);
             }}
             onDoubleClick={(event) => event.stopPropagation()}
             onContextMenu={(event) => {

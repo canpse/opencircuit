@@ -163,9 +163,13 @@ export function App() {
     setButtonPressed,
     onPinClick,
     clearSelection,
+    clearSelectionWithMessage,
     selectComponent,
+    toggleComponentSelection,
     selectWire,
+    toggleWireSelection,
     selectItems,
+    selectAll,
     removeSelection,
     cancelPendingWire,
     removeWire,
@@ -368,10 +372,19 @@ export function App() {
       closeContextMenu();
       return;
     }
-    const hadPendingWire = Boolean(pendingWire);
-    setPendingWire(null);
-    setSelectedTool('select');
-    setMessage(hadPendingWire ? 'Conexão cancelada. Modo selecionar.' : 'Modo selecionar.');
+    if (pendingWire) {
+      cancelPendingWire();
+      return;
+    }
+    if (selectedTool !== 'select') {
+      setSelectedTool('select');
+      setPendingSubcircuitDefinitionId(null);
+      setMessage('Modo selecionar.');
+      return;
+    }
+    if (hasSelection(selection)) {
+      clearSelectionWithMessage();
+    }
   }
 
   const importJsonFromFile = useEventCallback(() => {
@@ -426,6 +439,10 @@ export function App() {
     },
     'edit.undo': { run: undo, enabled: canUndo },
     'edit.redo': { run: redo, enabled: canRedo },
+    'edit.selectAll': {
+      run: selectAll,
+      enabled: scopedCircuit.components.length > 0 || scopedCircuit.wires.length > 0,
+    },
     'edit.copy': { run: onCopy, enabled: hasSelection(selection) },
     'edit.paste': { run: onPaste, enabled: clipboard !== null },
     'edit.delete': { run: removeSelection, enabled: hasSelection(selection) },
@@ -597,9 +614,11 @@ export function App() {
                   onOpenWireMenu={openWireMenu}
                   onOpenWaypointMenu={openWaypointMenu}
                   onSelectComponent={selectComponent}
+                  onToggleComponentSelection={toggleComponentSelection}
                   onSelectWire={selectWire}
+                  onToggleWireSelection={toggleWireSelection}
                   onSelectItems={selectItems}
-                  onClearSelection={clearSelection}
+                  onClearSelection={clearSelectionWithMessage}
                   onSelectTool={setSelectedTool}
                 />
               </EditorCommandProvider>
