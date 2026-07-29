@@ -51,6 +51,17 @@ Os comandos individuais são:
 
 Use `npm run format` para formatar os arquivos versionados do projeto.
 
+## Persistência e arquivos
+
+O workspace ativo recebe autosave no armazenamento do navegador. Circuitos e componentes também
+podem ser persistidos no servidor, com revisão e tratamento de conflitos.
+
+A interoperabilidade com arquivos locais é deliberadamente feita por **Baixar JSON** e
+**Importar JSON**. O projeto não mantém vínculos nativos com arquivos via File System Access API
+nem handles em IndexedDB: essa implementação não era alcançável pela interface, variava entre
+navegadores e duplicava os fluxos de servidor e JSON. Uma eventual volta dessa capacidade deve ser
+tratada como uma funcionalidade completa de produto, com UI, fallback e testes ponta a ponta.
+
 ## Organização
 
 - `src/core`: modelo do circuito, catálogo de componentes, validação e simulação;
