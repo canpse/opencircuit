@@ -58,12 +58,20 @@ Use `npm run format` para formatar os arquivos versionados do projeto.
 Atualizações e advisories de dependências seguem a política descrita em
 [docs/dependency-security.md](docs/dependency-security.md).
 A classificação das áreas, o baseline e a política de testes estão em
-[docs/testing.md](docs/testing.md).
+[docs/testing.md](docs/testing.md). O comportamento observável dos comandos e
+fluxos principais fica no [mapa funcional](docs/mapa-funcional.md), acompanhado
+pelos [roteiros de teste exploratório](docs/roteiros-teste-exploratorio.md)
+executados sob demanda.
 
 ## Persistência e arquivos
 
 O workspace ativo recebe autosave no armazenamento do navegador. Circuitos e componentes também
 podem ser persistidos no servidor, com revisão e tratamento de conflitos.
+
+Autosave local, sincronização com o servidor, biblioteca pessoal e cópias JSON
+possuem efeitos diferentes. Consulte o
+[mapa funcional](docs/mapa-funcional.md#documentos-e-persistência) para o
+contrato atual de cada fluxo.
 
 A interoperabilidade com arquivos locais é deliberadamente feita por **Baixar JSON** e
 **Importar JSON**. O projeto não mantém vínculos nativos com arquivos via File System Access API
