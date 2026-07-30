@@ -104,7 +104,7 @@ export function ContextMenuView({
           )}
           {menu.kind === 'component' && componentIsSubcircuitInstance && (
             <button onClick={onSaveToLibrary} role="menuitem">
-              Salvar na biblioteca
+              Publicar na biblioteca…
             </button>
           )}
           <button disabled={!canRemove} onClick={onRemove} role="menuitem">

@@ -4,7 +4,7 @@ import {
   formatHierarchyExpansionViolation,
   inspectCircuitHierarchy,
 } from '../../core/hierarchy/expansion.mjs';
-import type { CircuitDefinition, CircuitDocument } from '../../core/types';
+import type { CircuitDocument } from '../../core/types';
 import { libraryApi, type LibraryComponentDefinition } from '../../state/libraryApi';
 import {
   extractSelectionIntoDefinition,
@@ -20,6 +20,7 @@ import {
   normalizedDefinitionName,
   renameDefinitionInCircuit,
 } from '../definitions/definitionManagement';
+import { assessLibraryPublication } from '../library/libraryPublication';
 
 interface Options {
   circuit: CircuitDocument;
@@ -50,6 +51,10 @@ export function useDefinitionWorkspace({
   const [pendingSubcircuitDefinitionId, setPendingSubcircuitDefinitionId] = useState<string | null>(
     null,
   );
+  const [pendingLibraryPublicationId, setPendingLibraryPublicationId] = useState<string | null>(
+    null,
+  );
+  const [pendingLibraryInsertId, setPendingLibraryInsertId] = useState<string | null>(null);
   const activeDefinitionId = navigationPath[navigationPath.length - 1] ?? null;
   const activeDefinition = activeDefinitionId
     ? (definitions.find((definition) => definition.id === activeDefinitionId) ?? null)
@@ -233,28 +238,34 @@ export function useDefinitionWorkspace({
     return definitionUsages(circuit, definitionId);
   }
 
-  async function saveDefinitionToLibraryFlow(definition: CircuitDefinition) {
-    if (definition.components.some((component) => component.type === 'subcircuit')) {
-      onMessage(
-        'Não é possível salvar na biblioteca: essa definição referencia outro subcircuito, e a biblioteca ainda não suporta aninhamento.',
-      );
-      return;
+  function requestDefinitionPublication(definitionId: string) {
+    if (!definitions.some((definition) => definition.id === definitionId)) return;
+    setPendingLibraryPublicationId(definitionId);
+  }
+
+  async function confirmDefinitionPublication(name: string): Promise<boolean> {
+    const definition = definitions.find(
+      (candidate) => candidate.id === pendingLibraryPublicationId,
+    );
+    if (!definition) {
+      setPendingLibraryPublicationId(null);
+      return false;
     }
-    const name = window.prompt('Nome do componente na biblioteca:', definition.name)?.trim();
-    if (!name) return;
-    await saveDefinitionToLibrary(name, {
+    const assessment = assessLibraryPublication(definition, definitions);
+    if (!assessment.canPublish) {
+      onMessage(assessment.blockingReasons[0] ?? 'Este componente não pode ser publicado.');
+      return false;
+    }
+    const succeeded = await saveDefinitionToLibrary(name, {
       components: definition.components,
       wires: definition.wires,
     });
-  }
-
-  function saveActiveDefinitionToLibrary() {
-    if (activeDefinition) void saveDefinitionToLibraryFlow(activeDefinition);
+    if (succeeded) setPendingLibraryPublicationId(null);
+    return succeeded;
   }
 
   function saveDefinitionByIdToLibrary(definitionId: string) {
-    const definition = definitions.find((item) => item.id === definitionId);
-    if (definition) void saveDefinitionToLibraryFlow(definition);
+    requestDefinitionPublication(definitionId);
   }
 
   function saveComponentDefinitionToLibrary(componentId: string) {
@@ -265,10 +276,12 @@ export function useDefinitionWorkspace({
       onMessage('Definição do subcircuito não encontrada.');
       return;
     }
-    void saveDefinitionToLibraryFlow(definition);
+    requestDefinitionPublication(definition.id);
   }
 
   async function insertLibraryDefinition(id: string) {
+    if (pendingLibraryInsertId) return;
+    setPendingLibraryInsertId(id);
     try {
       const stored = await libraryApi.get(id);
       const freshId = nextDefinitionId(definitions);
@@ -291,6 +304,8 @@ export function useDefinitionWorkspace({
       onMessage(`Componente "${stored.name}" pronto para posicionar no canvas.`);
     } catch (error) {
       onMessage(error instanceof Error ? error.message : 'Não foi possível inserir o componente.');
+    } finally {
+      setPendingLibraryInsertId(null);
     }
   }
 
@@ -308,6 +323,11 @@ export function useDefinitionWorkspace({
     setScopedCircuit,
     pendingSubcircuitDefinitionId,
     setPendingSubcircuitDefinitionId,
+    pendingLibraryPublication:
+      definitions.find((definition) => definition.id === pendingLibraryPublicationId) ?? null,
+    confirmDefinitionPublication,
+    cancelDefinitionPublication: () => setPendingLibraryPublicationId(null),
+    pendingLibraryInsertId,
     enterDefinitionDirect,
     enterInstance,
     goToBreadcrumbIndex,
@@ -316,7 +336,6 @@ export function useDefinitionWorkspace({
     renameDefinition,
     deleteUnusedDefinition,
     getDefinitionUsages,
-    saveActiveDefinitionToLibrary,
     saveDefinitionByIdToLibrary,
     saveComponentDefinitionToLibrary,
     insertLibraryDefinition,

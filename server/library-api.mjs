@@ -26,7 +26,7 @@ export function createLibraryApiHandler(repository, identity, rateLimiter) {
     resourceField: 'definition',
     conflictResponseField: 'definition',
     validateResource: isValidDefinition,
-    validateResourceOperation: validateHierarchyBudget,
+    validateResourceOperation: validateDefinitionOperation,
     messages: {
       notFound: 'Componente não encontrado.',
       invalid: 'Definição de componente inválida.',
@@ -49,7 +49,13 @@ function isValidDefinition(definition) {
 }
 
 /** @param {LibraryComponentDefinition} definition @returns {OperationalError | null} */
-function validateHierarchyBudget(definition) {
+function validateDefinitionOperation(definition) {
+  if (definition.components.length === 0) {
+    return {
+      error: 'Adicione componentes antes de publicar na biblioteca.',
+      code: 'EMPTY_LIBRARY_DEFINITION',
+    };
+  }
   const result = inspectHierarchyExpansion(
     { version: 1, components: definition.components, wires: definition.wires },
     [],

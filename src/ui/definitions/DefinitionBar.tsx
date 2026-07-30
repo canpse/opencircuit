@@ -95,7 +95,7 @@ export function DefinitionBar({
               Excluir
             </button>
             <button type="button" onClick={() => onSaveToLibrary(activeDefinition.id)}>
-              Salvar na biblioteca
+              Publicar na biblioteca…
             </button>
           </>
         ) : null}

@@ -48,6 +48,9 @@ export function useLibraryBrowser({
   const [entries, setEntries] = useState<StoredLibraryComponentSummary[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pendingDeleteEntry, setPendingDeleteEntry] =
+    useState<StoredLibraryComponentSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   async function refresh(shouldOpen = false) {
     if (shouldOpen) setOpen(true);
@@ -82,20 +85,31 @@ export function useLibraryBrowser({
     }
   }
 
-  async function deleteEntry(id: string) {
+  function requestDeleteEntry(id: string) {
     const summary = entries.find((item) => item.id === id);
-    if (!summary || !window.confirm(`Excluir “${summary.name}” da biblioteca?`)) return;
+    if (summary) setPendingDeleteEntry(summary);
+  }
+
+  async function confirmDeleteEntry() {
+    const summary = pendingDeleteEntry;
+    if (!summary || deleting) return;
+    setDeleting(true);
     try {
-      await libraryApi.delete(id);
-      setEntries((current) => current.filter((item) => item.id !== id));
+      await libraryApi.delete(summary.id);
+      setEntries((current) => current.filter((item) => item.id !== summary.id));
       setDocuments((current) =>
         current.map((item) =>
-          item.libraryId === id ? { ...item, libraryId: null, revision: null, saved: false } : item,
+          item.libraryId === summary.id
+            ? { ...item, libraryId: null, revision: null, saved: false }
+            : item,
         ),
       );
+      setPendingDeleteEntry(null);
       onMessage(`Componente excluído: ${summary.name}. A aba local foi preservada como rascunho.`);
     } catch (error) {
       onMessage(error instanceof Error ? error.message : 'Não foi possível excluir o componente.');
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -131,7 +145,13 @@ export function useLibraryBrowser({
     closeDialog: () => setOpen(false),
     refresh: () => void refresh(),
     openEntryForEditing: (id: string) => void openEntryForEditing(id),
-    deleteEntry: (id: string) => void deleteEntry(id),
+    requestDeleteEntry,
+    pendingDeleteEntry,
+    deleting,
+    confirmDeleteEntry: () => void confirmDeleteEntry(),
+    cancelDeleteEntry: () => {
+      if (!deleting) setPendingDeleteEntry(null);
+    },
     saveDefinition,
   };
 }

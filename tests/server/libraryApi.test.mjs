@@ -9,6 +9,19 @@ import { createSessionIdentity } from '../../server/session.mjs';
 import { createApiTestClient } from './api-test-client.mjs';
 
 const emptyDefinition = { components: [], wires: [] };
+const validDefinition = {
+  components: [
+    { id: 'A', type: 'input', x: 0, y: 0 },
+    { id: 'OUT', type: 'led', x: 200, y: 0 },
+  ],
+  wires: [
+    {
+      id: 'W1',
+      from: { componentId: 'A', pinId: 'out' },
+      to: { componentId: 'OUT', pinId: 'in' },
+    },
+  ],
+};
 
 describe('API da biblioteca', () => {
   let directory;
@@ -34,7 +47,7 @@ describe('API da biblioteca', () => {
   test('CRUD fica isolado por proprietário', async () => {
     const createdResponse = await userA.call('/api/library', {
       method: 'POST',
-      body: JSON.stringify({ name: 'Meio Somador', definition: emptyDefinition }),
+      body: JSON.stringify({ name: 'Meio Somador', definition: validDefinition }),
     });
     expect(createdResponse.status).toBe(201);
     const created = await createdResponse.json();
@@ -50,19 +63,19 @@ describe('API da biblioteca', () => {
     const created = await (
       await userA.call('/api/library', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Original', definition: emptyDefinition }),
+        body: JSON.stringify({ name: 'Original', definition: validDefinition }),
       })
     ).json();
     const first = await userA.call(`/api/library/${created.id}`, {
       method: 'PUT',
-      body: JSON.stringify({ name: 'Primeira', definition: emptyDefinition, revision: 1 }),
+      body: JSON.stringify({ name: 'Primeira', definition: validDefinition, revision: 1 }),
     });
     expect(first.status).toBe(200);
     expect((await first.json()).revision).toBe(2);
 
     const conflict = await userA.call(`/api/library/${created.id}`, {
       method: 'PUT',
-      body: JSON.stringify({ name: 'Obsoleta', definition: emptyDefinition, revision: 1 }),
+      body: JSON.stringify({ name: 'Obsoleta', definition: validDefinition, revision: 1 }),
     });
     expect(conflict.status).toBe(409);
     expect((await conflict.json()).definition.name).toBe('Primeira');
@@ -85,5 +98,18 @@ describe('API da biblioteca', () => {
         })
       ).status,
     ).toBe(400);
+  });
+
+  test('rejeita publicação vazia com motivo específico', async () => {
+    const response = await userA.call('/api/library', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Vazio', definition: emptyDefinition }),
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      error: 'Adicione componentes antes de publicar na biblioteca.',
+      code: 'EMPTY_LIBRARY_DEFINITION',
+    });
   });
 });
