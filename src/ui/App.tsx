@@ -30,6 +30,9 @@ import { LibraryDialog } from './dialogs/LibraryDialog';
 import { ConflictDialog } from './dialogs/ConflictDialog';
 import { DocumentTabs } from './tabs/DocumentTabs';
 import { ComponentLibrary } from './library/ComponentLibrary';
+import { DeleteLibraryEntryDialog } from './library/DeleteLibraryEntryDialog';
+import { PublishLibraryDefinitionDialog } from './library/PublishLibraryDefinitionDialog';
+import { SubcircuitPlacementBanner } from './library/SubcircuitPlacementBanner';
 import { useWorkspaceManager } from './hooks/useWorkspaceManager';
 import { useCircuitEditor } from './hooks/useCircuitEditor';
 import { useSimulationController } from './hooks/useSimulationController';
@@ -125,7 +128,11 @@ export function App() {
     closeLibraryDialog,
     refreshLibraryEntries,
     openLibraryEntryForEditing,
-    deleteLibraryEntry,
+    requestDeleteLibraryEntry,
+    pendingDeleteLibraryEntry,
+    deletingLibraryEntry,
+    confirmDeleteLibraryEntry,
+    cancelDeleteLibraryEntry,
     saveDefinitionToLibrary,
     libraryConflict,
     closeLibraryConflict,
@@ -152,6 +159,10 @@ export function App() {
     setScopedCircuit,
     pendingSubcircuitDefinitionId,
     setPendingSubcircuitDefinitionId,
+    pendingLibraryPublication,
+    confirmDefinitionPublication,
+    cancelDefinitionPublication,
+    pendingLibraryInsertId,
     enterDefinitionDirect,
     enterInstance,
     goToBreadcrumbIndex,
@@ -183,6 +194,8 @@ export function App() {
   const pendingClosePersistence = pendingCloseDocument
     ? closePersistencePresentation(pendingCloseDocument)
     : null;
+  const pendingPlacementDefinition =
+    definitions.find((definition) => definition.id === pendingSubcircuitDefinitionId) ?? null;
 
   const {
     pendingWire,
@@ -447,14 +460,18 @@ export function App() {
       return;
     }
     if (selectedTool !== 'select') {
-      setSelectedTool('select');
-      setPendingSubcircuitDefinitionId(null);
-      setMessage('Modo selecionar.');
+      cancelSubcircuitPlacement();
       return;
     }
     if (hasSelection(selection)) {
       clearSelectionWithMessage();
     }
+  }
+
+  function cancelSubcircuitPlacement() {
+    setSelectedTool('select');
+    setPendingSubcircuitDefinitionId(null);
+    setMessage('Modo selecionar.');
   }
 
   const importJsonFromFile = useEventCallback(() => {
@@ -486,7 +503,9 @@ export function App() {
     shortcutHelpOpen ||
     definitionNameDialog !== null ||
     deleteDefinitionId !== null ||
-    pendingPersistenceSave !== null;
+    pendingPersistenceSave !== null ||
+    pendingLibraryPublication !== null ||
+    pendingDeleteLibraryEntry !== null;
 
   const transformSelectionDescription = hierarchyBlocked
     ? 'Indisponível no modo de recuperação: corrija o limite de hierarquia primeiro.'
@@ -646,6 +665,12 @@ export function App() {
               definitions={definitions}
               onNavigate={goToBreadcrumbIndex}
             />
+            {pendingPlacementDefinition ? (
+              <SubcircuitPlacementBanner
+                name={pendingPlacementDefinition.name}
+                onCancel={cancelSubcircuitPlacement}
+              />
+            ) : null}
             {activeDefinition && activeDefinition.components.length === 0 && (
               <EmptyDefinitionGuide
                 definition={activeDefinition}
@@ -918,15 +943,29 @@ export function App() {
         />
       )}
 
-      {libraryDialogOpen && (
+      {libraryDialogOpen && !pendingDeleteLibraryEntry && (
         <LibraryDialog
           entries={libraryEntries}
           loading={libraryLoading}
+          pendingInsertId={pendingLibraryInsertId}
           onInsert={(id) => void insertLibraryDefinition(id)}
           onEdit={openLibraryEntryForEditing}
-          onDelete={deleteLibraryEntry}
+          onDelete={requestDeleteLibraryEntry}
           onRefresh={refreshLibraryEntries}
           onClose={closeLibraryDialog}
+        />
+      )}
+
+      {pendingDeleteLibraryEntry && (
+        <DeleteLibraryEntryDialog
+          entry={pendingDeleteLibraryEntry}
+          linkedDocumentCount={
+            documents.filter((document) => document.libraryId === pendingDeleteLibraryEntry.id)
+              .length
+          }
+          deleting={deletingLibraryEntry}
+          onCancel={cancelDeleteLibraryEntry}
+          onConfirm={confirmDeleteLibraryEntry}
         />
       )}
 
@@ -953,6 +992,15 @@ export function App() {
           request={pendingPersistenceSave}
           onCancel={cancelPersistenceSave}
           onConfirm={confirmPersistenceSave}
+        />
+      )}
+
+      {pendingLibraryPublication && (
+        <PublishLibraryDefinitionDialog
+          definition={pendingLibraryPublication}
+          definitions={definitions}
+          onCancel={cancelDefinitionPublication}
+          onConfirm={confirmDefinitionPublication}
         />
       )}
 
