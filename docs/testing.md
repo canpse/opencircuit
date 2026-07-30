@@ -75,6 +75,22 @@ bootstraps e coordenadores que ainda devem mudar.
 - Lacunas relevantes em módulos estáveis viram trabalho explícito quando representam risco real.
 - Os [roteiros exploratórios](roteiros-teste-exploratorio.md) permanecem manuais.
 
+## Exploração manual
+
+O [mapa funcional](mapa-funcional.md) registra os comandos, gestos e efeitos
+observáveis que os roteiros usam como referência. Mudanças deliberadas nesses
+contratos devem atualizar o mapa e os roteiros pertinentes no mesmo PR.
+
+Os [roteiros exploratórios](roteiros-teste-exploratorio.md) são executados sob
+demanda em bancos e perfil de navegador isolados. Eles cobrem montagem,
+simulação, abas, persistência, subcircuitos, biblioteca, análise e
+importação/exportação. O relatório deve registrar ambiente, esperado,
+observado, descobertas laterais e limpeza dos dados.
+
+A contagem de testes não é repetida nesses documentos porque muda com
+frequência. Os números desta página permanecem apenas como baseline histórico,
+datado e reproduzível, da issue #100.
+
 ## Proteção seletiva
 
 Os thresholds ativos foram arredondados conservadoramente a partir do baseline e são aplicados de
