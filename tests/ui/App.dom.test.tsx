@@ -387,12 +387,12 @@ describe('App mounted interactions', () => {
     expect(
       screen.getByRole('alertdialog', { name: `Fechar ${SIGNAL_EXAMPLE.name}?` }),
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Salvar' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Salvar no servidor e fechar…' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Descartar' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeTruthy();
   });
 
-  it('salva uma cópia remota do exemplo sem alterar o catálogo embutido', async () => {
+  it('faz o primeiro salvamento com nome explícito sem alterar o catálogo embutido', async () => {
     const catalogBefore = JSON.stringify(SIGNAL_EXAMPLE.circuit);
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(
@@ -400,7 +400,7 @@ describe('App mounted interactions', () => {
         JSON.stringify({
           id: 'remote-example',
           ownerId: 'owner-test',
-          name: SIGNAL_EXAMPLE.name,
+          name: 'Minha primeira aula',
           revision: 1,
           createdAt: '2026-07-29T12:00:00.000Z',
           updatedAt: '2026-07-29T12:00:00.000Z',
@@ -416,10 +416,23 @@ describe('App mounted interactions', () => {
     openExample(SIGNAL_EXAMPLE.id);
 
     fireEvent.keyDown(window, { key: 's', code: 'KeyS', ctrlKey: true });
+    const dialog = screen.getByRole('dialog', { name: 'Salvar no servidor' });
+    expect(dialog.textContent).toContain('a aba atual ficará vinculada');
+    const nameInput = screen.getByRole('textbox', { name: 'Nome' });
+    expect((nameInput as HTMLInputElement).value).toBe(SIGNAL_EXAMPLE.name);
+
+    fireEvent.change(nameInput, { target: { value: 'Minha primeira aula.json' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar e vincular aba' }));
+    expect(screen.getByRole('alert').textContent).toContain('sem .json');
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(nameInput, { target: { value: 'Minha primeira aula' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar e vincular aba' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(documentTab(container, SIGNAL_EXAMPLE.name).textContent).toContain('☁');
+      expect(documentTab(container, 'Minha primeira aula').textContent).toContain('Servidor');
+      expect(screen.getByLabelText('Circuito no servidor: Sincronizado')).toBeTruthy();
     });
     const [path, request] = fetchMock.mock.calls[0]!;
     expect(path).toBe('/api/circuits');
@@ -428,7 +441,7 @@ describe('App mounted interactions', () => {
       name: string;
       circuit: unknown;
     };
-    expect(body.name).toBe(SIGNAL_EXAMPLE.name);
+    expect(body.name).toBe('Minha primeira aula');
     expect(body.circuit).toEqual(SIGNAL_EXAMPLE.circuit);
     expect(JSON.stringify(SIGNAL_EXAMPLE.circuit)).toBe(catalogBefore);
   });
@@ -625,8 +638,8 @@ describe('App mounted interactions', () => {
     expect(warning.textContent).toContain('alterações podem ser perdidas');
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     const footerText = container.querySelector('.app-footer')?.textContent;
-    expect(footerText).toContain('autosave local: falhou');
-    expect(footerText).toContain('servidor: não sincronizado');
+    expect(footerText).toContain('Proteção local: falhou');
+    expect(footerText).toContain('Rascunho local: ainda não enviado ao servidor');
 
     const addTab = container.querySelector<HTMLButtonElement>('.add-tab');
     expect(addTab).not.toBeNull();
@@ -662,7 +675,7 @@ describe('App mounted interactions', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alert')).toBeNull();
       expect(container.querySelector('.app-footer')?.textContent).toContain(
-        'autosave local: recuperado',
+        'Proteção local: recuperada',
       );
     });
   });

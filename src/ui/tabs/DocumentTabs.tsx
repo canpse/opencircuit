@@ -3,12 +3,11 @@ import { isDocumentDirty, type WorkspaceDocument } from '../../state/workspaceSt
 import { CIRCUIT_EXAMPLES } from '../../examples/circuitExamples';
 import { commandShortcutLabel } from '../commands/editorCommands';
 import { useEditorCommand } from '../commands/EditorCommandContext';
+import { documentDestination } from '../persistence/documentPersistence';
 
 interface Props {
   documents: WorkspaceDocument[];
   activeDocumentId: string;
-  remoteDocumentIds: ReadonlySet<string>;
-  libraryDocumentIds: ReadonlySet<string>;
   onSelect: (documentId: string) => void;
   onRequestClose: (documentId: string) => void;
   onRename: (documentId: string, name: string) => void;
@@ -17,8 +16,6 @@ interface Props {
 export function DocumentTabs({
   documents,
   activeDocumentId,
-  remoteDocumentIds,
-  libraryDocumentIds,
   onSelect,
   onRequestClose,
   onRename,
@@ -47,73 +44,74 @@ export function DocumentTabs({
 
   return (
     <div className="document-tabs">
-      {documents.map((document) => (
-        <div
-          key={document.id}
-          className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
-          title={
-            document.exampleId
-              ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}`
-              : document.name
-          }
-        >
-          {editing?.documentId === document.id ? (
-            <input
-              className="document-tab-rename"
-              value={editing.draft}
-              autoFocus
-              onFocus={(event) => event.target.select()}
-              onChange={(event) =>
-                setEditing({ documentId: document.id, draft: event.target.value })
-              }
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') commitEditing();
-                if (event.key === 'Escape') cancelEditing();
-              }}
-              onBlur={commitEditing}
-            />
-          ) : (
-            <button
-              className="document-tab-title"
-              title={
-                libraryDocumentIds.has(document.id)
-                  ? 'Componente de biblioteca — duplo clique para renomear'
-                  : remoteDocumentIds.has(document.id)
-                    ? 'Salvo no servidor — duplo clique para renomear'
-                    : 'Duplo clique para renomear'
-              }
-              onClick={() => onSelect(document.id)}
-              onDoubleClick={() => startEditing(document)}
-            >
-              {libraryDocumentIds.has(document.id)
-                ? '🧩 '
-                : remoteDocumentIds.has(document.id)
-                  ? '☁ '
-                  : ''}
-              {document.name}
-            </button>
-          )}
-          {isDocumentDirty(document) && (
-            <span
-              className="document-tab-dirty"
-              title="Mudanças não salvas"
-              aria-label="Mudanças não salvas"
-            >
-              •
-            </span>
-          )}
-          <button
-            className="document-tab-close"
-            aria-label={`Fechar ${document.name}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRequestClose(document.id);
-            }}
+      {documents.map((document) => {
+        const destination = documentDestination(document);
+        const destinationLabel = {
+          draft: 'Local',
+          remote: 'Servidor',
+          library: 'Biblioteca',
+        }[destination];
+        return (
+          <div
+            key={document.id}
+            className={`document-tab ${document.id === activeDocumentId ? 'active' : ''}`}
+            title={
+              document.exampleId
+                ? `Exemplo: ${CIRCUIT_EXAMPLES.find((example) => example.id === document.exampleId)?.name ?? document.exampleId}`
+                : document.name
+            }
           >
-            ×
-          </button>
-        </div>
-      ))}
+            {editing?.documentId === document.id ? (
+              <input
+                className="document-tab-rename"
+                value={editing.draft}
+                autoFocus
+                onFocus={(event) => event.target.select()}
+                onChange={(event) =>
+                  setEditing({ documentId: document.id, draft: event.target.value })
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitEditing();
+                  if (event.key === 'Escape') cancelEditing();
+                }}
+                onBlur={commitEditing}
+              />
+            ) : (
+              <button
+                className="document-tab-title"
+                aria-label={document.name}
+                title={`${destinationLabel} — duplo clique para renomear`}
+                onClick={() => onSelect(document.id)}
+                onDoubleClick={() => startEditing(document)}
+              >
+                <span className={`document-tab-destination ${destination}`}>
+                  {destinationLabel}
+                </span>
+                <span className="document-tab-name">{document.name}</span>
+              </button>
+            )}
+            {isDocumentDirty(document) && (
+              <span
+                className="document-tab-dirty"
+                title="Mudanças não salvas"
+                aria-label="Mudanças não salvas"
+              >
+                •
+              </span>
+            )}
+            <button
+              className="document-tab-close"
+              aria-label={`Fechar ${document.name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onRequestClose(document.id);
+              }}
+            >
+              ×
+            </button>
+          </div>
+        );
+      })}
       <button
         className="document-tab add-tab"
         onClick={newDocumentCommand.run}

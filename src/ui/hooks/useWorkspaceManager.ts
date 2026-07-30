@@ -1,11 +1,4 @@
-import {
-  ChangeEvent,
-  useCallback,
-  useMemo,
-  useReducer,
-  useState,
-  type SetStateAction,
-} from 'react';
+import { ChangeEvent, useCallback, useReducer, useState, type SetStateAction } from 'react';
 import type { CircuitDocument } from '../../core/types';
 import { isCircuitDocument } from '../../core/validateCircuitDocument';
 import {
@@ -29,8 +22,20 @@ import {
   type WorkspaceDocument,
 } from '../../state/workspaceStorage';
 import { cloneCircuit, normalizeCircuitForEditor } from '../app/editorUtils';
-import { useLibraryBrowser } from './useLibraryBrowser';
-import { useRemoteCircuitBrowser } from './useRemoteCircuitBrowser';
+import {
+  copyDestination,
+  documentDestination,
+  normalizedPersistenceName,
+  persistenceCopyNameSuggestion,
+  persistenceNameError,
+  persistenceNameSuggestion,
+  type PersistenceSaveRequest,
+} from '../persistence/documentPersistence';
+import { libraryEntryToWorkspaceDocument, useLibraryBrowser } from './useLibraryBrowser';
+import {
+  remoteCircuitToWorkspaceDocument,
+  useRemoteCircuitBrowser,
+} from './useRemoteCircuitBrowser';
 import type { RemoteSyncState } from './workspaceTypes';
 import { INITIAL_WORKSPACE_SYNC_MODEL, workspaceSyncReducer } from './workspaceSyncState';
 
@@ -43,6 +48,8 @@ interface Options {
 export function useWorkspaceManager({ onMessage }: Options) {
   const [workspace, setWorkspace] = useState(() => loadWorkspace());
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
+  const [pendingPersistenceSave, setPendingPersistenceSave] =
+    useState<PersistenceSaveRequest | null>(null);
   const [syncModel, dispatchSync] = useReducer(workspaceSyncReducer, INITIAL_WORKSPACE_SYNC_MODEL);
   const { conflict, libraryConflict } = syncModel;
 
@@ -52,15 +59,6 @@ export function useWorkspaceManager({ onMessage }: Options) {
   const circuit = activeDocument.circuit;
   const currentExampleId = activeDocument.exampleId;
   const pendingCloseDocument = documents.find((item) => item.id === pendingCloseId) ?? null;
-  const remoteDocumentIds = useMemo(
-    () => new Set(documents.filter((item) => item.remoteId).map((item) => item.id)),
-    [documents],
-  );
-  const libraryDocumentIds = useMemo(
-    () => new Set(documents.filter((item) => item.libraryId).map((item) => item.id)),
-    [documents],
-  );
-
   const setDocuments = useCallback((action: SetStateAction<WorkspaceDocument[]>) => {
     setWorkspace((current) => {
       const nextDocuments = typeof action === 'function' ? action(current.documents) : action;
@@ -157,8 +155,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
   async function savePendingCloseDocument() {
     const target = pendingCloseDocument;
     if (!target) return;
-    setPendingCloseId(null);
-    if (await saveDocument(target)) closeDocument(target.id);
+    if (documentDestination(target) === 'draft') {
+      requestPersistenceName(target, 'bind', true);
+      return;
+    }
+    if (await saveDocument(target)) {
+      setPendingCloseId(null);
+      closeDocument(target.id);
+    }
   }
 
   function discardPendingCloseDocument() {
@@ -197,6 +201,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
               ...document,
               name: stored.name,
               remoteId: stored.id,
+              libraryId: null,
               revision: stored.revision,
               saved: document.circuit === target.circuit,
               everSaved: true,
@@ -214,6 +219,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
           ? {
               ...document,
               name: stored.name,
+              remoteId: null,
               libraryId: stored.id,
               revision: stored.revision,
               saved: document.circuit === target.circuit,
@@ -238,6 +244,14 @@ export function useWorkspaceManager({ onMessage }: Options) {
       );
       return false;
     }
+    if (
+      (documentDestination(target) === 'library' && (!target.libraryId || !target.revision)) ||
+      (documentDestination(target) === 'remote' && (!target.remoteId || !target.revision))
+    ) {
+      setSyncState(target.id, 'error');
+      onMessage('O vínculo desta aba está incompleto. Crie uma cópia para preservar o circuito.');
+      return false;
+    }
     setSyncState(target.id, 'saving');
     try {
       if (target.libraryId && target.revision) {
@@ -251,10 +265,13 @@ export function useWorkspaceManager({ onMessage }: Options) {
         onMessage(`Componente salvo na biblioteca: ${stored.name}.`);
         return true;
       }
-      const stored =
-        target.remoteId && target.revision
-          ? await circuitApi.update(target.remoteId, target.name, target.circuit, target.revision)
-          : await circuitApi.create(target.name, target.circuit);
+      if (!target.remoteId || !target.revision) return false;
+      const stored = await circuitApi.update(
+        target.remoteId,
+        target.name,
+        target.circuit,
+        target.revision,
+      );
       applySavedRemote(target, stored);
       onMessage(`Circuito salvo no servidor: ${stored.name}.`);
       return true;
@@ -284,46 +301,107 @@ export function useWorkspaceManager({ onMessage }: Options) {
     onMessage(error instanceof Error ? error.message : 'Não foi possível salvar.');
   }
 
-  async function saveDocumentAs(target: WorkspaceDocument): Promise<boolean> {
+  function requestPersistenceName(
+    target: WorkspaceDocument,
+    mode: PersistenceSaveRequest['mode'],
+    closeAfterSave = false,
+  ) {
+    setPendingPersistenceSave({
+      documentId: target.id,
+      mode,
+      destination: mode === 'bind' ? 'remote' : copyDestination(target),
+      initialName:
+        mode === 'bind'
+          ? persistenceNameSuggestion(target.name)
+          : persistenceCopyNameSuggestion(target.name),
+      closeAfterSave,
+    });
+  }
+
+  async function confirmPersistenceSave(name: string): Promise<boolean> {
+    const request = pendingPersistenceSave;
+    const target = request
+      ? documents.find((document) => document.id === request.documentId)
+      : null;
+    if (!request || !target) {
+      setPendingPersistenceSave(null);
+      return false;
+    }
+
+    const nameError = persistenceNameError(name);
+    if (nameError) {
+      onMessage(nameError);
+      return false;
+    }
     const hierarchy = inspectCircuitHierarchy(target.circuit);
     if (!hierarchy.ok) {
-      setSyncState(target.id, 'error');
+      if (request.mode === 'bind') setSyncState(target.id, 'error');
       onMessage(
         `${formatHierarchyExpansionViolation(hierarchy.violation)} Reduza o circuito antes de salvar.`,
       );
       return false;
     }
-    const suggested = target.name.replace(/\.json$/i, '');
-    const name = window
-      .prompt(target.libraryId ? 'Nome do novo componente:' : 'Nome do novo circuito:', suggested)
-      ?.trim();
-    if (!name) {
-      onMessage('Salvar como cancelado.');
-      return false;
-    }
-    setSyncState(target.id, 'saving');
+    const normalizedName = normalizedPersistenceName(name);
+
     try {
-      if (target.libraryId) {
-        const stored = await libraryApi.create(name, toLibraryDefinition(target.circuit));
-        applySavedLibrary(target, stored);
-        onMessage(`Nova cópia salva na biblioteca: ${stored.name}.`);
+      if (request.mode === 'bind') {
+        setSyncState(target.id, 'saving');
+        const stored = await circuitApi.create(normalizedName, target.circuit);
+        applySavedRemote(target, stored);
+        setPendingPersistenceSave(null);
+        onMessage(`Circuito salvo no servidor: ${stored.name}.`);
+        if (request.closeAfterSave) {
+          setPendingCloseId(null);
+          closeDocument(target.id);
+        }
         return true;
       }
-      const stored = await circuitApi.create(name, target.circuit);
-      applySavedRemote(target, stored);
-      onMessage(`Nova cópia salva: ${stored.name}.`);
+
+      const documentId = nextWorkspaceDocumentId(documents);
+      if (request.destination === 'library') {
+        const stored = await libraryApi.create(normalizedName, toLibraryDefinition(target.circuit));
+        const copy = {
+          ...libraryEntryToWorkspaceDocument(stored, documentId),
+          watchedSignals: target.watchedSignals,
+        };
+        setDocuments((current) => [...current, copy]);
+        setActiveDocumentId(copy.id);
+        setSyncState(copy.id, 'saved');
+        setPendingPersistenceSave(null);
+        onMessage(`Cópia criada na biblioteca e aberta: ${stored.name}.`);
+        return true;
+      }
+
+      const stored = await circuitApi.create(normalizedName, target.circuit);
+      const copy = {
+        ...remoteCircuitToWorkspaceDocument(stored, documentId),
+        watchedSignals: target.watchedSignals,
+      };
+      setDocuments((current) => [...current, copy]);
+      setActiveDocumentId(copy.id);
+      setSyncState(copy.id, 'saved');
+      setPendingPersistenceSave(null);
+      onMessage(`Cópia criada no servidor e aberta: ${stored.name}.`);
       return true;
     } catch (error) {
-      handleSaveError(target.id, error);
+      if (request.mode === 'bind') {
+        handleSaveError(target.id, error);
+      } else {
+        onMessage(error instanceof Error ? error.message : 'Não foi possível criar a cópia.');
+      }
       return false;
     }
   }
 
   function saveActiveDocument() {
+    if (documentDestination(activeDocument) === 'draft') {
+      requestPersistenceName(activeDocument, 'bind');
+      return;
+    }
     void saveDocument(activeDocument);
   }
   function saveActiveDocumentAs() {
-    void saveDocumentAs(activeDocument);
+    requestPersistenceName(activeDocument, 'copy');
   }
   function downloadActiveDocument() {
     const filename = ensureJsonExtension(activeDocument.name);
@@ -335,6 +413,13 @@ export function useWorkspaceManager({ onMessage }: Options) {
     const trimmed = name.trim();
     const current = documents.find((item) => item.id === documentId);
     if (!current || !trimmed || trimmed === current.name) return;
+    if (documentDestination(current) !== 'draft') {
+      const nameError = persistenceNameError(trimmed);
+      if (nameError) {
+        onMessage(nameError);
+        return;
+      }
+    }
     if (current.libraryId && current.revision) {
       setSyncState(documentId, 'saving');
       try {
@@ -463,7 +548,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     if (!libraryConflict) return;
     const target = documents.find((item) => item.id === libraryConflict.documentId);
     dispatchSync({ type: 'close-library-conflict' });
-    if (target) void saveDocumentAs({ ...target, libraryId: null, revision: null });
+    if (target) requestPersistenceName(target, 'copy');
   }
 
   function reloadConflict() {
@@ -492,7 +577,7 @@ export function useWorkspaceManager({ onMessage }: Options) {
     if (!conflict) return;
     const target = documents.find((item) => item.id === conflict.documentId);
     dispatchSync({ type: 'close-circuit-conflict' });
-    if (target) void saveDocumentAs({ ...target, remoteId: null, revision: null });
+    if (target) requestPersistenceName(target, 'copy');
   }
 
   return {
@@ -514,8 +599,10 @@ export function useWorkspaceManager({ onMessage }: Options) {
     cancelPendingClose,
     saveActiveDocument,
     saveActiveDocumentAs,
+    pendingPersistenceSave,
+    confirmPersistenceSave,
+    cancelPersistenceSave: () => setPendingPersistenceSave(null),
     downloadActiveDocument,
-    remoteDocumentIds,
     renameDocument,
     loadExample,
     importJson,
@@ -532,7 +619,6 @@ export function useWorkspaceManager({ onMessage }: Options) {
     closeConflict: () => dispatchSync({ type: 'close-circuit-conflict' }),
     reloadConflict,
     saveConflictAsCopy,
-    libraryDocumentIds,
     libraryEntries: libraryBrowser.entries,
     libraryDialogOpen: libraryBrowser.open,
     libraryLoading: libraryBrowser.loading,
@@ -547,4 +633,12 @@ export function useWorkspaceManager({ onMessage }: Options) {
     reloadLibraryConflict,
     saveLibraryConflictAsCopy,
   };
+}
+
+function nextWorkspaceDocumentId(documents: readonly WorkspaceDocument[]): string {
+  const base = `doc-${Date.now()}`;
+  if (!documents.some((document) => document.id === base)) return base;
+  let suffix = 2;
+  while (documents.some((document) => document.id === `${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
 }

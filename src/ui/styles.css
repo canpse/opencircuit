@@ -120,6 +120,42 @@ button:disabled {
   font-size: 13px;
 }
 
+.persistence-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid rgba(91, 113, 128, 0.2);
+  border-radius: 999px;
+  color: var(--muted);
+  background: #f4f7f9;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.persistence-indicator strong {
+  color: var(--ink);
+}
+.persistence-indicator.success {
+  color: #23653f;
+  border-color: rgba(35, 120, 72, 0.24);
+  background: #eaf7ef;
+}
+.persistence-indicator.progress {
+  color: var(--brand-strong);
+  border-color: rgba(47, 125, 211, 0.28);
+  background: #eaf3fd;
+}
+.persistence-indicator.warning {
+  color: #815116;
+  border-color: rgba(166, 103, 26, 0.28);
+  background: #fff4df;
+}
+.persistence-indicator.danger {
+  color: #9d342d;
+  border-color: rgba(199, 81, 70, 0.3);
+  background: #fff0ee;
+}
+
 .menu-strip {
   display: flex;
   gap: 28px;
@@ -816,7 +852,10 @@ button:disabled {
   padding: 0 10px;
 }
 .document-tab-title {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -825,6 +864,29 @@ button:disabled {
   text-align: left;
   background: transparent;
   box-shadow: none;
+}
+.document-tab-destination {
+  flex: none;
+  padding: 2px 5px;
+  border-radius: 999px;
+  color: #536470;
+  background: #dce5eb;
+  font-size: 8px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.document-tab-destination.remote {
+  color: #16578f;
+  background: #dcecff;
+}
+.document-tab-destination.library {
+  color: #6a4388;
+  background: #eee2f7;
+}
+.document-tab-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .document-tab:hover {
   background: #dfeaf2;
@@ -931,6 +993,22 @@ button:disabled {
   color: #a3352d;
   font-size: 12px;
   font-weight: 800;
+}
+.persistence-destination-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(91, 113, 128, 0.2);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #f5f8fa;
+  font-size: 12px;
+}
+.persistence-destination-summary strong {
+  color: var(--ink);
 }
 .definition-usage-list {
   margin: -5px 0 16px;

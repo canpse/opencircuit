@@ -10,6 +10,9 @@ export type WorkspaceDocument = {
   name: string;
   circuit: CircuitDocument;
   exampleId: string | null;
+  // true quando o conteúdo ainda corresponde ao baseline conhecido da aba:
+  // versão vinculada do servidor/biblioteca ou conteúdo local recém-aberto.
+  // Não representa o autosave local, cujo estado é controlado separadamente.
   saved: boolean;
   everSaved: boolean;
   remoteId?: string | null;
@@ -128,9 +131,9 @@ export function ensureJsonExtension(name: string): string {
   return name.endsWith('.json') ? name : `${name}.json`;
 }
 
-// Sujo = tem mudanças que ainda não foram salvas em arquivo. Uma aba vazia que
-// nunca foi salva não conta: fechá-la não perde nada. Já uma aba vazia de um
-// documento que teve versão salva conta — o "apaguei tudo" é uma mudança.
+// Sujo = fechar a aba descartaria mudanças em relação ao baseline conhecido.
+// Uma aba vazia que nunca teve conteúdo não conta; apagar todo o conteúdo de
+// uma aba previamente preenchida continua sendo uma mudança protegida.
 export function isDocumentDirty(document: WorkspaceDocument): boolean {
   if (document.saved) return false;
   if (document.circuit.components.length > 0 || document.circuit.wires.length > 0) return true;
