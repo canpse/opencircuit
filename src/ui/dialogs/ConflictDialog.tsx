@@ -1,11 +1,19 @@
 interface Props {
   documentName: string;
+  destination: 'remote' | 'library';
   onReload: () => void;
   onSaveCopy: () => void;
   onClose: () => void;
 }
 
-export function ConflictDialog({ documentName, onReload, onSaveCopy, onClose }: Props) {
+export function ConflictDialog({
+  documentName,
+  destination,
+  onReload,
+  onSaveCopy,
+  onClose,
+}: Props) {
+  const isLibrary = destination === 'library';
   return (
     <div className="dialog-overlay" onMouseDown={onClose}>
       <div
@@ -16,12 +24,15 @@ export function ConflictDialog({ documentName, onReload, onSaveCopy, onClose }: 
         onMouseDown={(event) => event.stopPropagation()}
       >
         <h2 id="conflict-title">Conflito em {documentName}</h2>
-        <p>Outra aba salvou uma versão mais nova. Suas alterações locais continuam no rascunho.</p>
+        <p>
+          Existe uma versão mais nova {isLibrary ? 'na biblioteca' : 'no servidor'}. Suas alterações
+          continuam protegidas localmente.
+        </p>
         <div className="dialog-actions">
           <button onClick={onClose}>Agora não</button>
-          <button onClick={onSaveCopy}>Salvar uma cópia</button>
+          <button onClick={onSaveCopy}>Criar cópia…</button>
           <button className="dialog-primary" onClick={onReload}>
-            Recarregar versão remota
+            {isLibrary ? 'Recarregar da biblioteca' : 'Recarregar do servidor'}
           </button>
         </div>
       </div>

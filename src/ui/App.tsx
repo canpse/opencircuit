@@ -38,7 +38,6 @@ import { useResizableBottomPanel } from './hooks/useResizableBottomPanel';
 import type { EditorTool } from './editor/editorTypes';
 import { useDefinitionWorkspace } from './hooks/useDefinitionWorkspace';
 import { LocalAutosaveWarning } from './banners/LocalAutosaveWarning';
-import type { LocalAutosaveStatus } from './hooks/localAutosaveState';
 import { createEditorCommands, type EditorCommandBindings } from './commands/editorCommands';
 import { EditorCommandProvider } from './commands/EditorCommandContext';
 import { ShortcutHelpDialog } from './dialogs/ShortcutHelpDialog';
@@ -51,6 +50,15 @@ import {
 import { DeleteDefinitionDialog } from './definitions/DeleteDefinitionDialog';
 import { DefinitionBar } from './definitions/DefinitionBar';
 import { EmptyDefinitionGuide } from './definitions/EmptyDefinitionGuide';
+import {
+  closePersistencePresentation,
+  copyCommandPresentation,
+  localProtectionLabel,
+  persistencePresentation,
+  saveCommandPresentation,
+} from './persistence/documentPersistence';
+import { PersistenceIndicator } from './persistence/PersistenceIndicator';
+import { PersistenceNameDialog } from './persistence/PersistenceNameDialog';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
@@ -90,8 +98,10 @@ export function App() {
     cancelPendingClose,
     saveActiveDocument,
     saveActiveDocumentAs,
+    pendingPersistenceSave,
+    confirmPersistenceSave,
+    cancelPersistenceSave,
     downloadActiveDocument,
-    remoteDocumentIds,
     renameDocument,
     loadExample,
     importJson,
@@ -108,7 +118,6 @@ export function App() {
     closeConflict,
     reloadConflict,
     saveConflictAsCopy,
-    libraryDocumentIds,
     libraryEntries,
     libraryDialogOpen,
     libraryLoading,
@@ -168,6 +177,12 @@ export function App() {
   const hierarchyInspection = useMemo(() => inspectCircuitHierarchy(circuit), [circuit]);
   const hierarchyViolation = hierarchyInspection.ok ? null : hierarchyInspection.violation;
   const hierarchyBlocked = hierarchyViolation !== null;
+  const activePersistence = persistencePresentation(activeDocument, activeSyncState);
+  const activeSaveCommand = saveCommandPresentation(activeDocument, activeSyncState);
+  const activeCopyCommand = copyCommandPresentation(activeDocument, activeSyncState);
+  const pendingClosePersistence = pendingCloseDocument
+    ? closePersistencePresentation(pendingCloseDocument)
+    : null;
 
   const {
     pendingWire,
@@ -470,7 +485,8 @@ export function App() {
     libraryConflict !== null ||
     shortcutHelpOpen ||
     definitionNameDialog !== null ||
-    deleteDefinitionId !== null;
+    deleteDefinitionId !== null ||
+    pendingPersistenceSave !== null;
 
   const transformSelectionDescription = hierarchyBlocked
     ? 'Indisponível no modo de recuperação: corrija o limite de hierarquia primeiro.'
@@ -488,11 +504,19 @@ export function App() {
     'file.openLibrary': { run: openLibraryDialog },
     'file.save': {
       run: () => void saveActiveDocument(),
-      enabled: !hierarchyBlocked,
+      enabled: !hierarchyBlocked && activeSaveCommand.enabled,
+      label: activeSaveCommand.label,
+      description: hierarchyBlocked
+        ? 'Indisponível no modo de recuperação: corrija o limite de hierarquia primeiro.'
+        : activeSaveCommand.description,
     },
     'file.saveAs': {
       run: () => void saveActiveDocumentAs(),
-      enabled: !hierarchyBlocked,
+      enabled: !hierarchyBlocked && activeCopyCommand.enabled,
+      label: activeCopyCommand.label,
+      description: hierarchyBlocked
+        ? 'Indisponível no modo de recuperação: corrija o limite de hierarquia primeiro.'
+        : activeCopyCommand.description,
     },
     'file.importJson': { run: importJsonFromFile },
     'file.downloadJson': { run: downloadActiveDocument },
@@ -550,6 +574,7 @@ export function App() {
           <span className="app-icon">OC</span>
           <strong>OpenCircuit</strong>
           <span className="project-name">Projeto: {activeDocument.name}</span>
+          <PersistenceIndicator presentation={activePersistence} />
         </div>
       </header>
 
@@ -596,8 +621,6 @@ export function App() {
             <DocumentTabs
               documents={documents}
               activeDocumentId={activeDocumentId}
-              remoteDocumentIds={remoteDocumentIds}
-              libraryDocumentIds={libraryDocumentIds}
               onSelect={selectDocument}
               onRequestClose={requestCloseDocument}
               onRename={renameDocument}
@@ -852,19 +875,25 @@ export function App() {
       <footer className="statusbar app-footer">
         <span>{message}</span>
         <span>
-          {localAutosaveLabel(localAutosaveStatus)} · servidor: {syncLabel(activeSyncState)} ·{' '}
+          {localProtectionLabel(localAutosaveStatus)} · {activePersistence.footerLabel} ·{' '}
           {circuit.components.length} componentes · {circuit.wires.length} fios
         </span>
       </footer>
 
-      {pendingCloseDocument && (
-        <ConfirmCloseDialog
-          documentName={pendingCloseDocument.name}
-          onSave={savePendingCloseDocument}
-          onDiscard={discardPendingCloseDocument}
-          onCancel={cancelPendingClose}
-        />
-      )}
+      {pendingCloseDocument &&
+        pendingClosePersistence &&
+        !pendingPersistenceSave &&
+        !conflict &&
+        !libraryConflict && (
+          <ConfirmCloseDialog
+            documentName={pendingCloseDocument.name}
+            description={pendingClosePersistence.description}
+            saveLabel={pendingClosePersistence.saveLabel}
+            onSave={savePendingCloseDocument}
+            onDiscard={discardPendingCloseDocument}
+            onCancel={cancelPendingClose}
+          />
+        )}
 
       {remoteBrowserOpen && (
         <RemoteCircuitsDialog
@@ -882,6 +911,7 @@ export function App() {
           documentName={
             documents.find((item) => item.id === conflict.documentId)?.name ?? 'circuito'
           }
+          destination="remote"
           onReload={reloadConflict}
           onSaveCopy={saveConflictAsCopy}
           onClose={closeConflict}
@@ -905,6 +935,7 @@ export function App() {
           documentName={
             documents.find((item) => item.id === libraryConflict.documentId)?.name ?? 'componente'
           }
+          destination="library"
           onReload={reloadLibraryConflict}
           onSaveCopy={saveLibraryConflictAsCopy}
           onClose={closeLibraryConflict}
@@ -915,6 +946,14 @@ export function App() {
         <EditorCommandProvider commands={commands}>
           <ShortcutHelpDialog onClose={() => setShortcutHelpOpen(false)} />
         </EditorCommandProvider>
+      )}
+
+      {pendingPersistenceSave && (
+        <PersistenceNameDialog
+          request={pendingPersistenceSave}
+          onCancel={cancelPersistenceSave}
+          onConfirm={confirmPersistenceSave}
+        />
       )}
 
       {definitionNameDialog && (
@@ -986,24 +1025,4 @@ export function App() {
       )}
     </main>
   );
-}
-
-function syncLabel(state: import('./hooks/useWorkspaceManager').RemoteSyncState): string {
-  return {
-    idle: 'não sincronizado',
-    saving: 'salvando…',
-    saved: 'salvo',
-    offline: 'offline',
-    error: 'erro ao salvar',
-    conflict: 'conflito',
-  }[state];
-}
-
-function localAutosaveLabel(status: LocalAutosaveStatus): string {
-  return {
-    saving: 'autosave local: salvando…',
-    saved: 'autosave local: salvo',
-    failed: 'autosave local: falhou',
-    recovered: 'autosave local: recuperado',
-  }[status];
 }

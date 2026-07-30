@@ -89,15 +89,15 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
   {
     id: 'file.save',
     group: 'file',
-    label: 'Salvar',
-    description: 'Salva o documento no destino ao qual a aba está vinculada.',
+    label: 'Salvar no servidor…',
+    description: 'Salva o documento no destino indicado pela aba.',
     shortcuts: [{ key: 's', primary: true, displayKey: 'S' }],
   },
   {
     id: 'file.saveAs',
     group: 'file',
-    label: 'Salvar como…',
-    description: 'Cria uma cópia do documento com outro nome.',
+    label: 'Criar cópia no servidor…',
+    description: 'Cria uma cópia independente e a abre em uma nova aba.',
     shortcuts: [{ key: 's', primary: true, shift: true, displayKey: 'S' }],
   },
   {
@@ -110,8 +110,9 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
   {
     id: 'file.downloadJson',
     group: 'file',
-    label: 'Baixar JSON',
-    description: 'Baixa uma cópia editável e portátil do circuito.',
+    label: 'Baixar cópia JSON',
+    description:
+      'Baixa uma cópia editável e portátil sem alterar o vínculo ou a sincronização da aba.',
     shortcuts: [],
   },
   {

@@ -3,12 +3,21 @@ import { useEventCallback } from '../hooks/useEventCallback';
 
 interface Props {
   documentName: string;
+  description: string;
+  saveLabel: string;
   onSave: () => void;
   onDiscard: () => void;
   onCancel: () => void;
 }
 
-export function ConfirmCloseDialog({ documentName, onSave, onDiscard, onCancel }: Props) {
+export function ConfirmCloseDialog({
+  documentName,
+  description,
+  saveLabel,
+  onSave,
+  onDiscard,
+  onCancel,
+}: Props) {
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const handleEscape = useEventCallback(onCancel);
 
@@ -38,9 +47,7 @@ export function ConfirmCloseDialog({ documentName, onSave, onDiscard, onCancel }
         onMouseDown={(event) => event.stopPropagation()}
       >
         <h2 id="confirm-close-title">Fechar {documentName}?</h2>
-        <p id="confirm-close-description">
-          Este arquivo tem mudanças não salvas. Se você fechar sem salvar, elas serão perdidas.
-        </p>
+        <p id="confirm-close-description">{description}</p>
         <div className="dialog-actions">
           <button className="dialog-danger" onClick={onDiscard}>
             Descartar
@@ -49,7 +56,7 @@ export function ConfirmCloseDialog({ documentName, onSave, onDiscard, onCancel }
             Cancelar
           </button>
           <button className="dialog-primary" onClick={onSave}>
-            Salvar
+            {saveLabel}
           </button>
         </div>
       </div>
