@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react';
 import { nextDefinitionId } from '../../core/hierarchy/scope';
+import {
+  formatHierarchyExpansionViolation,
+  inspectCircuitHierarchy,
+} from '../../core/hierarchy/expansion.mjs';
 import type { CircuitDefinition, CircuitDocument } from '../../core/types';
 import { libraryApi, type LibraryComponentDefinition } from '../../state/libraryApi';
 import {
@@ -9,6 +13,13 @@ import {
   truncateDefinitionPath,
 } from '../app/editorUtils';
 import type { EditorTool } from '../editor/editorTypes';
+import {
+  definitionNameError,
+  definitionUsages,
+  deleteUnusedDefinitionFromCircuit,
+  normalizedDefinitionName,
+  renameDefinitionInCircuit,
+} from '../definitions/definitionManagement';
 
 interface Options {
   circuit: CircuitDocument;
@@ -105,64 +116,121 @@ export function useDefinitionWorkspace({
     );
   }
 
-  function createDefinition() {
-    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
-    if (!name?.trim()) return;
+  function createDefinition(name: string): string | null {
+    const error = definitionNameError(name, definitions);
+    if (error) {
+      onMessage(error);
+      return null;
+    }
     const id = nextDefinitionId(definitions);
+    const normalizedName = normalizedDefinitionName(name);
     rememberCircuit();
     setCircuit((current) => ({
       ...current,
       definitions: [
         ...(current.definitions ?? []),
-        { id, name: name.trim(), components: [], wires: [] },
+        { id, name: normalizedName, components: [], wires: [] },
       ],
     }));
     enterDefinitionDirect(id);
+    onMessage(
+      `Subcircuito "${normalizedName}" criado. Adicione entradas e saídas para expor pinos.`,
+    );
+    return id;
   }
 
-  function transformSelectionIntoSubcircuit(componentIds: string[]): string | null {
+  function transformSelectionIntoSubcircuit(componentIds: string[], name: string): string | null {
     if (componentIds.length === 0) {
       onMessage('Selecione ao menos um componente para transformar em subcircuito.');
       return null;
     }
-    const name = window.prompt('Nome do novo subcircuito:', 'Novo subcircuito');
-    if (!name?.trim()) return null;
+    const error = definitionNameError(name, definitions);
+    if (error) {
+      onMessage(error);
+      return null;
+    }
+    const normalizedName = normalizedDefinitionName(name);
 
     const result = extractSelectionIntoDefinition(
       scopedCircuit,
       componentIds,
       nextDefinitionId(definitions),
-      name.trim(),
+      normalizedName,
       GRID,
       definitions,
     );
     if (!result) return null;
 
-    rememberCircuit();
-    setCircuit((current) => {
-      const currentDefinitions = current.definitions ?? [];
-      if (!activeDefinition) {
-        return {
-          ...current,
+    const currentDefinitions = circuit.definitions ?? [];
+    const nextCircuit = !activeDefinitionId
+      ? {
+          ...circuit,
           components: result.scope.components,
           wires: result.scope.wires,
           definitions: [...currentDefinitions, result.definition],
+        }
+      : {
+          ...circuit,
+          definitions: [
+            ...currentDefinitions.map((definition) =>
+              definition.id === activeDefinitionId
+                ? { ...definition, components: result.scope.components, wires: result.scope.wires }
+                : definition,
+            ),
+            result.definition,
+          ],
         };
-      }
-      return {
-        ...current,
-        definitions: [
-          ...currentDefinitions.map((definition) =>
-            definition.id === activeDefinition.id
-              ? { ...definition, components: result.scope.components, wires: result.scope.wires }
-              : definition,
-          ),
-          result.definition,
-        ],
-      };
-    });
-    onMessage(`Subcircuito "${name.trim()}" criado.`);
+    const hierarchy = inspectCircuitHierarchy(nextCircuit);
+    if (!hierarchy.ok) {
+      onMessage(
+        `${formatHierarchyExpansionViolation(hierarchy.violation)} A transformação foi cancelada.`,
+      );
+      return null;
+    }
+
+    rememberCircuit();
+    setCircuit(nextCircuit);
+    onMessage(`Subcircuito "${normalizedName}" criado; a seleção virou uma instância.`);
     return result.instanceId;
+  }
+
+  function renameDefinition(definitionId: string, name: string): boolean {
+    const definition = definitions.find((candidate) => candidate.id === definitionId);
+    if (!definition) return false;
+    const error = definitionNameError(name, definitions, definitionId);
+    if (error) {
+      onMessage(error);
+      return false;
+    }
+    const normalizedName = normalizedDefinitionName(name);
+    if (definition.name === normalizedName) return true;
+    rememberCircuit();
+    setCircuit((current) => renameDefinitionInCircuit(current, definitionId, normalizedName));
+    onMessage(`Subcircuito renomeado para "${normalizedName}".`);
+    return true;
+  }
+
+  function deleteUnusedDefinition(definitionId: string): boolean {
+    const definition = definitions.find((candidate) => candidate.id === definitionId);
+    if (!definition) return false;
+    const nextCircuit = deleteUnusedDefinitionFromCircuit(circuit, definitionId);
+    if (!nextCircuit) {
+      onMessage(`"${definition.name}" ainda possui instâncias e não pode ser excluído.`);
+      return false;
+    }
+    rememberCircuit();
+    setCircuit(nextCircuit);
+    if (navigationPath.includes(definitionId)) setNavigationPath([]);
+    if (pendingSubcircuitDefinitionId === definitionId) {
+      setPendingSubcircuitDefinitionId(null);
+      onSelectTool('select');
+    }
+    onMessage(`Subcircuito "${definition.name}" excluído. Use Desfazer para restaurar.`);
+    return true;
+  }
+
+  function getDefinitionUsages(definitionId: string) {
+    return definitionUsages(circuit, definitionId);
   }
 
   async function saveDefinitionToLibraryFlow(definition: CircuitDefinition) {
@@ -245,6 +313,9 @@ export function useDefinitionWorkspace({
     goToBreadcrumbIndex,
     createDefinition,
     transformSelectionIntoSubcircuit,
+    renameDefinition,
+    deleteUnusedDefinition,
+    getDefinitionUsages,
     saveActiveDefinitionToLibrary,
     saveDefinitionByIdToLibrary,
     saveComponentDefinitionToLibrary,

@@ -445,6 +445,113 @@ describe('App mounted interactions', () => {
     expect(screen.getByRole('heading', { name: NOT_EXAMPLE.name })).toBeTruthy();
   });
 
+  it('creates, renames and safely deletes an unused subcircuit definition', () => {
+    const { container } = render(<App />);
+
+    expect(screen.getByRole('navigation', { name: 'Escopo de edição' }).textContent).toContain(
+      'Circuito principal',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Nova definição' }));
+
+    const createDialog = screen.getByRole('dialog', {
+      name: 'Nova definição de subcircuito',
+    });
+    const nameInput = screen.getByRole('textbox', { name: 'Nome' });
+    expect(document.activeElement).toBe(nameInput);
+    fireEvent.click(screen.getByRole('button', { name: 'Criar e editar' }));
+    expect(screen.getByRole('alert').textContent).toContain('Informe um nome');
+
+    fireEvent.change(nameInput, { target: { value: '  Unidade lógica  ' } });
+    fireEvent.submit(createDialog.querySelector('form')!);
+
+    expect(screen.getByRole('navigation', { name: 'Escopo de edição' }).textContent).toContain(
+      'Unidade lógica',
+    );
+    expect(screen.getByText('Unidade lógica está vazio.')).toBeTruthy();
+    expect(screen.getByLabelText('Como criar o subcircuito').textContent).toContain(
+      'Input, Clock e Bus In 4 criam entradas externas',
+    );
+    expect(container.querySelector('.definition-usage.orphan')?.textContent).toBe('sem uso');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Renomear' }));
+    const renameInput = screen.getByRole('textbox', { name: 'Nome' });
+    expect(renameInput.getAttribute('value')).toBe('Unidade lógica');
+    fireEvent.change(renameInput, { target: { value: 'ULA' } });
+    fireEvent.click(
+      screen
+        .getByRole('dialog', { name: 'Renomear subcircuito' })
+        .querySelector<HTMLButtonElement>('button[type="submit"]')!,
+    );
+    expect(screen.getByText('ULA está vazio.')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    expect(screen.getByRole('dialog', { name: 'Excluir subcircuito?' }).textContent).toContain(
+      'não é usada',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir definição' }));
+
+    expect(screen.queryByRole('button', { name: 'ULA' })).toBeNull();
+    expect(screen.getByText('Nenhuma definição')).toBeTruthy();
+    expect(screen.getByText(/Use Desfazer para restaurar/)).toBeTruthy();
+  });
+
+  it('transforms a selection through the visible command and blocks deletion while used', () => {
+    const { container } = render(<App />);
+    const transformButton = screen.getByRole('button', { name: 'Transformar seleção' });
+
+    expect((transformButton as HTMLButtonElement).disabled).toBe(true);
+    expect(transformButton.getAttribute('title')).toContain('Selecione ao menos um componente');
+
+    openExample(SIGNAL_EXAMPLE.id);
+    const firstComponent = container.querySelector<SVGGElement>('g.component');
+    expect(firstComponent).not.toBeNull();
+    fireEvent.contextMenu(firstComponent!, { clientX: 300, clientY: 300 });
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    expect((transformButton as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(transformButton);
+    expect(
+      screen.getByRole('dialog', { name: 'Transformar seleção em subcircuito' }).textContent,
+    ).toContain('1 componente selecionado');
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), {
+      target: { value: 'Bloco reutilizável' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Transformar' }));
+
+    expect(screen.getByTitle('Editar Bloco reutilizável')).toBeTruthy();
+    expect(container.querySelector('.definition-usage')?.textContent).toBe('1');
+
+    fireEvent.click(screen.getByTitle('Editar Bloco reutilizável'));
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+    const blockedDialog = screen.getByRole('alertdialog', {
+      name: 'Não é possível excluir',
+    });
+    expect(blockedDialog.textContent).toContain('Circuito principal: 1 instância');
+    expect(screen.queryByRole('button', { name: 'Excluir definição' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Renomear' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), {
+      target: { value: 'Bloco atualizado' },
+    });
+    fireEvent.submit(
+      screen.getByRole('dialog', { name: 'Renomear subcircuito' }).querySelector('form')!,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Circuito principal' }));
+    const instance = Array.from(container.querySelectorAll<SVGGElement>('g.component')).find(
+      (component) => component.textContent?.includes('Bloco atualizado'),
+    );
+    expect(instance).toBeTruthy();
+    fireEvent.contextMenu(instance!, { clientX: 300, clientY: 300 });
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Editar subcircuito' }));
+
+    expect(screen.getByRole('navigation', { name: 'Escopo de edição' }).textContent).toContain(
+      'Bloco atualizado',
+    );
+    expect(screen.getByTitle('Editar Bloco atualizado')).toBeTruthy();
+  });
+
   it('opens an over-budget legacy document in recovery mode without starting simulation', () => {
     const definition = {
       id: 'wide',

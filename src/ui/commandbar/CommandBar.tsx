@@ -236,6 +236,7 @@ function CommandMenu({
                 role={command.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
                 aria-checked={command.checked}
                 disabled={!command.enabled}
+                title={command.description}
                 onClick={() => {
                   closeAndRestoreFocus();
                   command.run();

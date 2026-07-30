@@ -710,42 +710,90 @@ button:disabled {
   background: #f3f7fa;
 }
 
-.definitions-bar {
+.definition-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 6px 12px;
-  overflow-x: auto;
   border-bottom: 1px solid rgba(91, 113, 128, 0.2);
   background: #eef3f6;
   font-size: 12px;
 }
-.definitions-bar-label {
-  flex: none;
-  color: var(--muted);
-  font-weight: 800;
+.definition-list,
+.definition-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.definitions-bar-empty {
+.definition-list {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+.definition-bar-label {
+  flex: none;
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.definition-actions {
+  flex: none;
+  padding-left: 10px;
+  border-left: 1px solid rgba(91, 113, 128, 0.22);
+}
+.definition-empty-label {
   flex: none;
   color: var(--muted);
   font-style: italic;
 }
-.definitions-bar button {
+.definition-bar button {
   flex: none;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
 }
-.definitions-bar button.active {
+.definition-entry {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+.definition-entry .definition-button {
+  border-radius: 999px 0 0 999px;
+}
+.definition-entry .definition-button.active {
   color: #fff;
   background: var(--brand-strong);
 }
-.definitions-bar-create {
-  color: var(--brand-strong);
+.definition-usage {
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  min-width: 24px;
+  padding: 0 7px;
+  border-left: 1px solid rgba(91, 113, 128, 0.18);
+  border-radius: 0 999px 999px 0;
+  color: var(--muted);
+  background: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
 }
-.definitions-bar-save-library {
-  margin-left: auto;
-  color: var(--brand-strong);
+.definition-usage.orphan {
+  color: #8b4b13;
+  background: #fff1dc;
+}
+@media (max-width: 1050px) {
+  .definition-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .definition-actions {
+    padding-left: 0;
+    overflow-x: auto;
+    border-left: 0;
+  }
 }
 .document-tab {
   display: inline-flex;
@@ -851,6 +899,44 @@ button:disabled {
 .dialog p {
   margin: 0 0 16px;
   color: var(--muted);
+}
+.dialog .dialog-hint {
+  margin-top: -8px;
+  font-size: 12px;
+}
+.dialog-field {
+  display: grid;
+  gap: 6px;
+  margin: 14px 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+.dialog-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(91, 113, 128, 0.35);
+  border-radius: 7px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+}
+.dialog-field input:focus {
+  border-color: var(--brand);
+  outline: 2px solid rgba(43, 137, 225, 0.2);
+}
+.dialog .dialog-error {
+  margin-top: -7px;
+  color: #a3352d;
+  font-size: 12px;
+  font-weight: 800;
+}
+.definition-usage-list {
+  margin: -5px 0 16px;
+  padding-left: 24px;
+  color: var(--ink);
+  font-size: 13px;
 }
 .dialog-actions {
   display: flex;
@@ -974,6 +1060,30 @@ button:disabled {
   font-size: 11px;
   font-weight: 800;
 }
+.definition-breadcrumb {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 4px 14px;
+  color: #fff;
+  background: var(--brand-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+.definition-breadcrumb-label {
+  opacity: 0.75;
+}
+.definition-breadcrumb button {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--brand-strong);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
 .definition-breadcrumb-segment {
   display: inline-flex;
   align-items: center;
@@ -981,6 +1091,28 @@ button:disabled {
 }
 .definition-breadcrumb-separator {
   opacity: 0.7;
+}
+.empty-definition-guide {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-bottom: 1px solid #e6c890;
+  color: #5d461e;
+  background: #fff8e8;
+  font-size: 12px;
+}
+.empty-definition-guide > span {
+  max-width: 540px;
+}
+.empty-definition-guide button {
+  flex: none;
+}
+.empty-definition-place-hint {
+  color: #755c30;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .canvas-wrap {
