@@ -12,7 +12,7 @@ const DEFAULT_QUICK_COMPONENTS: GateType[] = ['input', 'and', 'led', 'clock'];
 const CANVAS_MENU_WIDTH = 300;
 const CANVAS_MENU_HEIGHT = 452;
 const SIMPLE_MENU_WIDTH = 190;
-const SIMPLE_MENU_HEIGHT = 190;
+const SIMPLE_MENU_HEIGHT = 240;
 const SUBMENU_WIDTH = 340;
 const VIEWPORT_MARGIN = 8;
 
@@ -27,6 +27,7 @@ export function ContextMenuView({
   wireSignalWatched,
   onTransformSelection,
   componentIsSubcircuitInstance,
+  onEditSubcircuit,
   onSaveToLibrary,
   onRemove,
   onClose,
@@ -41,6 +42,7 @@ export function ContextMenuView({
   wireSignalWatched: boolean;
   onTransformSelection: () => void;
   componentIsSubcircuitInstance: boolean;
+  onEditSubcircuit: () => void;
   onSaveToLibrary: () => void;
   onRemove: () => void;
   onClose: () => void;
@@ -77,6 +79,11 @@ export function ContextMenuView({
           {menu.kind === 'component' && (
             <button onClick={onRename} role="menuitem">
               Renomear
+            </button>
+          )}
+          {menu.kind === 'component' && componentIsSubcircuitInstance && (
+            <button onClick={onEditSubcircuit} role="menuitem">
+              Editar subcircuito
             </button>
           )}
           {menu.kind === 'wire' && (

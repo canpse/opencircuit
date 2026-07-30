@@ -44,15 +44,31 @@ import { EditorCommandProvider } from './commands/EditorCommandContext';
 import { ShortcutHelpDialog } from './dialogs/ShortcutHelpDialog';
 import type { CanvasCameraCommands } from './editor/CanvasViewport';
 import { useEventCallback } from './hooks/useEventCallback';
+import {
+  DefinitionNameDialog,
+  type DefinitionNameDialogMode,
+} from './definitions/DefinitionNameDialog';
+import { DeleteDefinitionDialog } from './definitions/DeleteDefinitionDialog';
+import { DefinitionBar } from './definitions/DefinitionBar';
+import { EmptyDefinitionGuide } from './definitions/EmptyDefinitionGuide';
 
 const HISTORY_LIMIT = 100;
 const WIRE_STYLE_STORAGE_KEY = 'opencircuit-wire-style';
+type DefinitionNameDialogState = {
+  mode: DefinitionNameDialogMode;
+  definitionId?: string;
+  componentIds?: string[];
+};
+
 export function App() {
   const [message, setMessage] = useState('Pronto para testar lógica.');
   const [sidePanelTab, setSidePanelTab] = useState<'truth' | 'lesson'>('truth');
   const [waveformPanelOpen, setWaveformPanelOpen] = useState(false);
   const [selectedTool, setSelectedTool] = useState<EditorTool>('select');
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [definitionNameDialog, setDefinitionNameDialog] =
+    useState<DefinitionNameDialogState | null>(null);
+  const [deleteDefinitionId, setDeleteDefinitionId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraCommandsRef = useRef<CanvasCameraCommands>(null);
 
@@ -132,7 +148,9 @@ export function App() {
     goToBreadcrumbIndex,
     createDefinition,
     transformSelectionIntoSubcircuit: transformDefinitionSelection,
-    saveActiveDefinitionToLibrary,
+    renameDefinition,
+    deleteUnusedDefinition,
+    getDefinitionUsages,
     saveDefinitionByIdToLibrary,
     saveComponentDefinitionToLibrary,
     insertLibraryDefinition,
@@ -200,9 +218,44 @@ export function App() {
     simulationBlocked: hierarchyBlocked,
   });
 
-  function transformSelectionIntoSubcircuit(componentIds: string[]) {
-    const instanceId = transformDefinitionSelection(componentIds);
-    if (instanceId) setSelection({ componentIds: [instanceId], wireIds: [] });
+  function requestTransformSelection(componentIds: string[]) {
+    if (componentIds.length === 0) {
+      setMessage('Selecione ao menos um componente para transformar em subcircuito.');
+      return;
+    }
+    if (hierarchyBlocked) {
+      setMessage('Corrija o limite de hierarquia antes de criar outro subcircuito.');
+      return;
+    }
+    setDefinitionNameDialog({ mode: 'transform', componentIds });
+  }
+
+  function confirmDefinitionName(name: string): boolean {
+    if (!definitionNameDialog) return false;
+
+    let succeeded = false;
+    if (definitionNameDialog.mode === 'create') {
+      succeeded = createDefinition(name) !== null;
+    } else if (definitionNameDialog.mode === 'transform') {
+      const instanceId = transformDefinitionSelection(
+        definitionNameDialog.componentIds ?? [],
+        name,
+      );
+      if (instanceId) {
+        setSelection({ componentIds: [instanceId], wireIds: [] });
+        succeeded = true;
+      }
+    } else if (definitionNameDialog.definitionId) {
+      succeeded = renameDefinition(definitionNameDialog.definitionId, name);
+    }
+
+    if (succeeded) setDefinitionNameDialog(null);
+    return succeeded;
+  }
+
+  function confirmDeleteDefinition() {
+    if (!deleteDefinitionId) return;
+    if (deleteUnusedDefinition(deleteDefinitionId)) setDeleteDefinitionId(null);
   }
 
   const [renameRequest, setRenameRequest] = useState<{ componentId: string; nonce: number } | null>(
@@ -253,6 +306,7 @@ export function App() {
     toggleWatchedSignalContextTarget,
     removeContextTarget,
     transformContextTarget,
+    editSubcircuitContextTarget,
     saveToLibraryContextTarget,
   } = useContextMenuManager({
     selection,
@@ -268,7 +322,8 @@ export function App() {
     removeWireWaypoint,
     toggleWireDisplay,
     toggleWatchedSignalForWire,
-    transformSelection: transformSelectionIntoSubcircuit,
+    transformSelection: requestTransformSelection,
+    enterSubcircuit: enterInstance,
     saveComponentToLibrary: saveComponentDefinitionToLibrary,
     setRenameRequest,
   });
@@ -413,7 +468,19 @@ export function App() {
     conflict !== null ||
     libraryDialogOpen ||
     libraryConflict !== null ||
-    shortcutHelpOpen;
+    shortcutHelpOpen ||
+    definitionNameDialog !== null ||
+    deleteDefinitionId !== null;
+
+  const transformSelectionDescription = hierarchyBlocked
+    ? 'Indisponível no modo de recuperação: corrija o limite de hierarquia primeiro.'
+    : selection.componentIds.length === 0
+      ? 'Selecione ao menos um componente para criar um subcircuito.'
+      : `Transforma ${
+          selection.componentIds.length === 1
+            ? 'o componente selecionado'
+            : `${selection.componentIds.length} componentes selecionados`
+        } em uma definição reutilizável.`;
 
   const commandBindings: EditorCommandBindings = {
     'file.new': { run: createNewDocument },
@@ -442,6 +509,11 @@ export function App() {
     'edit.selectAll': {
       run: selectAll,
       enabled: scopedCircuit.components.length > 0 || scopedCircuit.wires.length > 0,
+    },
+    'edit.transformSelection': {
+      run: () => requestTransformSelection(selection.componentIds),
+      enabled: selection.componentIds.length > 0 && !hierarchyBlocked,
+      description: transformSelectionDescription,
     },
     'edit.copy': { run: onCopy, enabled: hasSelection(selection) },
     'edit.paste': { run: onPaste, enabled: clipboard !== null },
@@ -511,6 +583,10 @@ export function App() {
           onSelectSubcircuit={(definitionId) => {
             setPendingSubcircuitDefinitionId(definitionId);
             setSelectedTool('subcircuit');
+            const definition = definitions.find((candidate) => candidate.id === definitionId);
+            setMessage(
+              `Subcircuito "${definition?.name ?? 'selecionado'}" pronto para posicionar. Clique no canvas; Escape cancela.`,
+            );
           }}
           onSaveDefinitionToLibrary={saveDefinitionByIdToLibrary}
         />
@@ -527,32 +603,17 @@ export function App() {
               onRename={renameDocument}
             />
           </EditorCommandProvider>
-          <div className="definitions-bar">
-            <span className="definitions-bar-label">Subcircuitos:</span>
-            {definitions.length === 0 && (
-              <span className="definitions-bar-empty">nenhum ainda</span>
-            )}
-            {definitions.map((definition) => (
-              <button
-                key={definition.id}
-                className={activeDefinitionId === definition.id ? 'active' : ''}
-                onClick={() => enterDefinitionDirect(definition.id)}
-              >
-                {definition.name}
-              </button>
-            ))}
-            <button className="definitions-bar-create" onClick={createDefinition}>
-              + Nova definição
-            </button>
-            {activeDefinition && (
-              <button
-                className="definitions-bar-save-library"
-                onClick={() => void saveActiveDefinitionToLibrary()}
-              >
-                Salvar na biblioteca
-              </button>
-            )}
-          </div>
+          <DefinitionBar
+            circuit={circuit}
+            definitions={definitions}
+            activeDefinitionId={activeDefinitionId}
+            transformCommand={commands['edit.transformSelection']}
+            onEnter={enterDefinitionDirect}
+            onCreate={() => setDefinitionNameDialog({ mode: 'create' })}
+            onRename={(definitionId) => setDefinitionNameDialog({ mode: 'rename', definitionId })}
+            onDelete={setDeleteDefinitionId}
+            onSaveToLibrary={saveDefinitionByIdToLibrary}
+          />
           <div className="editor-panel">
             {localAutosaveStatus === 'failed' && (
               <LocalAutosaveWarning onDownload={downloadActiveDocument} />
@@ -562,6 +623,12 @@ export function App() {
               definitions={definitions}
               onNavigate={goToBreadcrumbIndex}
             />
+            {activeDefinition && activeDefinition.components.length === 0 && (
+              <EmptyDefinitionGuide
+                definition={activeDefinition}
+                onReturnToRoot={() => goToBreadcrumbIndex(-1)}
+              />
+            )}
             {hierarchyViolation && (
               <div className="hierarchy-recovery-banner" role="alert">
                 <strong>Modo de recuperação.</strong>{' '}
@@ -850,6 +917,38 @@ export function App() {
         </EditorCommandProvider>
       )}
 
+      {definitionNameDialog && (
+        <DefinitionNameDialog
+          mode={definitionNameDialog.mode}
+          definitions={definitions}
+          definitionId={definitionNameDialog.definitionId}
+          initialName={
+            definitionNameDialog.mode === 'rename'
+              ? definitions.find(
+                  (definition) => definition.id === definitionNameDialog.definitionId,
+                )?.name
+              : ''
+          }
+          selectedComponentCount={definitionNameDialog.componentIds?.length}
+          onCancel={() => setDefinitionNameDialog(null)}
+          onConfirm={confirmDefinitionName}
+        />
+      )}
+
+      {deleteDefinitionId &&
+        (() => {
+          const definition = definitions.find((candidate) => candidate.id === deleteDefinitionId);
+          if (!definition) return null;
+          return (
+            <DeleteDefinitionDialog
+              definition={definition}
+              usages={getDefinitionUsages(definition.id)}
+              onCancel={() => setDeleteDefinitionId(null)}
+              onConfirm={confirmDeleteDefinition}
+            />
+          );
+        })()}
+
       {contextMenu && (
         <ContextMenuView
           key={`${contextMenu.kind}-${contextMenu.x}-${contextMenu.y}`}
@@ -879,6 +978,7 @@ export function App() {
             scopedCircuit.components.find((component) => component.id === contextMenu.componentId)
               ?.type === 'subcircuit'
           }
+          onEditSubcircuit={editSubcircuitContextTarget}
           onSaveToLibrary={saveToLibraryContextTarget}
           onRemove={removeContextTarget}
           onClose={closeContextMenu}

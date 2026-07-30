@@ -103,7 +103,7 @@ export function ComponentLibrary({
                     event.preventDefault();
                     onSaveDefinitionToLibrary?.(definition.id);
                   }}
-                  title="Botão direito: salvar na biblioteca"
+                  title="Clique ou arraste para posicionar. Botão direito: salvar na biblioteca."
                 >
                   <span className="tool-button-content">
                     <span>{definition.name}</span>

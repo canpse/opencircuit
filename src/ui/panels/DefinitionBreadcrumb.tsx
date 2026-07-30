@@ -9,11 +9,14 @@ export function DefinitionBreadcrumb({
   definitions: CircuitDefinition[];
   onNavigate: (index: number) => void;
 }) {
-  if (navigationPath.length === 0) return null;
-
   return (
-    <div className="history-view-banner definition-breadcrumb">
-      <button onClick={() => onNavigate(-1)}>Início</button>
+    <nav className="definition-breadcrumb" aria-label="Escopo de edição">
+      <span className="definition-breadcrumb-label">Escopo:</span>
+      {navigationPath.length === 0 ? (
+        <strong>Circuito principal</strong>
+      ) : (
+        <button onClick={() => onNavigate(-1)}>Circuito principal</button>
+      )}
       {navigationPath.map((definitionId, index) => {
         const definition = definitions.find((candidate) => candidate.id === definitionId);
         const label = definition?.name ?? '?';
@@ -33,6 +36,6 @@ export function DefinitionBreadcrumb({
           </span>
         );
       })}
-    </div>
+    </nav>
   );
 }

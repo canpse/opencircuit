@@ -13,6 +13,7 @@ export type EditorCommandId =
   | 'edit.undo'
   | 'edit.redo'
   | 'edit.selectAll'
+  | 'edit.transformSelection'
   | 'edit.copy'
   | 'edit.paste'
   | 'edit.delete'
@@ -152,6 +153,13 @@ export const COMMAND_DEFINITIONS: readonly CommandDefinition[] = [
     shortcuts: [{ key: 'a', primary: true, displayKey: 'A' }],
   },
   {
+    id: 'edit.transformSelection',
+    group: 'edit',
+    label: 'Transformar seleção em subcircuito…',
+    description: 'Transforma os componentes selecionados em uma definição reutilizável.',
+    shortcuts: [],
+  },
+  {
     id: 'edit.copy',
     group: 'edit',
     label: 'Copiar',
@@ -278,6 +286,8 @@ export const COMMAND_MENU_GROUPS: ReadonlyArray<{
       'edit.redo',
       'separator:history',
       'edit.selectAll',
+      'edit.transformSelection',
+      'separator:selection',
       'edit.copy',
       'edit.paste',
       'edit.delete',
